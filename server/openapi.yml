@@ -53,6 +53,19 @@ paths:
         '200':
           $ref: '#/components/schemas/MediaGetResponseSchema'
           description: ''
+    delete:
+      summary: Remove a media item, if it exists
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: mediaId
+      responses:
+        '200':
+          $ref: '#/components/schemas/MediaDeleteResponseSchema'
+          description: ''
   /v1/status/{id}:
     get:
       summary: Get the status of a media request. Is it pending, downloading, or complete?
@@ -68,11 +81,30 @@ paths:
           $ref: '#/components/schemas/MediaStatusResponseSchema'
           description: ''
   /v1/list:
-    summary: Media Entity
     get:
+      summary: Get list of media objects in memory
       responses:
         '200':
           $ref: '#/components/schemas/MediaListResponseSchema'
+          description: ''
+  /v1/system/resources:
+    get:
+      summary: Get system resources such as CPU, memory, and network transfer rate
+      responses:
+        '200':
+          $ref: '#/components/schemas/SettingsGetResponseSchema'
+          description: ''
+  /v1/settings:
+    get:
+      responses:
+        '200':
+          $ref: '#/components/schemas/SettingsGetResponseSchema'
+          description: ''
+  /v1/settings/autoDeletePolicy:
+    post:
+      responses:
+        '200':
+          $ref: '#/components/schemas/SettingsAutoDeletePolicyResponseSchema'
           description: ''
 components:
   schemas:
