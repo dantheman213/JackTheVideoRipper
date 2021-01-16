@@ -6,12 +6,12 @@ info:
 servers:
   - url: 'http://localhost:54117'
 paths:
-  /v1/healthcheck/ping:
+  /v1/ping:
     summary: Check for service uptime
     get:
       responses:
         '200':
-          $ref: '#/components/schemas/HealthcheckPingSchema'
+          $ref: '#/components/schemas/PingResponseSchema'
           description: ''
   /v1/meta:
     post:
@@ -53,7 +53,7 @@ paths:
         '200':
           $ref: '#/components/schemas/MediaGetResponseSchema'
           description: ''
-  /v1/media/status/{id}:
+  /v1/status/{id}:
     get:
       summary: Get the status of a media request. Is it pending, downloading, or complete?
       parameters:
@@ -67,7 +67,7 @@ paths:
         '200':
           $ref: '#/components/schemas/MediaStatusResponseSchema'
           description: ''
-  /v1/media/list:
+  /v1/list:
     summary: Media Entity
     get:
       responses:
@@ -76,7 +76,7 @@ paths:
           description: ''
 components:
   schemas:
-    HealthcheckPingSchema:
+    PingResponseSchema:
       type: object
       properties:
         ping:
