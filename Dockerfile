@@ -4,10 +4,10 @@ FROM debian:buster-slim as base
 WORKDIR /tmp
 RUN apt-get update
 
-# Install ffmpeg
-RUN apt-get install -y ffmpeg
+# common dependencies
+RUN apt-get install -y curl ffmpeg
 
-# Install youtube-dl
+# install youtube-dl and dependencies
 RUN apt-get install -y python3 && \
     ln -s /usr/bin/python3 /usr/bin/python
 RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl && \
