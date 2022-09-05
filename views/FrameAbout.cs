@@ -35,6 +35,7 @@ namespace JackTheVideoRipper
                 textExtractors.Text = lines;
 
                 labelYouTubeDL.Text = String.Format("yt-dlp {0}", YouTubeDL.getVersion());
+                labelSupportedPlatforms.Text = String.Format("{0} supported platforms:", lines.Length.ToString("N0"));
             }
             catch (Exception ex)
             {

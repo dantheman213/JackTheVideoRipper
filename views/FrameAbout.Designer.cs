@@ -32,7 +32,7 @@
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.labelVersion = new System.Windows.Forms.Label();
             this.textExtractors = new System.Windows.Forms.TextBox();
-            this.label2 = new System.Windows.Forms.Label();
+            this.labelSupportedPlatforms = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
             this.textDependencies = new System.Windows.Forms.TextBox();
             this.labelYouTubeDL = new System.Windows.Forms.Label();
@@ -84,14 +84,14 @@
             this.textExtractors.Size = new System.Drawing.Size(816, 638);
             this.textExtractors.TabIndex = 3;
             // 
-            // label2
+            // labelSupportedPlatforms
             // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(13, 145);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(169, 25);
-            this.label2.TabIndex = 4;
-            this.label2.Text = "Supported Services:";
+            this.labelSupportedPlatforms.AutoSize = true;
+            this.labelSupportedPlatforms.Location = new System.Drawing.Point(13, 140);
+            this.labelSupportedPlatforms.Name = "labelSupportedPlatforms";
+            this.labelSupportedPlatforms.Size = new System.Drawing.Size(220, 25);
+            this.labelSupportedPlatforms.TabIndex = 4;
+            this.labelSupportedPlatforms.Text = "XXX Supported Platforms:";
             // 
             // label3
             // 
@@ -121,7 +121,7 @@
             this.labelYouTubeDL.AutoSize = true;
             this.labelYouTubeDL.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.labelYouTubeDL.ForeColor = System.Drawing.Color.Red;
-            this.labelYouTubeDL.Location = new System.Drawing.Point(18, 88);
+            this.labelYouTubeDL.Location = new System.Drawing.Point(13, 88);
             this.labelYouTubeDL.Name = "labelYouTubeDL";
             this.labelYouTubeDL.Size = new System.Drawing.Size(108, 25);
             this.labelYouTubeDL.TabIndex = 7;
@@ -135,7 +135,7 @@
             this.Controls.Add(this.labelYouTubeDL);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.textDependencies);
-            this.Controls.Add(this.label2);
+            this.Controls.Add(this.labelSupportedPlatforms);
             this.Controls.Add(this.textExtractors);
             this.Controls.Add(this.linkLabel1);
             this.Controls.Add(this.label1);
@@ -161,7 +161,7 @@
         private System.Windows.Forms.LinkLabel linkLabel1;
         private System.Windows.Forms.Label labelVersion;
         private System.Windows.Forms.TextBox textExtractors;
-        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.Label labelSupportedPlatforms;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.TextBox textDependencies;
         private System.Windows.Forms.Label labelYouTubeDL;

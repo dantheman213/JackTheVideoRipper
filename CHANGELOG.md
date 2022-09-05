@@ -1,4 +1,4 @@
-# v0.9.0 - updating release
+# TODO - upcoming release
 
 * Add transcoding options to media ingestion
 * Transcoding status update fixes
@@ -12,6 +12,10 @@
 * Improved media ingestion format selection UI/UX
 * Add visual progress bar for download and transcoding
 * Updated authentication section UI in ingestion dialog
+
+# v0.9.0
+
+* Updated about dialog with supported platform count for dependency yt-dlp
 
 # v0.8.1
 
