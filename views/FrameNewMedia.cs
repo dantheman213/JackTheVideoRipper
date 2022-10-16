@@ -78,6 +78,11 @@ namespace JackTheVideoRipper
                     Application.DoEvents();
 
                     var info = YouTubeDL.getMediaData(url);
+
+                    // Meta data lookup failed (happens on initial lookup)
+                    if (info is null)
+                        return;
+
                     var thumbnailFilePath = YouTubeDL.downloadThumbnail(info.thumbnail);
                     pbPreview.ImageLocation = thumbnailFilePath;
                   
