@@ -1,31 +1,27 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using static JackTheVideoRipper.SettingsModel;
 
-namespace JackTheVideoRipper.src
+namespace JackTheVideoRipper
 {
     internal class Settings
     {
-        public static SettingsModel Data;
+        public static SettingsModel Data { get; set; }
 
         public static void Save()
         {
-            File.WriteAllText(SettingsModel.filePath, JsonConvert.SerializeObject(Data));
+            if (!Exists())
+                return;
+            Common.WriteJsonToFile(Filepath, Data);
         }
 
         public static void Load()
         {
-            if (!SettingsModel.Exists())
+            if (!Exists())
             {
-                Directory.CreateDirectory(SettingsModel.dir);
-                File.WriteAllText(SettingsModel.filePath, JsonConvert.SerializeObject(SettingsModel.generateDefaultSettings()));
+                System.IO.Directory.CreateDirectory(SettingsModel.Directory);
+                Common.WriteJsonToFile(Filepath, GenerateDefaultSettings());
             }
 
-            var json = File.ReadAllText(SettingsModel.filePath);
-            Data = JsonConvert.DeserializeObject<SettingsModel>(json);
+            Data = Common.GetObjectFromJsonFile<SettingsModel>(Filepath) ?? GenerateDefaultSettings();
         }
     }
 }

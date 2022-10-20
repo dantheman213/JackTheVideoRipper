@@ -1,111 +1,96 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Management;
-using System.Net;
-using System.Net.Http;
 using System.Security.Principal;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+using Newtonsoft.Json;
 
 namespace JackTheVideoRipper
 {
-    class Common
+    internal static class Common
     {
-        public static string AppPath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+        public static string AppPath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName) ?? "";
+        private static PerformanceCounter? _cpuCounter;
+        private static PerformanceCounter? _ramCounter;
+        private static List<PerformanceCounter>? networkCounters;
+        private static readonly Random _random = new();
 
-        public static void openFolderWithFileSelect(string filePath)
+        private static readonly string commonDirectory = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        public static readonly string RootDirectory = Path.Combine(commonDirectory, "JackTheVideoRipper");
+        public static readonly string InstallDirectory = Path.Combine(RootDirectory, "bin");
+
+        public static void OpenFolderWithFileSelect(string filePath)
         {
-            Process.Start("explorer.exe", @String.Format("/select, \"{0}\"", filePath));
+            Process.Start("explorer.exe", $"/select, \"{filePath}\"");
         }
 
-        public static void openFolder(string folderPath)
+        public static void OpenFolder(string folderPath)
         {
             if (Directory.Exists(folderPath))
             {
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    Arguments = folderPath,
-                    FileName = "explorer.exe"
-                };
-
-                Process.Start(startInfo);
+                OpenFileExplorer(folderPath);
             }
             else
             {
-                MessageBox.Show(string.Format("{0} Directory does not exist!", folderPath));
+                MessageBox.Show($@"{folderPath} Directory does not exist!");
             }
         }
 
-        public static string getAppVersion()
+        public static string GetAppVersion()
         {
             System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
             FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
-            string version = fvi.FileVersion;
+            return $"v{fvi.FileVersion}";
+        }
+        
+        private static readonly Regex _urlPattern = new(@"^(http|http(s)?://)?([\w-]+\.)+[\w-]+[.com|.in|.org]+(\[\?%&=]*)?",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-            return String.Format("v{0}", version);
+        public static bool IsValidUrl(string url)
+        {
+            return _urlPattern.IsMatch(url);
         }
 
-        public static bool isValidURL(string URL)
-        {
-            string Pattern = @"^(http|http(s)?://)?([\w-]+\.)+[\w-]+[.com|.in|.org]+(\[\?%&=]*)?";
-            Regex Rgx = new Regex(Pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
-            return Rgx.IsMatch(URL);
-        }
+        private static readonly Regex TitlePattern = new("[^a-zA-Z0-9]", RegexOptions.Compiled);
 
-        public static string formatTitleForFileName(string title)
+        public static string FormatTitleForFileName(string title)
         {
-            if (String.IsNullOrEmpty(title))
+            return string.IsNullOrEmpty(title) ? "" : TitlePattern.Replace(title, "").Trim();
+        }
+        
+        public static string GetCpuUsagePercentage()
+        {
+            if (_cpuCounter is not null) 
+                return $"{_cpuCounter.NextValue():0.00}%";
+            
+            try
             {
-                return "";
-            }
-
-            Regex rgx = new Regex("[^a-zA-Z0-9]");
-            return rgx.Replace(title, "").Trim();
-        }
-
-        private static PerformanceCounter cpuCounter;
-        public static string getCpuUsagePercentage()
-        {
-            if (cpuCounter == null)
+                _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+            } catch(Exception ex)
             {
-                try
-                {
-                    cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-                } catch(Exception ex)
-                {
-                    // TBA
-                    return "Unable to get CPU usage...";
-                }
-
+                // TBA
+                return "Unable to get CPU usage...";
             }
-            return cpuCounter.NextValue().ToString("0.00") + "%";
+            return $"{_cpuCounter.NextValue():0.00}%";
         }
-
-        private static PerformanceCounter ramCounter;
-        public static string getAvailableMemory()
+        
+        public static string GetAvailableMemory()
         {
-            if (ramCounter == null)
+            if (_ramCounter != null)
+                return $"{_ramCounter.NextValue()} MB";
+            
+            try
             {
-                try
-                {
-                    ramCounter = new PerformanceCounter("Memory", "Available MBytes");
-                }
-                catch (Exception ex)
-                {
-                    return "Unable to get RAM usage...";
-                }
-               
+                _ramCounter = new PerformanceCounter("Memory", "Available MBytes");
             }
-            return ramCounter.NextValue() + "MB";
+            catch (Exception ex)
+            {
+                return "Unable to get RAM usage...";
+            }
+            
+            return $"{_ramCounter.NextValue()} MB";
         }
-
-        private static List<PerformanceCounter> networkCounters;
-        public static string getNetworkTransfer()
+        
+        public static string GetNetworkTransfer()
         {
             try
             {
@@ -115,27 +100,24 @@ namespace JackTheVideoRipper
                 {
                     networkCounters = new List<PerformanceCounter>();
 
-                    PerformanceCounterCategory pcg = new PerformanceCounterCategory("Network Interface");
-                    foreach (var instance in pcg.GetInstanceNames())
+                    PerformanceCounterCategory category = new("Network Interface");
+                    foreach (string? instance in category.GetInstanceNames())
                     {
                         networkCounters.Add(new PerformanceCounter("Network Interface", "Bytes Received/sec", instance));
                     }
                 }
 
-                double count = 0;
-                foreach (var counter in networkCounters)
-                {
-                    count += Math.Round(counter.NextValue() / 1024, 2);
-                }
+                double count = networkCounters.Sum(counter => Math.Round(counter.NextValue() / 1024, 2));
 
                 string suffix = "kbps";
+                
                 if (count >= 1000)
                 {
                     suffix = "mbps";
                     count = Math.Round(count / 1000, 2);
                 }
 
-                return String.Format("{0} {1}", count, suffix);
+                return $"{count} {suffix}";
             }
             catch (Exception ex)
             {
@@ -145,8 +127,7 @@ namespace JackTheVideoRipper
 
         public static bool IsAdministrator()
         {
-            WindowsIdentity identity = WindowsIdentity.GetCurrent();
-            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            WindowsPrincipal principal = new(WindowsIdentity.GetCurrent());
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
 
@@ -154,13 +135,14 @@ namespace JackTheVideoRipper
         {
             try
             {
-                ManagementObjectSearcher searcher = new ManagementObjectSearcher ("Select * From Win32_Process Where ParentProcessID=" + pid);
-                ManagementObjectCollection moc = searcher.Get();
-                foreach (ManagementObject mo in moc)
+                ManagementObjectSearcher searcher = new(@$"Select * From Win32_Process Where ParentProcessID={pid}");
+                ManagementObjectCollection objectCollection = searcher.Get();
+                foreach (ManagementBaseObject? obj in objectCollection)
                 {
+                    ManagementObject? managementObject = (ManagementObject) obj;
                     try
                     {
-                        KillProcessAndChildren(Convert.ToInt32(mo["ProcessID"]));
+                        KillProcessAndChildren(Convert.ToInt32(managementObject["ProcessID"]));
                     }
                     catch (Exception ex)
                     {
@@ -184,31 +166,85 @@ namespace JackTheVideoRipper
             }
         }
 
-        public static string stripIllegalFileNameChars(string str)
+        public static string StripIllegalFileNameChars(string str)
         {
-            Regex rgx = new Regex("[^a-zA-Z0-9 -]");
+            Regex rgx = new("[^a-zA-Z0-9 -]");
             return rgx.Replace(str, "_").Replace(' ', '_');
 
             // return string.Join("_", str.Split(Path.GetInvalidFileNameChars()));
         }
-
-        private static Random random = new Random();
+        
         public static string RandomString(int length)
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             return new string(Enumerable.Repeat(chars, length)
-              .Select(s => s[random.Next(s.Length)]).ToArray());
+              .Select(s => s[_random.Next(s.Length)]).ToArray());
         }
 
         public static string RemoveAllNonNumericValuesFromString(string str)
         {
-            var nums = Regex.Replace(str, @"[^\d]", String.Empty);
-            if (nums == "")
-            {
-                nums = "0";
-            }
+            string nums = Regex.Replace(str, @"[^\d]", string.Empty);
+            return string.IsNullOrEmpty(nums) ? "0" : nums;
+        }
 
-            return nums;
+        public static Process? GetWebResourceHandle(string url, bool useShellExecute = true)
+        {
+            return Process.Start(new ProcessStartInfo(url) { UseShellExecute = useShellExecute });
+        }
+        
+        public static void WriteJsonToFile(string filepath, object obj)
+        {
+            File.WriteAllText(filepath, JsonConvert.SerializeObject(obj));
+        }
+
+        public static T? GetObjectFromJsonFile<T>(string url)
+        {
+            return JsonConvert.DeserializeObject<T>(File.ReadAllText(url));
+        }
+
+        public static Process? OpenFileExplorer(string directory)
+        {
+            ProcessStartInfo startInfo = new()
+            {
+                Arguments = directory,
+                FileName = "explorer.exe"
+            };
+
+            return Process.Start(startInfo);
+        }
+
+        public static Process? OpenTaskManager()
+        {
+            ProcessStartInfo startInfo = new()
+            {
+                CreateNoWindow = false, //just hides the window if set to true
+                UseShellExecute = true, //use shell (current programs privillage)
+                FileName = Path.Combine(Environment.SystemDirectory, "taskmgr.exe"), //The file path and file name
+                Arguments = "" //Add your arguments here
+            }; //a processstartinfo object
+
+            return Process.Start(startInfo);
+        }
+
+        public static void DownloadFile(string url, string localPath)
+        {
+            if (File.Exists(localPath))
+            {
+                File.Delete(localPath);
+            }
+            
+            HttpClient client = new();
+            HttpResponseMessage response = client.GetAsync(new Uri(url)).Result;
+
+            if (response.IsSuccessStatusCode)
+            {
+                using FileStream fileStream = new(localPath, FileMode.CreateNew);
+                response.Content.CopyToAsync(fileStream).Wait();
+            }
+            else
+            {
+                Console.WriteLine(@$"Failed to download {(int)response.StatusCode} ({response.ReasonPhrase})");
+            }
         }
     }
 }

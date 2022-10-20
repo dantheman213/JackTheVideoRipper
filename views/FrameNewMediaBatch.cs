@@ -1,47 +1,37 @@
-﻿using JackTheVideoRipper.src;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-
-namespace JackTheVideoRipper
+﻿namespace JackTheVideoRipper
 {
     public partial class FrameNewMediaBatch : Form
     {
-        private string startUrls;
+        private readonly string startUrls;
         public string urls;
         public string type;
 
-        public List<DownloadMediaItem> items = new List<DownloadMediaItem>();
+        public readonly List<DownloadMediaItem> items = new();
 
-        public FrameNewMediaBatch(string urls = "")
+        public FrameNewMediaBatch(string? urls = "")
         {
             InitializeComponent();
-            if (!String.IsNullOrEmpty(urls))
-            {
-                string filter = urls.Replace("\r", "").Replace("\n", "\r\n"); // make sure any copy pasting from other sources still has proper windows newlines
-                this.startUrls = filter;
-            }
+            
+            if (string.IsNullOrEmpty(urls))
+                return;
+            
+            // make sure any copy pasting from other sources still has proper windows newlines
+            startUrls = urls.Replace("\r", "").Replace("\n", "\r\n");
         }
 
-        private void buttonCancel_Click(object sender, EventArgs e)
+        private void ButtonCancel_Click(object sender, EventArgs e)
         {
-            this.Close();
+            Close();
         }
 
         private void FrameNewMediaBatch_Load(object sender, EventArgs e)
         {
-            if (!String.IsNullOrEmpty(this.startUrls))
+            if (!string.IsNullOrEmpty(startUrls))
             {
-                textUrls.Text = this.startUrls;
+                textUrls.Text = startUrls;
             }
 
-            textLocation.Text = Settings.Data.defaultDownloadPath;
+            textLocation.Text = Settings.Data.DefaultDownloadPath;
 
             cbAudioQuality.SelectedIndex = 0;
             cbAudioEncoder.SelectedIndex = 0;
@@ -50,92 +40,75 @@ namespace JackTheVideoRipper
             cbVideoEncoder.SelectedIndex = 0;
         }
 
-        private void buttonDownload_Click(object sender, EventArgs e)
+        private void ButtonDownload_Click(object sender, EventArgs e)
         {
-            this.urls = textUrls.Text.Trim();
-            if (!String.IsNullOrWhiteSpace(this.urls))
+            urls = textUrls.Text.Trim();
+            if (string.IsNullOrWhiteSpace(urls))
+                return;
+            
+            switch (chkBoxExportVideo.Checked)
             {
-                if (chkBoxExportVideo.Checked && chkBoxExportAudio.Checked)
-                {
+                case true when chkBoxExportAudio.Checked:
+                // video only
+                case true when !chkBoxExportAudio.Checked:
                     // video and audio
                     // TODO: fix
-                    this.type = "video"; // TODO: +audio"; ?
-                }
-                else if (chkBoxExportVideo.Checked && !chkBoxExportAudio.Checked)
-                {
-                    // video only
-                    this.type = "video";
-                }
-                else if (!chkBoxExportVideo.Checked && chkBoxExportAudio.Checked)
-                {
+                    type = "video"; // TODO: +audio"; ?
+                    break;
+                case false when chkBoxExportAudio.Checked:
                     // audio only
-                    this.type = "audio";
-                }
+                    type = "audio";
+                    break;
+            }
 
-                string videoFormat = "bestvideo";
-                if (cbVideoEncoder.Text.Trim().ToLower() == "low")
+            string videoFormat = cbVideoEncoder.Text.Trim().ToLower() == "low" ? "worstvideo" : "bestvideo";
+
+            string audioFormat = cbAudioEncoder.Text.Trim().ToLower() == "low" ? "worstaudio" : "bestaudio";
+
+            string filePathTemplate = $"{textLocation.Text.Trim()}\\%(title)s.%(ext)s";
+
+            foreach(string url in urls.Replace("\r", "").Split('\n'))
+            {
+                if (!Common.IsValidUrl(url))
                 {
-                    videoFormat = "worstvideo";
+                    MessageBox.Show($@"Invalid URL detected: {url}", "Invalid URL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    items.Clear();
+                    return;
                 }
 
-                string audioFormat = "bestaudio";
-                if (cbAudioEncoder.Text.Trim().ToLower() == "low")
+                // TODO: improve
+                // string opts = String.Format("-f bestvideo+bestaudio/best {2} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {2} {3} -o {4} {5}", (cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : ""), (chkBoxWriteMetadata.Checked ? "--add-metadata" : ""), (chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : ""), (chkBoxIncludeAds.Checked ? "--include-ads" : ""), FrameMain.settings.defaultDownloadPath + "\\%(title)s.%(ext)s", url);
+
+                string opts = chkBoxExportVideo.Checked switch
                 {
-                    audioFormat = "worstaudio";
-                }
+                    true when chkBoxExportAudio.Checked =>
+                        $"-f {videoFormat}+{audioFormat}/best {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : "")} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : "")} {(chkBoxWriteMetadata.Checked ? "--add-metadata" : "")} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : "")} {(chkBoxIncludeAds.Checked ? "--include-ads" : "")} -o {filePathTemplate} {url}",
+                    true when !chkBoxExportAudio.Checked =>
+                        $"-f {videoFormat} {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : "")} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(chkBoxWriteMetadata.Checked ? "--add-metadata" : "")} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : "")} {(chkBoxIncludeAds.Checked ? "--include-ads" : "")} -o {filePathTemplate} {url}",
+                    false when chkBoxExportAudio.Checked =>
+                        $"-f {audioFormat} -x --audio-format {cbAudioEncoder.Text.Trim()} --audio-quality 0 -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(chkBoxWriteMetadata.Checked ? "--add-metadata" : "")} {(chkBoxIncludeAds.Checked ? "--include-ads" : "")} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : "")} -o {filePathTemplate} {url}",
+                    _ => ""
+                };
 
-                string filePathTemplate = String.Format("{0}\\%(title)s.%(ext)s", textLocation.Text.Trim());
-
-                var s = this.urls.Replace("\r", "").Split('\n');
-                foreach(var url in s)
+                items.Add(new DownloadMediaItem
                 {
-                    if (!Common.isValidURL(url))
-                    {
-                        MessageBox.Show(String.Format("Invalid URL detected: {0}", url), "Invalid URL", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        this.items.Clear();
-                        return;
-                    }
-
-                    // TODO: improve
-                    // string opts = String.Format("-f bestvideo+bestaudio/best {2} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {2} {3} -o {4} {5}", (cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : ""), (chkBoxWriteMetadata.Checked ? "--add-metadata" : ""), (chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : ""), (chkBoxIncludeAds.Checked ? "--include-ads" : ""), FrameMain.settings.defaultDownloadPath + "\\%(title)s.%(ext)s", url);
-
-                    string opts = "";
-                    if (chkBoxExportVideo.Checked && chkBoxExportAudio.Checked)
-                    {
-                        // video and audio
-                        opts = String.Format("-f {0}+{1}/best {2} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {2} {3} {4} {5} -o {6} {7}", videoFormat, audioFormat, (cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : ""), (chkBoxWriteMetadata.Checked ? "--add-metadata" : ""), (chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : ""), (chkBoxIncludeAds.Checked ? "--include-ads" : ""), filePathTemplate, url);
-                    }
-                    else if (chkBoxExportVideo.Checked && !chkBoxExportAudio.Checked)
-                    {
-                        // video only
-                        opts = String.Format("-f {0} {1} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {2} {3} {4} -o {5} {6}", videoFormat, (cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : ""), (chkBoxWriteMetadata.Checked ? "--add-metadata" : ""), (chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : ""), (chkBoxIncludeAds.Checked ? "--include-ads" : ""), filePathTemplate, url);
-                    }
-                    else if (!chkBoxExportVideo.Checked && chkBoxExportAudio.Checked)
-                    {
-                        // audio only
-                        opts = String.Format("-f {0} -x --audio-format {1} --audio-quality 0 -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {2} {3} {4} -o {5} {6}", audioFormat, cbAudioEncoder.Text.Trim(), (chkBoxWriteMetadata.Checked ? "--add-metadata" : ""), (chkBoxIncludeAds.Checked ? "--include-ads" : ""), (chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : ""), filePathTemplate, url);
-                    }
-                    
-                    this.items.Add(new DownloadMediaItem
-                    {
-                        title = "",
-                        filePath = "",
-                        opts = opts,
-                        url = url
-                    });
-                }
+                    Title = "",
+                    FilePath = "",
+                    Parameters = opts,
+                    Url = url
+                });
+            }
                 
           
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-            }
+            DialogResult = DialogResult.OK;
+            Close();
         }
 
-        private void buttonLocationBrowse_Click(object sender, EventArgs e)
+        private void ButtonLocationBrowse_Click(object sender, EventArgs e)
         {
             string path = textLocation.Text.Trim();
 
-            var f = new FolderBrowserDialog();
+            FolderBrowserDialog f = new();
             f.SelectedPath = path;
             if (f.ShowDialog() == DialogResult.OK)
             {
@@ -143,22 +116,23 @@ namespace JackTheVideoRipper
             }
         }
 
-        private void chkBoxExportVideo_CheckedChanged(object sender, EventArgs e)
+        private void ChkBoxExportVideo_CheckedChanged(object sender, EventArgs e)
         {
             if (!chkBoxExportVideo.Checked && !chkBoxExportAudio.Checked)
             {
                 chkBoxExportVideo.Checked = true;
             }
 
-            if (chkBoxExportVideo.Checked)
+            switch (chkBoxExportVideo.Checked)
             {
-                cbVideoEncoder.Enabled = true;
-                cbVideoQuality.Enabled = true;
-            }
-            else if (!chkBoxExportVideo.Checked)
-            {
-                cbVideoEncoder.Enabled = false;
-                cbVideoQuality.Enabled = false;
+                case true:
+                    cbVideoEncoder.Enabled = true;
+                    cbVideoQuality.Enabled = true;
+                    break;
+                case false:
+                    cbVideoEncoder.Enabled = false;
+                    cbVideoQuality.Enabled = false;
+                    break;
             }
 
             if (chkBoxExportAudio.Checked && !chkBoxExportVideo.Checked)
@@ -171,21 +145,19 @@ namespace JackTheVideoRipper
             }
         }
 
-        private void chkBoxExportAudio_CheckedChanged(object sender, EventArgs e)
+        private void ChkBoxExportAudio_CheckedChanged(object sender, EventArgs e)
         {
             if (!chkBoxExportVideo.Checked && !chkBoxExportAudio.Checked)
             {
                 chkBoxExportAudio.Checked = true;
             }
 
-            if (chkBoxExportAudio.Checked && chkBoxExportVideo.Checked)
+            cbAudioEncoder.Enabled = chkBoxExportAudio.Checked switch
             {
-                cbAudioEncoder.Enabled = false;
-            }
-            else if (chkBoxExportAudio.Checked && !chkBoxExportVideo.Checked)
-            {
-                cbAudioEncoder.Enabled = true;
-            }
+                true when chkBoxExportVideo.Checked => false,
+                true when !chkBoxExportVideo.Checked => true,
+                _ => cbAudioEncoder.Enabled
+            };
 
             if (!chkBoxExportAudio.Checked)
             {

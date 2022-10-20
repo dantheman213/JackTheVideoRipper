@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace JackTheVideoRipper.src.models
+﻿namespace JackTheVideoRipper.models
 {
     internal class AppVersionModel
     {
-        public string version { get; set; }
-        public bool isNewerVersionAvailable { get; set; }
+        public string Version { get; set; } = "";
+        public bool IsNewerVersionAvailable { get; set; }
     }
 }

@@ -37,4 +37,8 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="src\extensions" />
+  </ItemGroup>
+
 </Project>

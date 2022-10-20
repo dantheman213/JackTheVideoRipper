@@ -117,4 +117,34 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="InstallMessage" xml:space="preserve">
+    <value>yt-dlp is required and is not bundled with the installer as it is updated frequently. Install?</value>
+  </data>
+  <data name="InstallationSuccess" xml:space="preserve">
+    <value>Components have been installed successfully!</value>
+  </data>
+  <data name="InstallationError" xml:space="preserve">
+    <value>Required components not installed! This app will NOT behave correctly because its critical dependencies are missing."</value>
+  </data>
+  <data name="FfmpegMissing" xml:space="preserve">
+    <value>Could not find FFmpeg on your system. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app.</value>
+  </data>
+  <data name="AtomicParsleyMissing" xml:space="preserve">
+    <value>Could not find AtomicParsley on your system.. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app.</value>
+  </data>
+  <data name="ExitWarning" xml:space="preserve">
+    <value>You have pending downloads, are you sure you want to exit?</value>
+  </data>
+  <data name="NewUpdate" xml:space="preserve">
+    <value>New Version JackTheVideoRipper {0} Available! View Download Page?</value>
+  </data>
+  <data name="UpToDate" xml:space="preserve">
+    <value>App is currently up to date!</value>
+  </data>
+  <data name="InvalidVideo" xml:space="preserve">
+    <value>Cannot embed thumbnails in non-mp4 containers!</value>
+  </data>
+  <data name="InvalidAudio" xml:space="preserve">
+    <value>Can only embed thumbnails in mp3 and m4a containers!</value>
+  </data>
 </root>

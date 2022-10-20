@@ -1,17 +1,4 @@
-﻿using JackTheVideoRipper.src;
-using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-
-namespace JackTheVideoRipper
+﻿namespace JackTheVideoRipper
 {
     public partial class FrameSettings : Form
     {
@@ -22,31 +9,30 @@ namespace JackTheVideoRipper
 
         private void buttonLocationBrowse_Click(object sender, EventArgs e)
         {
-            var f = new FolderBrowserDialog();
-            var dir = textLocation.Text.Trim();
-            f.SelectedPath = dir;
-            if (f.ShowDialog() == DialogResult.OK)
+            FolderBrowserDialog folderBrowserDialog = new();
+            folderBrowserDialog.SelectedPath = textLocation.Text.Trim();
+            if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
             {
-                textLocation.Text = f.SelectedPath;
+                textLocation.Text = folderBrowserDialog.SelectedPath;
             }
         }
 
         private void FrameSettings_Load(object sender, EventArgs e)
         {
-            numMaxConcurrent.Value = Settings.Data.maxConcurrentDownloads;
-            textLocation.Text = Settings.Data.defaultDownloadPath;
+            numMaxConcurrent.Value = Settings.Data.MaxConcurrentDownloads;
+            textLocation.Text = Settings.Data.DefaultDownloadPath;
         }
 
         private void buttonSave_Click(object sender, EventArgs e)
         {
-            Settings.Data.maxConcurrentDownloads = (int)numMaxConcurrent.Value;
-            Settings.Data.defaultDownloadPath = textLocation.Text.Trim();
-            save();
+            Settings.Data.MaxConcurrentDownloads = (int)numMaxConcurrent.Value;
+            Settings.Data.DefaultDownloadPath = textLocation.Text.Trim();
+            Save();
 
-            this.Close();
+            Close();
         }
 
-        private void save()
+        private void Save()
         {
             Settings.Save();
         }

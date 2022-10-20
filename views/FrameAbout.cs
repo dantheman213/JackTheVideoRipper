@@ -1,15 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-
-namespace JackTheVideoRipper
+﻿namespace JackTheVideoRipper
 {
     public partial class FrameAbout : Form
     {
@@ -20,26 +9,25 @@ namespace JackTheVideoRipper
             InitializeComponent();
         }
 
-        private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            Process.Start(new ProcessStartInfo(projectUrl) { UseShellExecute = true });
+            Common.GetWebResourceHandle(projectUrl);
         }
 
         private void FrameAbout_Load(object sender, EventArgs e)
         {
-            labelVersion.Text = Common.getAppVersion();
+            labelVersion.Text = Common.GetAppVersion();
 
             try
             {
-                var lines = "* " + YouTubeDL.getExtractors().Replace("\n", "\r\n* ");
+                string lines = $"* {YouTubeDl.GetExtractors().Replace("\n", "\r\n* ")}";
                 textExtractors.Text = lines;
-
-                labelYouTubeDL.Text = String.Format("yt-dlp {0}", YouTubeDL.getVersion());
+                labelYouTubeDL.Text = $@"yt-dlp {YouTubeDl.GetVersion()}";
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                textExtractors.Text = "ERROR: Can't get list of supported services.";
+                textExtractors.Text = @"ERROR: Can't get list of supported services.";
             }
         }
     }

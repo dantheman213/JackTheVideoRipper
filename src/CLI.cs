@@ -1,24 +1,25 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace JackTheVideoRipper
 {
-    class CLI
+    internal static class CLI
     {
-        public static Process runCommand(string command, string workingDir = "")
+        public static Process RunCommand(string command, string workingDir = "")
         {
-            Process process = new Process();
+            Process process = new();
             try
             {
-                ProcessStartInfo startInfo = new ProcessStartInfo();
-                startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                startInfo.FileName = "cmd.exe";
-                startInfo.Arguments = "/C " + command;
-                startInfo.WorkingDirectory = ((workingDir != "") ? workingDir : Common.AppPath);
-                startInfo.UseShellExecute = false;
-                startInfo.RedirectStandardError = true;
-                startInfo.RedirectStandardOutput = true;
-                startInfo.CreateNoWindow = true;
+                ProcessStartInfo startInfo = new()
+                {
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    FileName = "cmd.exe",
+                    Arguments = "/C " + command,
+                    WorkingDirectory = workingDir != "" ? workingDir : Common.AppPath,
+                    UseShellExecute = false,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
                 process.StartInfo = startInfo;
                 process.Start();
             }
@@ -30,47 +31,51 @@ namespace JackTheVideoRipper
             return process;
         }
 
-        public static Process runYouTubeCommand(string bin, string opts)
+        public static Process RunYouTubeCommand(string bin, string opts)
         {
-            Process process = new Process();
+            Process process = new();
 
-            if (!String.IsNullOrEmpty(bin))
+            if (string.IsNullOrEmpty(bin))
+                return process;
+            
+            try
             {
-                try
+                ProcessStartInfo startInfo = new()
                 {
-                    ProcessStartInfo startInfo = new ProcessStartInfo();
-                    startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                    startInfo.FileName = bin;
-                    startInfo.Arguments = opts;
-                    startInfo.UseShellExecute = false;
-                    startInfo.RedirectStandardError = true;
-                    startInfo.RedirectStandardOutput = true;
-                    startInfo.CreateNoWindow = true;
-                    process.StartInfo = startInfo;
-                    //process.Start(); // TODO: remove?
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex);
-                }
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    FileName = bin,
+                    Arguments = opts,
+                    UseShellExecute = false,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+                process.StartInfo = startInfo;
+                //process.Start(); // TODO: remove?
             }
-         
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+
             return process;
         }
 
-        public static Process runElevatedSystemCommand(string command, string workingDir = "")
+        public static Process RunElevatedSystemCommand(string command, string workingDir = "")
         {
-            Process process = new Process();
+            Process process = new();
             try
             {
-                ProcessStartInfo startInfo = new ProcessStartInfo();
-                startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                startInfo.FileName = "cmd.exe";
-                startInfo.Arguments = "/C " + command;
-                startInfo.WorkingDirectory = ((workingDir != "") ? workingDir : Common.AppPath);
-                startInfo.UseShellExecute = true;
-                startInfo.CreateNoWindow = true;
-                startInfo.Verb = "runas";
+                ProcessStartInfo startInfo = new()
+                {
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    FileName = "cmd.exe",
+                    Arguments = $"/C {command}",
+                    WorkingDirectory = workingDir != "" ? workingDir : Common.AppPath,
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                    Verb = "runas"
+                };
                 process.StartInfo = startInfo;
                 process.Start();
             }

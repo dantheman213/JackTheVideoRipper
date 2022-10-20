@@ -1,30 +1,18 @@
-﻿using System;
-using System.Net;
-using System.IO;
-using System.IO.Compression;
-using static System.Environment;
-
-namespace JackTheVideoRipper
+﻿namespace JackTheVideoRipper
 {
     class FFmpeg
     {
-        private static string binName = "ffmpeg.exe";
-        private static string installPath = String.Format("{0}\\JackTheVideoRipper\\bin", Environment.GetFolderPath(SpecialFolder.CommonApplicationData));
-        private static string binPath = String.Format("{0}\\{1}", installPath, binName);
+        private const string executableName = "ffmpeg.exe";
+        private static readonly string binPath = Path.Combine(Common.InstallDirectory, executableName);
 
-        public static bool isInstalled()
+        public static bool IsInstalled()
         {
-            if (File.Exists(binPath))
-            {
-                return true;
-            }
-
-            return false;
+            return File.Exists(binPath);
         }
 
-        public static void convertImageToJpg(string inputPath, string outputPath)
+        public static void ConvertImageToJpg(string inputPath, string outputPath)
         {
-            CLI.runCommand(String.Format("{0} -nostats -loglevel error -hide_banner -i {1} -vf \"scale=1920:-1\" {2}", binPath, inputPath, outputPath));
+            CLI.RunCommand($"{binPath} -nostats -loglevel error -hide_banner -i {inputPath} -vf \"scale=1920:-1\" {outputPath}");
             Thread.Sleep(1000); // allow the file to exist in the OS before querying for it otherwise sometimes its missed by app...
         }
     }

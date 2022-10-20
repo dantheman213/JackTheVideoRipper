@@ -59,5 +59,95 @@ namespace JackTheVideoRipper.Properties {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not find AtomicParsley on your system.. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app..
+        /// </summary>
+        internal static string AtomicParsleyMissing {
+            get {
+                return ResourceManager.GetString("AtomicParsleyMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You have pending downloads, are you sure you want to exit?.
+        /// </summary>
+        internal static string ExitWarning {
+            get {
+                return ResourceManager.GetString("ExitWarning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not find FFmpeg on your system. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app..
+        /// </summary>
+        internal static string FfmpegMissing {
+            get {
+                return ResourceManager.GetString("FfmpegMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Required components not installed! This app will NOT behave correctly because its critical dependencies are missing.&quot;.
+        /// </summary>
+        internal static string InstallationError {
+            get {
+                return ResourceManager.GetString("InstallationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Components have been installed successfully!.
+        /// </summary>
+        internal static string InstallationSuccess {
+            get {
+                return ResourceManager.GetString("InstallationSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to yt-dlp is required and is not bundled with the installer as it is updated frequently. Install?.
+        /// </summary>
+        internal static string InstallMessage {
+            get {
+                return ResourceManager.GetString("InstallMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Can only embed thumbnails in mp3 and m4a containers!.
+        /// </summary>
+        internal static string InvalidAudio {
+            get {
+                return ResourceManager.GetString("InvalidAudio", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cannot embed thumbnails in non-mp4 containers!.
+        /// </summary>
+        internal static string InvalidVideo {
+            get {
+                return ResourceManager.GetString("InvalidVideo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New Version JackTheVideoRipper {0} Available! View Download Page?.
+        /// </summary>
+        internal static string NewUpdate {
+            get {
+                return ResourceManager.GetString("NewUpdate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to App is currently up to date!.
+        /// </summary>
+        internal static string UpToDate {
+            get {
+                return ResourceManager.GetString("UpToDate", resourceCulture);
+            }
+        }
     }
 }

@@ -1,185 +1,148 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Net;
-using System.Security.AccessControl;
-using JackTheVideoRipper.src;
+﻿using System.Diagnostics;
+using System.Text;
 using Newtonsoft.Json;
 using static System.Environment;
 
 namespace JackTheVideoRipper
 {
-    class YouTubeDL
+    internal static class YouTubeDl
     {
-        public static string defaultDownloadPath = Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Downloads");
-        private static string binName = "yt-dlp.exe";
-        public static string installPath = String.Format("{0}\\JackTheVideoRipper\\bin", Environment.GetFolderPath(SpecialFolder.CommonApplicationData));
-        public static string binPath = String.Format("{0}\\{1}", installPath, binName);
-        private static string downloadURL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
+        public static readonly string DefaultDownloadPath = Path.Combine(ExpandEnvironmentVariables("%userprofile%"), "Downloads");
+        private const string binName = "yt-dlp.exe";
+        public static readonly string binPath = Path.Combine(Common.InstallDirectory, binName);
+        private const string downloadURL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
 
-        public static bool isInstalled()
+        public static bool IsInstalled()
+        {
+            return File.Exists(binPath);
+        }
+
+        public static void CheckDownload()
+        {
+            if (!IsInstalled())
+            {
+                DownloadAndInstall();
+            }
+        }
+
+        public static void DownloadAndInstall()
         {
             if (File.Exists(binPath))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        public static void checkDownload()
-        {
-            if (!isInstalled())
-            {
-                downloadAndInstall();
-            }
-        }
-
-        public static void downloadAndInstall()
-        {
-            if (!File.Exists(binPath))
-            {
-                Directory.CreateDirectory(installPath);
+                return;
+            
+            Directory.CreateDirectory(Common.InstallDirectory);
                 
-                // Download binary to directory
-                using (WebClient c = new WebClient())
-                {
-                    c.DownloadFile(downloadURL, binPath);
-                }
-            }
+            // Download binary to directory
+            Common.DownloadFile(downloadURL, binPath);
         }
 
-        public static void checkForUpdates()
+        public static void CheckForUpdates()
         {
-            if (isInstalled())
+            if (!IsInstalled())
+                return;
+            
+            CLI.RunCommand($"{binName} -U", Common.InstallDirectory);
+            string previousVersion = Settings.Data.LastVersionYouTubeDL;
+            string currentVersion = GetVersion();
+
+            if (string.IsNullOrEmpty(previousVersion))
             {
-                CLI.runCommand(binName + " -U", YouTubeDL.installPath);
-                var previousVersion = Settings.Data.lastVersionYouTubeDL;
-                var currentVersion = getVersion();
+                Settings.Data.LastVersionYouTubeDL = currentVersion;
+                Settings.Save();
+                return;
+            }
 
-                if (previousVersion == "")
-                {
-                    Settings.Data.lastVersionYouTubeDL = currentVersion;
-                    Settings.Save();
-                    return;
-                }
-
-                if (previousVersion != currentVersion)
-                {
-                    Settings.Data.lastVersionYouTubeDL = currentVersion;
-                    Settings.Save();
-                    MessageBox.Show(String.Format("Dependency yt-dlp has been upgraded from {0} to {1}!", previousVersion, currentVersion), "yt-dlp update", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
+            if (previousVersion != currentVersion)
+            {
+                Settings.Data.LastVersionYouTubeDL = currentVersion;
+                Settings.Save();
+                MessageBox.Show($@"Dependency yt-dlp has been upgraded from {previousVersion} to {currentVersion}!",
+                    @"yt-dlp update", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
-        public static Process run(string opts)
+        public static Process Run(string opts)
         {
-            return CLI.runYouTubeCommand(binPath, opts);
+            return CLI.RunYouTubeCommand(binPath, opts);
+        }
+
+        private static string TimeStampDate => DateTime.Now.ToString("yyyyMMddhmmsstt");
+
+        private static readonly string TempPath = Path.GetTempPath();
+        
+        private static string GetTempFilename(string ext)
+        {
+            return $"{TempPath}jtvr_thumbnail_{TimeStampDate}.{ext}";
         }
         
-        public static string downloadThumbnail(string thumbnailUrl)
+        public static string? DownloadThumbnail(string thumbnailUrl)
         {
-            if (Common.isValidURL(thumbnailUrl))
-            {
-                string tmpDir = Path.GetTempPath();
-                var urlExt = thumbnailUrl.Substring(thumbnailUrl.LastIndexOf(".") + 1).ToLower();
-                // allow jpg and png but don't allow webp since we'll convert that below
-                if (urlExt == "webp")
-                {
-                    urlExt = "jpg";
-                }
-                string tmpFileName = String.Format("jtvr_thumbnail_{0}.{1}", DateTime.Now.ToString("yyyyMMddhmmsstt"), urlExt); // TODO: get extension from URL rather than hard coding
-                string tmpFilePath = tmpDir + tmpFileName;
+            if (!Common.IsValidUrl(thumbnailUrl))
+                return null;
+            
+            string urlExt = thumbnailUrl[(thumbnailUrl.LastIndexOf(".", StringComparison.Ordinal) + 1)..].ToLower();
+            
+            // allow jpg and png but don't allow webp since we'll convert that below
+            if (urlExt == "webp")
+                urlExt = "jpg";
+            
+            // TODO: get extension from URL rather than hard coding
+            string tmpFilePath = GetTempFilename(urlExt);
                 
-                // popular format for saving thumbnails these days but PictureBox in WinForms can't handle it :( so we'll convert to jpg
-                if (thumbnailUrl.EndsWith("webp"))
-                {
-                    var tmpWebpFileName = String.Format("jtvr_thumbnail_{0}.webp", DateTime.Now.ToString("yyyyMMddhmmsstt"));
-                    var tmpWebpFilePath = tmpDir + tmpWebpFileName;
-
-                    if (File.Exists(tmpWebpFilePath))
-                    {
-                        File.Delete(tmpWebpFilePath);
-                    }
-
-                    using (WebClient c = new WebClient())
-                    {
-                        c.DownloadFile(thumbnailUrl, tmpWebpFilePath);
-                    }
-
-                    FFmpeg.convertImageToJpg(tmpWebpFilePath, tmpFilePath);
-                }
-                else
-                {
-                    if (File.Exists(tmpFilePath))
-                    {
-                        File.Delete(tmpFilePath);
-                    }
-
-                    using (WebClient c = new WebClient())
-                    {
-                        c.DownloadFile(thumbnailUrl, tmpFilePath);
-                    }
-                }
-
-                return tmpFilePath;
+            // popular format for saving thumbnails these days but PictureBox in WinForms can't handle it :( so we'll convert to jpg
+            if (thumbnailUrl.EndsWith("webp"))
+            {
+                string tmpWebpFilePath = GetTempFilename("webp");
+                Common.DownloadFile(thumbnailUrl, tmpWebpFilePath);
+                FFmpeg.ConvertImageToJpg(tmpWebpFilePath, tmpFilePath);
+            }
+            else
+            {
+                Common.DownloadFile(thumbnailUrl, tmpFilePath);
             }
 
-            return null;
+            return tmpFilePath;
         }
 
-        public static List<PlaylistInfoItem> getPlaylistMetadata(string url)
+        public static List<PlaylistInfoItem>? GetPlaylistMetadata(string url)
         {
-            string opts = "-i --no-warnings --no-cache-dir --dump-json --flat-playlist --skip-download --yes-playlist " + url;
-            var p = CLI.runYouTubeCommand(binPath, opts);
-            p.Start();
-
-            string json = p.StandardOutput.ReadToEnd().Trim();
+            string json = RunCommand($"-i --no-warnings --no-cache-dir --dump-json --flat-playlist --skip-download --yes-playlist{url}");
             // youtube-dl returns an individual json object per line
-            json = "[" + json;
-            int i = json.IndexOf('\n');
-            while (i > -1)
-            {
-                json = json.Insert(i, ",");
-                i = json.IndexOf('\n', i + 2);
-            }
-            json += "]";
+
+            StringBuilder buffer = new();
+            buffer.Append('[');
+            buffer.Append(string.Join(",\n", json.Split("\n")));
+            buffer.Append(']');
+            
             return JsonConvert.DeserializeObject<List<PlaylistInfoItem>>(json);
         }
 
-        public static MediaInfoData getMediaData(string url)
+        public static MediaInfoData? GetMediaData(string url)
         {
-            string opts = "-s --no-warnings --no-cache-dir --print-json " + url;
-            var p = CLI.runYouTubeCommand(binPath, opts);
-            p.Start();
-            string json = p.StandardOutput.ReadToEnd().Trim();
+            string json = RunCommand($"-s --no-warnings --no-cache-dir --print-json {url}");
             return JsonConvert.DeserializeObject<MediaInfoData>(json);
         }
 
-        public static string getExtractors()
+        public static string GetExtractors()
         {
-            string opts = "--list-extractors";
-            var p = CLI.runYouTubeCommand(binPath, opts);
-            p.Start();
-            return p.StandardOutput.ReadToEnd().Trim();
+            return RunCommand("--list-extractors");
         }
 
-        public static string getVersion()
+        public static string GetVersion()
         {
-            string opts = "--version";
-            var p = CLI.runYouTubeCommand(binPath, opts);
-            p.Start();
-            return p.StandardOutput.ReadToEnd().Trim();
+            return RunCommand("--version");
         }
 
-        public static string getTitle(string url)
+        public static string GetTitle(string url)
         {
-            string opts = "--get-title " + url;
-            var p = CLI.runYouTubeCommand(binPath, opts);
-            p.Start();
-            return p.StandardOutput.ReadToEnd().Trim();
+            return RunCommand($"--get-title {url}");
+        }
+
+        private static string RunCommand(string paramString)
+        {
+            Process process = CLI.RunYouTubeCommand(binPath, paramString);
+            process.Start();
+            return process.StandardOutput.ReadToEnd().Trim();
         }
     }
 }

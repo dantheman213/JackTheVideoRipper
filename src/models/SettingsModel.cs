@@ -1,35 +1,26 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Environment;
-
-namespace JackTheVideoRipper
+﻿namespace JackTheVideoRipper
 {
     public class SettingsModel
     {
-        public static string dir = String.Format("{0}\\JackTheVideoRipper\\settings", Environment.GetFolderPath(SpecialFolder.CommonApplicationData));
-        public static string filePath = String.Format("{0}\\settings.json", dir);
-        public string defaultDownloadPath { get; set; }
-        public int maxConcurrentDownloads { get; set; }
-        public string lastVersionYouTubeDL { get; set; }
+        public static readonly string Directory = Path.Combine(Common.RootDirectory, "settings");
+        public static readonly string Filepath = Path.Combine(Directory, "settings.json");
+        public string DefaultDownloadPath { get; set; }
+        public int MaxConcurrentDownloads { get; set; }
+        public string LastVersionYouTubeDL { get; set; }
 
         public static bool Exists()
         {
-            return File.Exists(filePath);
+            return File.Exists(Filepath);
         }
 
-        public static SettingsModel generateDefaultSettings()
+        public static SettingsModel GenerateDefaultSettings()
         {
-            var s = new SettingsModel();
-            s.defaultDownloadPath = YouTubeDL.defaultDownloadPath;
-            s.maxConcurrentDownloads = 5;
-            s.lastVersionYouTubeDL = "";
-
-            return s;
+            return new SettingsModel
+            {
+                DefaultDownloadPath = YouTubeDl.DefaultDownloadPath,
+                MaxConcurrentDownloads = 5,
+                LastVersionYouTubeDL = ""
+            };;
         }
     }
 }

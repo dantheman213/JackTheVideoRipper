@@ -102,7 +102,7 @@
             this.chkBoxExportVideo.TabIndex = 19;
             this.chkBoxExportVideo.Text = "Export Video";
             this.chkBoxExportVideo.UseVisualStyleBackColor = true;
-            this.chkBoxExportVideo.CheckedChanged += new System.EventHandler(this.chkBoxExportVideo_CheckedChanged);
+            this.chkBoxExportVideo.CheckedChanged += new System.EventHandler(this.ChkBoxExportVideo_CheckedChanged);
             // 
             // cbVideoEncoder
             // 
@@ -198,7 +198,7 @@
             this.chkBoxExportAudio.TabIndex = 19;
             this.chkBoxExportAudio.Text = "Export Audio";
             this.chkBoxExportAudio.UseVisualStyleBackColor = true;
-            this.chkBoxExportAudio.CheckedChanged += new System.EventHandler(this.chkBoxExportAudio_CheckedChanged);
+            this.chkBoxExportAudio.CheckedChanged += new System.EventHandler(this.ChkBoxExportAudio_CheckedChanged);
             // 
             // label3
             // 
@@ -250,7 +250,7 @@
             this.buttonLocationBrowse.TabIndex = 1;
             this.buttonLocationBrowse.Text = "Browse";
             this.buttonLocationBrowse.UseVisualStyleBackColor = true;
-            this.buttonLocationBrowse.Click += new System.EventHandler(this.buttonLocationBrowse_Click);
+            this.buttonLocationBrowse.Click += new System.EventHandler(this.ButtonLocationBrowse_Click);
             // 
             // textLocation
             // 
@@ -324,7 +324,7 @@
             this.buttonCancel.TabIndex = 24;
             this.buttonCancel.Text = "Cancel";
             this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.buttonCancel_Click);
+            this.buttonCancel.Click += new System.EventHandler(this.ButtonCancel_Click);
             // 
             // buttonDownload
             // 
@@ -334,7 +334,7 @@
             this.buttonDownload.TabIndex = 23;
             this.buttonDownload.Text = "Download";
             this.buttonDownload.UseVisualStyleBackColor = true;
-            this.buttonDownload.Click += new System.EventHandler(this.buttonDownload_Click);
+            this.buttonDownload.Click += new System.EventHandler(this.ButtonDownload_Click);
             // 
             // FrameNewMediaBatch
             // 

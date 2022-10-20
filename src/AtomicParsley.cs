@@ -1,25 +1,13 @@
-﻿using System;
-using System.IO;
-using System.IO.Compression;
-using System.Net;
-using static System.Environment;
-
-namespace JackTheVideoRipper
+﻿namespace JackTheVideoRipper
 {
-    class AtomicParsley
+    internal static class AtomicParsley
     {
-        private static string binName = "AtomicParsley.exe";
-        private static string installPath = String.Format("{0}\\JackTheVideoRipper\\bin", Environment.GetFolderPath(SpecialFolder.CommonApplicationData));
-        private static string binPath = String.Format("{0}\\{1}", installPath, binName);
+        private const string binName = "AtomicParsley.exe";
+        private static readonly string binPath = $"{Common.InstallDirectory}\\{binName}";
 
-        public static bool isInstalled()
+        public static bool IsInstalled()
         {
-            if (File.Exists(binPath))
-            {
-                return true;
-            }
-
-            return false;
+            return File.Exists(binPath);
         }
     }
 }
