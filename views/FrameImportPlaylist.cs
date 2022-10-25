@@ -1,4 +1,6 @@
-﻿namespace JackTheVideoRipper
+﻿using JackTheVideoRipper.extensions;
+
+namespace JackTheVideoRipper
 {
     public partial class FrameImportPlaylist : Form
     {
@@ -17,7 +19,7 @@
         private void buttonImport_Click(object sender, EventArgs e)
         {
             string url = textUrl.Text.Trim();
-            if (string.IsNullOrEmpty(url) || !Common.IsValidUrl(url)) return;
+            if (url.IsNullOrEmpty() || !Common.IsValidUrl(url)) return;
             Url = url;
             DialogResult = DialogResult.OK;
             Close();

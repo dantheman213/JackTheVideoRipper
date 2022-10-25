@@ -1,8 +1,13 @@
-﻿namespace JackTheVideoRipper.models
+﻿using Newtonsoft.Json;
+
+namespace JackTheVideoRipper.models
 {
-    internal class AppVersionModel
+    public class AppVersionModel
     {
-        public string Version { get; set; } = "";
+        [JsonProperty("version")]
+        public string Version { get; set; } = string.Empty;
+        
+        [JsonProperty("is_newer_version_available")]
         public bool IsNewerVersionAvailable { get; set; }
     }
 }

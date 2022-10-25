@@ -1,71 +1,135 @@
-﻿using Newtonsoft.Json;
+﻿using JackTheVideoRipper.extensions;
+using Newtonsoft.Json;
 
 namespace JackTheVideoRipper
 {
-    internal class MediaInfoData
+    public class MediaInfoData
     {
         [JsonProperty("format_id")]
-        public string formatId { get; set; }
-        public string description { get; set; }
-        public string thumbnail { get; set; }
-        public List<MediaFormatItem> formats { get; set; }
+        public string? FormatId { get; set; }
+        
+        [JsonProperty("description")]
+        public string? Description { get; set; }
+        
+        [JsonProperty("thumbnail")]
+        public string? Thumbnail { get; set; }
+        
+        [JsonProperty("formats")]
+        public List<MediaFormatItem> Formats { get; set; } = new();
         
         [JsonProperty("requested_formats")]
-        public List<MediaFormatItem> requestedFormats { get; set; }
+        public List<MediaFormatItem> RequestedFormats { get; set; } = new();
         
         [JsonProperty("like_count")]
-        public string likeCount { get; set; }
+        public string? LikeCount { get; set; }
         
         [JsonProperty("upload_date")]
-        public string uploadDate { get; set; }
+        public string? UploadDate { get; set; }
         
         [JsonProperty("view_count")]
-        public string viewCount { get; set; }
+        public string? ViewCount { get; set; }
         
-        public string duration { get; set; }
+        [JsonProperty("duration")]
+        public string? Duration { get; set; }
         
-        public string fps { get; set; }
+        [JsonProperty("fps")]
+        public string? Fps { get; set; }
         
-        public string uploader { get; set; }
+        [JsonProperty("uploader")]
+        public string? Uploader { get; set; }
         
-        public string title { get; set; }
+        [JsonProperty("title")]
+        public string? Title { get; set; }
         
-        public string format { get; set; }
+        [JsonProperty("format")]
+        public string? Format { get; set; }
         
         [JsonProperty("_filename")]
-        public string filename { get; set; }
+        public string? Filename { get; set; }
+        
+        [JsonIgnore]
+        public IEnumerable<MediaFormatItem> AvailableFormats => RequestedFormats.Take(2).Concat(Formats);
+
+        [JsonIgnore]
+        public MediaPreview MediaPreview => new(this);
     }
 
-    internal class MediaFormatItem
+    public class MediaFormatItem
     {
         [JsonProperty("format_id")]
-        public string formatId { get; set; }
+        public string? FormatId { get; set; }
         
-        public string format { get; set; }
+        [JsonProperty("format")]
+        public string? Format { get; set; }
         
         [JsonProperty("format_note")]
-        public string formateNote { get; set; }
+        public string? FormatNote { get; set; }
         
-        public string ext { get; set; }
+        [JsonProperty("ext")]
+        public string? Ext { get; set; }
         
-        public string vcodec { get; set; }
+        [JsonProperty("vcodec")]
+        public string? VCodec { get; set; }
         
-        public string acodec { get; set; }
+        [JsonProperty("acodec")]
+        public string? ACodec { get; set; }
         
-        public string filesize { get; set; }
+        [JsonProperty("filesize")]
+        public string? Filesize { get; set; }
         
-        public string height { get; set; }
+        [JsonProperty("height")]
+        public string? Height { get; set; }
         
-        public string width { get; set; }
+        [JsonProperty("width")]
+        public string? Width { get; set; }
         
-        public string abr { get; set; } // audio bitrate
+        [JsonProperty("abr")]
+        public string? Abr { get; set; } // audio bitrate
         
-        public string vbr { get; set; } // video bitrate
+        [JsonProperty("vbr")]
+        public string? Vbr { get; set; } // video bitrate
         
-        public string asr { get; set; } // sampling rate
+        [JsonProperty("asr")]
+        public string? Asr { get; set; } // sampling rate
         
-        public string tbr { get; set; } // average bitrate of audio and video in KBit/s
+        [JsonProperty("tbr")]
+        public string? Tbr { get; set; } // average bitrate of audio and video in KBit/s
         
-        public string fps { get; set; }
+        [JsonProperty("fps")]
+        public string? Fps { get; set; }
+        
+        [JsonIgnore]
+        public bool HasVideo => Width.HasValue() && Height.HasValue();
+
+        [JsonIgnore]
+        public bool HasAudio => ACodec.HasValue() && ACodec != Tags.NONE;
+
+        [JsonIgnore]
+        public string Bitrate => Abr.HasValue() ? $"{Abr} kbps" : Tags.DASHES;
+        
+        [JsonIgnore]
+        public string SampleRate => Asr.HasValue() ? $"{Asr} Hz" : Tags.DASHES;
+
+        [JsonIgnore]
+        public string Codec => VCodec.HasValue() && VCodec != Tags.NONE ? VCodec ?? "" : Tags.UNRECOGNIZED_CODEC;
+
+        [JsonIgnore]
+        public string AvgBitrate => Tbr.HasValue() ? $"{Math.Floor(Convert.ToDecimal(Tbr))} k" : Tags.DASHES;
+        
+        [JsonIgnore]
+        public string DisplayFps => Fps.HasValue() ? $"{Fps} fps" : Tags.DASHES;
+
+        [JsonIgnore]
+        public string DisplayNote => FormatNote.HasValue() ? FormatNote ?? "" : Tags.DASHES;
+        
+        public string VideoString()
+        {
+            return $"{Width?.PadRight(4)} x {Height?.PadLeft(4)} / {AvgBitrate.PadRight(7)} / {Ext?.PadRight(5)} / {DisplayNote.PadRight(6)} / {DisplayFps.PadLeft(6)} {Codec}";
+        }
+
+        public string AudioString()
+        {
+            return $"{Bitrate.PadRight(9)} / {SampleRate.PadLeft(8)} / {Ext?.PadRight(5)} / {ACodec}";
+        }
     }
 }

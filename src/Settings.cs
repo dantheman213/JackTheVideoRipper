@@ -1,8 +1,9 @@
 ﻿using static JackTheVideoRipper.SettingsModel;
+using static JackTheVideoRipper.FileSystem;
 
 namespace JackTheVideoRipper
 {
-    internal class Settings
+    internal static class Settings
     {
         public static SettingsModel Data { get; set; }
 
@@ -10,18 +11,18 @@ namespace JackTheVideoRipper
         {
             if (!Exists())
                 return;
-            Common.WriteJsonToFile(Filepath, Data);
+            WriteJsonToFile(Filepath, Data);
         }
 
         public static void Load()
         {
             if (!Exists())
             {
-                System.IO.Directory.CreateDirectory(SettingsModel.Directory);
-                Common.WriteJsonToFile(Filepath, GenerateDefaultSettings());
+                CreateFolder(SettingsModel.Directory);
+                WriteJsonToFile(Filepath, GenerateDefaultSettings());
             }
 
-            Data = Common.GetObjectFromJsonFile<SettingsModel>(Filepath) ?? GenerateDefaultSettings();
+            Data = GetObjectFromJsonFile<SettingsModel>(Filepath) ?? GenerateDefaultSettings();
         }
     }
 }

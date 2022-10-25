@@ -1,22 +1,26 @@
-﻿namespace JackTheVideoRipper
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.models.enums;
+
+namespace JackTheVideoRipper
 {
     public partial class FrameNewMediaBatch : Form
     {
-        private readonly string startUrls;
-        public string urls;
-        public string type;
+        private readonly string _startUrls;
+        
+        public string Urls;
+        public MediaType Type;
 
-        public readonly List<DownloadMediaItem> items = new();
+        public readonly List<DownloadMediaItem> Items = new();
 
         public FrameNewMediaBatch(string? urls = "")
         {
             InitializeComponent();
             
-            if (string.IsNullOrEmpty(urls))
+            if (urls.IsNullOrEmpty())
                 return;
             
             // make sure any copy pasting from other sources still has proper windows newlines
-            startUrls = urls.Replace("\r", "").Replace("\n", "\r\n");
+            _startUrls = urls.Replace("\r", string.Empty).Replace("\n", "\r\n");
         }
 
         private void ButtonCancel_Click(object sender, EventArgs e)
@@ -26,9 +30,9 @@
 
         private void FrameNewMediaBatch_Load(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(startUrls))
+            if (_startUrls.HasValue())
             {
-                textUrls.Text = startUrls;
+                textUrls.Text = _startUrls;
             }
 
             textLocation.Text = Settings.Data.DefaultDownloadPath;
@@ -42,8 +46,8 @@
 
         private void ButtonDownload_Click(object sender, EventArgs e)
         {
-            urls = textUrls.Text.Trim();
-            if (string.IsNullOrWhiteSpace(urls))
+            Urls = textUrls.Text.Trim();
+            if (Urls.IsNullOrEmpty())
                 return;
             
             switch (chkBoxExportVideo.Checked)
@@ -53,11 +57,11 @@
                 case true when !chkBoxExportAudio.Checked:
                     // video and audio
                     // TODO: fix
-                    type = "video"; // TODO: +audio"; ?
+                    Type = MediaType.Video; // TODO: +audio"; ?
                     break;
                 case false when chkBoxExportAudio.Checked:
                     // audio only
-                    type = "audio";
+                    Type = MediaType.Audio;
                     break;
             }
 
@@ -67,33 +71,33 @@
 
             string filePathTemplate = $"{textLocation.Text.Trim()}\\%(title)s.%(ext)s";
 
-            foreach(string url in urls.Replace("\r", "").Split('\n'))
+            foreach(string url in Urls.Replace("\r", string.Empty).Split('\n'))
             {
                 if (!Common.IsValidUrl(url))
                 {
                     MessageBox.Show($@"Invalid URL detected: {url}", "Invalid URL", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    items.Clear();
+                    Items.Clear();
                     return;
                 }
 
                 // TODO: improve
-                // string opts = String.Format("-f bestvideo+bestaudio/best {2} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {2} {3} -o {4} {5}", (cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : ""), (chkBoxWriteMetadata.Checked ? "--add-metadata" : ""), (chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : ""), (chkBoxIncludeAds.Checked ? "--include-ads" : ""), FrameMain.settings.defaultDownloadPath + "\\%(title)s.%(ext)s", url);
+                // string opts = String.Format("-f bestvideo+bestaudio/best {2} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {2} {3} -o {4} {5}", (cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : string.Empty), (chkBoxWriteMetadata.Checked ? "--add-metadata" : string.Empty), (chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : string.Empty), (chkBoxIncludeAds.Checked ? "--include-ads" : string.Empty), FrameMain.settings.defaultDownloadPath + "\\%(title)s.%(ext)s", url);
 
                 string opts = chkBoxExportVideo.Checked switch
                 {
                     true when chkBoxExportAudio.Checked =>
-                        $"-f {videoFormat}+{audioFormat}/best {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : "")} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : "")} {(chkBoxWriteMetadata.Checked ? "--add-metadata" : "")} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : "")} {(chkBoxIncludeAds.Checked ? "--include-ads" : "")} -o {filePathTemplate} {url}",
+                        $"-f {videoFormat}+{audioFormat}/best {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : string.Empty)} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : string.Empty)} {(chkBoxWriteMetadata.Checked ? "--add-metadata" : string.Empty)} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : string.Empty)} {(chkBoxIncludeAds.Checked ? "--include-ads" : string.Empty)} -o {filePathTemplate} {url}",
                     true when !chkBoxExportAudio.Checked =>
-                        $"-f {videoFormat} {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : "")} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(chkBoxWriteMetadata.Checked ? "--add-metadata" : "")} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : "")} {(chkBoxIncludeAds.Checked ? "--include-ads" : "")} -o {filePathTemplate} {url}",
+                        $"-f {videoFormat} {(cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0 ? "--recode-video " + cbVideoEncoder.Text.Trim() : string.Empty)} -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(chkBoxWriteMetadata.Checked ? "--add-metadata" : string.Empty)} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : string.Empty)} {(chkBoxIncludeAds.Checked ? "--include-ads" : string.Empty)} -o {filePathTemplate} {url}",
                     false when chkBoxExportAudio.Checked =>
-                        $"-f {audioFormat} -x --audio-format {cbAudioEncoder.Text.Trim()} --audio-quality 0 -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(chkBoxWriteMetadata.Checked ? "--add-metadata" : "")} {(chkBoxIncludeAds.Checked ? "--include-ads" : "")} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : "")} -o {filePathTemplate} {url}",
-                    _ => ""
+                        $"-f {audioFormat} -x --audio-format {cbAudioEncoder.Text.Trim()} --audio-quality 0 -i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames {(chkBoxWriteMetadata.Checked ? "--add-metadata" : string.Empty)} {(chkBoxIncludeAds.Checked ? "--include-ads" : string.Empty)} {(chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : string.Empty)} -o {filePathTemplate} {url}",
+                    _ => string.Empty
                 };
 
-                items.Add(new DownloadMediaItem
+                Items.Add(new DownloadMediaItem
                 {
-                    Title = "",
-                    FilePath = "",
+                    Title = string.Empty,
+                    Filepath = string.Empty,
                     Parameters = opts,
                     Url = url
                 });

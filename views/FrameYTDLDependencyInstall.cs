@@ -11,7 +11,7 @@
         {
             Application.DoEvents();
 
-            YouTubeDl.DownloadAndInstall();
+            YouTubeDL.DownloadAndInstall();
             Close();
         }
 

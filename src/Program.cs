@@ -21,7 +21,7 @@
                 }
                 else
                 {
-                    MessageBox.Show("Application already running!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(@"Application already running!", @"Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
         }

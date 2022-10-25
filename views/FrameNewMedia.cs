@@ -1,48 +1,298 @@
-﻿using JackTheVideoRipper.Properties;
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.models;
+using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.Properties;
 
 namespace JackTheVideoRipper
 {
     public partial class FrameNewMedia : Form
     {
-        public string Title;
-        public string Type;
-        public string Url;
-        public string Parameters;
-        public string Filepath;
+        #region Data Members
 
-        private string startType;
-        private string? lastValidUrl;
-        private Dictionary<string, string> videoIdLookupTable = new();
-        private Dictionary<string, string> audioIdLookupTable = new();
+        public MediaItemRow MediaItemRow = new();
 
-        private const string Dashes = "---";
+        private readonly MediaType _startType;
+        private string? _lastValidUrl;
 
-        public FrameNewMedia(string type)
+        private readonly List<Task<bool>> _taskTypeQueue = new();
+        
+        private readonly FormatManager _formatManager = new();
+
+        #endregion
+
+        #region Properties
+
+        private bool FormatVideo => cbVideoFormat.Enabled && cbVideoEncoder.SelectedIndex > 0;
+
+        private bool FormatAudio => cbAudioEncoder.Enabled && cbAudioEncoder.SelectedIndex > 0;
+        
+        private bool IsValidVideo => VideoExtension != "mp4";
+
+        private bool IsValidAudio => AudioExtension != "mp3" && AudioExtension != "m4a";
+        
+        private bool ShouldUpdateAudio => ExportAudio && !FormatVideo;
+        
+        private string Filename => FileSystem.GetFilename(Filepath);
+
+        #endregion
+
+        #region Form Element Accessors
+
+        private string Title
         {
-            startType = type;
+            get => labelTitle.Text.Trim();
+            set => labelTitle.Text = value;
+        }
+
+        private string Url
+        {
+            get => textUrl.Text.Trim();
+            set => textUrl.Text = value;
+        }
+
+        private string Filepath
+        {
+            get => textLocation.Text.Trim();
+            set => textLocation.Text = value;
+        }
+
+        private string Description
+        {
+            get => labelDescription.Text.Trim();
+            set => labelDescription.Text = value;
+        }
+        
+        private bool ExportAudio
+        {
+            get => chkBoxExportAudio.Checked;
+            set => chkBoxExportAudio.Checked = value;
+        }
+        
+        private bool ExportVideo
+        {
+            get => chkBoxExportVideo.Checked;
+            set => chkBoxExportVideo.Checked = value;
+        }
+
+        private string AudioEncoder => cbAudioEncoder.Text.Trim();
+
+        private string VideoEncoder => cbVideoEncoder.Text.Trim();
+
+        private string AudioFormat => cbAudioFormat.Text.Trim();
+
+        private string VideoFormat => cbVideoFormat.Text.Trim();
+
+        private string AudioExtension => cbAudioEncoder.Text.Trim();
+        
+        private string VideoExtension => cbVideoEncoder.Text.Trim();
+        
+        private ComboBox.ObjectCollection VideoFormatItems => cbVideoFormat.Items;
+        private ComboBox.ObjectCollection AudioFormatItems => cbAudioFormat.Items;
+        
+        private string Username => textUsername.Text;
+
+        private string Password => textPassword.Text;
+        
+        private bool WriteMetaData => chkBoxWriteMetadata.Checked;
+
+        private bool IncludeAds => chkBoxIncludeAds.Checked;
+        
+        private bool EmbedThumbnail => chkBoxEmbedThumbnail.Checked;
+
+        private bool EmbedSubtitles => chkEmbedSubs.Checked;
+
+        private string VideoFormatId => _formatManager.GetVideoFormatId(VideoFormat);
+        
+        private string AudioFormatId => _formatManager.GetAudioFormatId(AudioFormat);
+        
+        #endregion
+
+        public FrameNewMedia(MediaType type)
+        {
+            _startType = type;
             InitializeComponent();
         }
 
-        private void FrameNewMedia_Load(object sender, EventArgs e)
+        private void AddVideoFormats()
         {
-            if (startType == "audio")
+            VideoFormatItems.AddRange(_formatManager.GetVideoFormatRows().ToArray<object>());
+            
+            if (VideoFormatItems.Count < 2)
+                VideoFormatItems.Add("(no video metadata could be extracted)");
+            
+            cbVideoFormat.SelectedIndex = cbVideoEncoder.Items.Count > 0 ? 0 : 1;
+        }
+
+        private void AddAudioFormats()
+        {
+            AudioFormatItems.AddRange(_formatManager.GetAudioFormatRows().ToArray<object>());
+            
+            if (AudioFormatItems.Count < 2)
+                AudioFormatItems.Add("(no audio metadata could be extracted)");
+            
+            cbAudioFormat.SelectedIndex = cbAudioEncoder.Items.Count > 0 ? 0 : 1;
+        }
+
+        private void UpdateFormatViewItems()
+        {
+            AddVideoFormats();
+
+            AddAudioFormats();
+        }
+
+        private void IngestMediaUrl()
+        {
+            try { RetrieveMetadata(Url); }
+            catch (Exception ex)
             {
-                chkBoxExportVideo.Checked = false;
+                Console.WriteLine(ex);
+                Modals.Error(@"Unable to retrieve metadata!");
             }
         }
 
-        private readonly List<Task<bool>> _taskTypeQueue = new();
-        private async void TextUrl_TextChanged(object sender, EventArgs e)
+        private bool ValidateUrl(string url)
+        {
+            if (url == _lastValidUrl || !Common.IsValidUrl(url))
+                return false;
+            
+            _lastValidUrl = url;
+
+            return true;
+        }
+
+        private void RetrieveMetadata(string url)
+        {
+            if (!Common.IsValidUrl(url))
+                return;
+            
+            FrameCheckMetadata frameCheckMetadata = new();
+            
+            Enabled = false;
+            
+            frameCheckMetadata.Show();
+            Application.DoEvents();
+
+            ExtractMediaInfo(url);
+            
+            frameCheckMetadata.Close();
+            Enabled = true;
+        }
+
+        private void ClearFormatItems()
+        {
+            VideoFormatItems.Clear();
+            AudioFormatItems.Clear();
+        }
+        
+        public void ExtractMediaInfo(string url)
+        {
+            // Meta data lookup failed (happens on initial lookup)
+            if (YouTubeDL.GetMediaData(url) is not { } info)
+                return;
+
+            if (info.Formats is {Count: > 0})
+                RefreshFormatViews(info);
+
+            UpdateMediaPreview(info.MediaPreview);
+        }
+
+        private void RefreshFormatViews(MediaInfoData mediaInfoData)
+        {
+            ClearFormatItems();
+            _formatManager.UpdateAvailableFormats(mediaInfoData);
+            UpdateFormatViewItems();
+        }
+
+        private void UpdateMediaPreview(MediaPreview mediaPreview)
+        {
+            pbPreview.ImageLocation = mediaPreview.ThumbnailFilepath;
+            Title = mediaPreview.Title;
+            Description = mediaPreview.Description;
+            Filepath = mediaPreview.MediaFilepath;
+        }
+
+        private void CopyUrlToClipboard()
+        {
+            string clipboard = FileSystem.GetClipboardData();
+            if (!Common.IsValidUrl(clipboard)) 
+                return;
+            Url = clipboard;
+        }
+
+        private void UpdateFormat(string formatExtension)
+        {
+            Filepath = $"{Filename}{formatExtension.Split('/')[2].Trim()}";
+        }
+
+        private bool ValidateMedia()
+        {
+            if (!EmbedThumbnail)
+                return true;
+            
+            if (FormatVideo && IsValidVideo)
+            {
+                Modals.Error(Resources.InvalidVideo);
+                return false;
+            }
+            
+            if (FormatAudio && IsValidAudio)
+            {
+                Modals.Error(Resources.InvalidAudio);
+                return false;
+            }
+
+            return true;
+        }
+
+        private void GenerateDownloadCommand()
+        {
+            ValidateMedia();
+
+            GenerateMediaItemRow();
+        }
+
+        private void GenerateMediaItemRow()
+        {
+            MediaItemRow = new MediaItemRow
+            {
+                Url = Url,
+                Filepath = Filepath,
+                Type = ExportVideo ? MediaType.Video : MediaType.Audio,
+                Title = Title,
+                Parameters = new Parameters
+                {
+                    MediaSourceUrl = Url,
+                    FilenameFormatted = Filepath,
+                    Username = Username,
+                    Password = Password,
+                    EncodeVideo = FormatVideo,
+                    AddMetaData = WriteMetaData,
+                    IncludeAds = IncludeAds,
+                    EmbedThumbnail = EmbedThumbnail,
+                    EmbedSubs = EmbedSubtitles,
+                    ExportAudio = ExportAudio,
+                    ExportVideo = ExportVideo,
+                    AudioFormat = AudioExtension,
+                    VideoFormat = VideoExtension,
+                    VideoFormatId = VideoFormatId,
+                    AudioFormatId = AudioFormatId
+                }
+            };
+        }
+
+        private const int _TYPING_PING = 1800;
+        
+        private async void WaitForFinishTyping()
         {
             async Task<bool> IsStillTyping()
             {
                 Application.DoEvents();
 
                 int taskCount = _taskTypeQueue.Count;
-                string oldStr = textUrl.Text;
-                await Task.Delay(1800);
+                string oldStr = Url;
+                await Task.Delay(_TYPING_PING);
 
-                return oldStr != textUrl.Text || taskCount != _taskTypeQueue.Count - 1;
+                return oldStr != Url || taskCount != _taskTypeQueue.Count - 1;
             }
 
             _taskTypeQueue.Add(IsStillTyping());
@@ -51,213 +301,38 @@ namespace JackTheVideoRipper
 
             // typing appears to have stopped, continue
             _taskTypeQueue.Clear();
-            IngestMediaUrl();
         }
-
-        private void IngestMediaUrl()
+        
+        private void ToggleVideo(bool enabled)
         {
-            FrameCheckMetadata frameCheckMetadata = new();
-            try
-            {
-                string url = textUrl.Text.Trim();
-                if (url != lastValidUrl && Common.IsValidUrl(url))
-                {
-                    lastValidUrl = url;
-
-                    Enabled = false;
-                    frameCheckMetadata.Show();
-                    Application.DoEvents();
-
-                    MediaInfoData? info = YouTubeDl.GetMediaData(url);
-
-                    // Meta data lookup failed (happens on initial lookup)
-                    if (info is null)
-                        return;
-
-                    string? thumbnailFilePath = YouTubeDl.DownloadThumbnail(info.thumbnail);
-                    pbPreview.ImageLocation = thumbnailFilePath;
-                  
-                    labelTitle.Text = info.title;
-                    labelDescription.Text = info.description;
-                    // TODO: may need to be revised now that using --restrict-filenames flag in youtube-dl
-
-                    string filename =
-                        $@"{Common.StripIllegalFileNameChars(info.filename[..info.filename.LastIndexOf('.')])}{info.filename[info.filename.LastIndexOf('.')..]}";
-
-                    textLocation.Text = Path.Combine(Settings.Data.DefaultDownloadPath, filename);
-
-                    if (info.formats is { Count: > 0 })
-                    {
-                        cbVideoFormat.Items.Clear();
-                        cbAudioFormat.Items.Clear();
-
-                        if (info.requestedFormats is { Count: > 0 })
-                        {
-                            info.formats.Insert(0, info.requestedFormats[0]);
-
-                            if (info.requestedFormats.Count > 1)
-                            {
-                                info.formats.Insert(0, info.requestedFormats[1]);
-                            }
-                        }
-
-                        string recommendedVideoFormat = "";
-                        string recommendedAudioFormat = "";
-                        List<string> videoFormatList = new();
-                        List<string> audioFormatList = new();
-                        videoIdLookupTable = new Dictionary<string, string>();
-                        audioIdLookupTable = new Dictionary<string, string>();
-
-                        foreach (MediaFormatItem format in info.formats)
-                        {
-                            if (!string.IsNullOrEmpty(format.width) && !string.IsNullOrEmpty(format.height))
-                            {
-                                string codec = !string.IsNullOrEmpty(format.vcodec) && format.vcodec != "none" ? 
-                                    format.vcodec : "unrecognized codec";
-                                string tbr = !string.IsNullOrEmpty(format.tbr) ? 
-                                    Math.Floor(Convert.ToDecimal(format.tbr)) + "k" : Dashes; // rounds down
-                                string fps = !string.IsNullOrEmpty(format.fps) ? 
-                                    format.fps + "fps" : Dashes;
-                                string note = !string.IsNullOrEmpty(format.formateNote) ? 
-                                    format.formateNote : Dashes;
-                                string str =
-                                    $"{format.width.PadRight(4)} x {format.height.PadLeft(4)} / {tbr.PadRight(7)} / {format.ext.PadRight(5)} / {note.PadRight(6)} / {fps.PadLeft(6)} {codec}";
-
-                                if (info.requestedFormats != null && string.IsNullOrEmpty(recommendedVideoFormat))
-                                {
-                                    str = $"{str} [Recommended]";
-                                    recommendedVideoFormat = str;
-                                }
-                                else
-                                {
-                                    videoFormatList.Add(str);
-                                }
-
-                                if (!videoIdLookupTable.ContainsKey(str))
-                                {
-                                    videoIdLookupTable.Add(str, format.formatId);
-                                }
-                            }
-
-                            if (!string.IsNullOrEmpty(format.acodec) && format.acodec != "none")
-                            {
-                                string bitrate = string.IsNullOrEmpty(format.abr) ? Dashes : format.abr + " kbps";
-                                string sampleRate = string.IsNullOrEmpty(format.asr) ? Dashes : format.asr + "Hz";
-                                string str =
-                                    $"{bitrate.PadRight(9)} / {sampleRate.PadLeft(8)} / {format.ext.PadRight(5)} / {format.acodec}";
-
-                                if (info.requestedFormats != null && string.IsNullOrEmpty(recommendedAudioFormat))
-                                {
-                                    str = $"{str} [Recommended]";
-                                    recommendedAudioFormat = str;
-                                }
-                                else
-                                {
-                                    audioFormatList.Add(str);
-                                }
-
-                                if (!audioIdLookupTable.ContainsKey(str))
-                                {
-                                    audioIdLookupTable.Add(str, format.formatId);
-                                }
-                            }
-                        }
-
-                        cbVideoFormat.Items.Add("Resolution / Bitrate / Format / Type / Additional Info");
-                        if (!string.IsNullOrEmpty(recommendedVideoFormat))
-                        {
-                            cbVideoFormat.Items.Add(recommendedVideoFormat);
-                        }
-
-                        //try
-                        //{
-                            // attempt to sort by bitrate but not sure it's necessary
-                            //videoFormatList.Sort((x, y) => Int32.Parse(Common.RemoveAllNonNumericValuesFromString(x.Trim().Split('/')[0].Trim()))
-                            //                    .CompareTo(Int32.Parse(Common.RemoveAllNonNumericValuesFromString(y.Trim().Split('/')[1].Trim()))
-                            //                ));
-                        //}
-                        //catch (FormatException ex)
-                        //{
-                        //    Console.WriteLine(ex);
-                        //}
-                        videoFormatList.Reverse(); // TODO: optimize this out
-                        foreach (string item in videoFormatList)
-                        {
-                            cbVideoFormat.Items.Add(item);
-                        }
-
-                        // audio
-                        cbAudioFormat.Items.Add("Bitrate / Sample Rate / Format / Codec");
-
-                        if (!string.IsNullOrEmpty(recommendedAudioFormat))
-                        {
-                            cbAudioFormat.Items.Add(recommendedAudioFormat);
-                        }
-
-                        try
-                        {
-                            audioFormatList.Sort((x, y) => double.Parse(x.Trim().Split(' ')[0])
-                                .CompareTo(double.Parse(y.Trim().Split(' ')[0])));
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(ex);
-                        }
-
-                        audioFormatList.Reverse(); // TODO: optimize this out
-
-                        foreach (string item in audioFormatList)
-                        {
-                            cbAudioFormat.Items.Add(item);
-                        }
-
-                        if (cbVideoFormat.Items.Count < 2)
-                        {
-                            cbVideoFormat.Items.Add("(no video metadata could be extracted)");
-                        }
-                        cbVideoFormat.SelectedIndex = 1;
-                        if (cbAudioFormat.Items.Count < 2)
-                        {
-                            cbAudioFormat.Items.Add("(no audio metadata could be extracted)");
-                        }
-                        cbAudioFormat.SelectedIndex = 1;
-
-                        // -- 
-                        if (cbVideoEncoder.Items.Count > 0)
-                        {
-                            cbVideoEncoder.SelectedIndex = 0;
-                        }
-                        if (cbAudioEncoder.Items.Count > 0)
-                        {
-                            cbAudioEncoder.SelectedIndex = 0;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                MessageBox.Show(@"Unable to detect metadata!", @"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-            frameCheckMetadata.Close();
-            Enabled = true;
+            cbVideoFormat.Enabled = enabled;
+            cbVideoEncoder.Enabled = enabled;
+            cbAudioEncoder.Enabled = !enabled;
         }
+        
+        private void ToggleAudio(bool enabled)
+        {
+            cbAudioFormat.Enabled = enabled;
+            cbAudioEncoder.Enabled = enabled && !ExportVideo;
+            cbVideoEncoder.Enabled = !enabled || ExportVideo;
+        }
+
+        #region Timer Events
 
         private void TimerPostLoad_Tick(object sender, EventArgs e)
         {
             timerPostLoad.Enabled = false;
-
-            string clipboard = Clipboard.GetText().Trim();
-            if (!Common.IsValidUrl(clipboard)) 
-                return;
-            textUrl.Text = clipboard;
+            CopyUrlToClipboard();
             TextUrl_TextChanged(sender, e);
         }
 
+        #endregion
+
+        #region Event Handlers
+        
         private void ButtonDownload_Click(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(textUrl.Text.Trim()))
+            if (Url.HasValue())
             {
                 GenerateDownloadCommand();
                 DialogResult = DialogResult.OK;
@@ -277,237 +352,125 @@ namespace JackTheVideoRipper
 
         private void ButtonLocationBrowse_Click(object sender, EventArgs e)
         {
-            if (textUrl.Text.Trim() == "" || textLocation.Text.Trim() == "") 
+            if (Url.IsNullOrEmpty() || Filepath.IsNullOrEmpty()) 
                 return;
 
-            string? dir = textLocation.Text[..textLocation.Text.LastIndexOf("\\", StringComparison.Ordinal)];
-            string? fileName = textLocation.Text[(textLocation.Text.LastIndexOf("\\", StringComparison.Ordinal) + 1)..];
-            string? ext = fileName[(fileName.LastIndexOf(".", StringComparison.Ordinal) + 1)..];
+            if (FileSystem.SaveCopy(Filepath) is { } result && result.HasValue())
+                Filepath = result;
+        }
+        
+        private void FrameNewMedia_Load(object sender, EventArgs e)
+        {
+            if (_startType == MediaType.Audio)
+                ExportVideo = false;
+        }
 
-            SaveFileDialog saveFileDialog = new()
-            {
-                InitialDirectory = dir, // FrameMain.settings.defaultDownloadPath;      
-                FileName = fileName,
-                Filter = $@"{ext} file|*.{ext}|All files (*.*)|*.*"
-            };
+        private async void TextUrl_TextChanged(object sender, EventArgs e)
+        {
+            WaitForFinishTyping();
 
-            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            if (!ValidateUrl(Url))
+                return;
+            
+            IngestMediaUrl();
+
+            if (File.Exists(Filepath))
             {
-                textLocation.Text = saveFileDialog.FileName;
+                Modals.Confirmation("It looks like this file has already been downloaded, overwrite it?",
+                    "Warning: File Already Exists");
             }
         }
 
         private void ChkBoxExportAudio_CheckedChanged(object sender, EventArgs e)
         {
-            switch (chkBoxExportAudio.Checked)
+            if (!ExportAudio && !ExportVideo)
+                ExportAudio = true;
+            
+            if (ExportAudio)
             {
-                case false when !chkBoxExportVideo.Checked:
-                    chkBoxExportAudio.Checked = true;
-                    break;
-                case true when !chkBoxExportVideo.Checked:
-                    cbAudioEncoder.Enabled = true;
-                    break;
-                case true:
-                    cbAudioFormat.Enabled = true;
-                    CbAudioEncoder_TextChanged(sender, e); // TODO: fix
-                    break;
-                default:
-                    cbAudioFormat.Enabled = false;
-                    cbAudioEncoder.Enabled = false;
-                    break;
+                ToggleAudio(true);
+                CbAudioEncoder_TextChanged(sender, e); // TODO: fix
+            }
+            else
+            {
+                ToggleAudio(false);
             }
         }
 
         private void ChkBoxExportVideo_CheckedChanged(object sender, EventArgs e)
         {
-            if (!chkBoxExportVideo.Checked && !chkBoxExportAudio.Checked)
-            {
-                chkBoxExportVideo.Checked = true;
-            }
+            // We must export one of the two
+            if (!ExportVideo && !ExportAudio)
+                ExportVideo = true;
 
-            if (chkBoxExportVideo.Checked)
+            if (ExportVideo)
             {
-                cbVideoFormat.Enabled = true;
-                cbVideoEncoder.Enabled = true;
-                cbAudioEncoder.Enabled = false;
+                ToggleVideo(true);
                 CbVideoEncoder_TextChanged(sender, e); // TODO: fix
             }
             else
             {
-                cbVideoFormat.Enabled = false;
-                cbVideoEncoder.Enabled = false;
-                cbAudioEncoder.Enabled = true;
-
+                ToggleVideo(false);
                 tabImportType.SelectedTab = tabPageAudio;
             }
         }
 
-        private string GetFilename(string filepath)
-        {
-            return filepath[..(filepath.LastIndexOf('.') + 1)];
-        }
-
         private void CbVideoEncoder_TextChanged(object sender, EventArgs e)
         {
-            if (IgnoreTextChanged) 
+            if (!FormatVideo) 
                 return;
-            string filePath = textLocation.Text.Trim();
-            filePath = $"{GetFilename(filePath)}{cbVideoEncoder.Text.Trim()}";
-            textLocation.Text = filePath;
-        }
-        
-        private bool IgnoreTextChanged => !cbVideoFormat.Enabled || cbVideoEncoder.SelectedIndex <= 0;
-
-        private void SetText(string text)
-        {
-            string filePath = textLocation.Text.Trim();
-            filePath = $"{GetFilename(filePath)}{text.Split('/')[2].Trim()}";
-            textLocation.Text = filePath;
+            Filepath = $"{Filename}.{VideoExtension}";
         }
         
         private void CbVideoFormat_TextChanged(object sender, EventArgs e)
         {
-            if (IgnoreTextChanged) 
+            if (!FormatVideo) 
                 return;
-            
-            try
-            {
-                SetText(cbVideoFormat.Text);
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex);
-            }
+            UpdateFormat(VideoFormat);
         }
 
         private void CbAudioFormat_TextChanged(object sender, EventArgs e)
         {
-            if (chkBoxExportVideo.Checked || IgnoreTextChanged) 
+            if (ShouldUpdateAudio) 
                 return;
-            
-            try
-            {
-                SetText(cbAudioFormat.Text);
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex);
-            }
+            UpdateFormat(AudioFormat);
         }
 
         private void CbAudioEncoder_TextChanged(object sender, EventArgs e)
         {
-            if (chkBoxExportVideo.Checked || IgnoreTextChanged)
+            if (ShouldUpdateAudio)
                 return;
-            string filePath = textLocation.Text.Trim();
-            filePath = $"{GetFilename(filePath)}{cbAudioEncoder.Text.Trim()}";
-            textLocation.Text = filePath;
+            Filepath = $"{Filename}.{AudioExtension}";
         }
-
+        
         private void ButtonGetCommand_Click(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(textUrl.Text.Trim()))
+            if (Url.HasValue())
             {
                 GenerateDownloadCommand();
                 
-                Clipboard.SetText($"{YouTubeDl.binPath} {Parameters}");
+                FileSystem.SetClipboardData($"{YouTubeDL.binPath} {MediaItemRow.ParameterString}");
 
-                MessageBox.Show(@"Command copied to clipboard!", @"Generate Command", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Modals.Notification(@"Command copied to clipboard!", @"Generate Command");
             }
             else
             {
                 // TODO?
             }
         }
-
-        private bool IsValidVideo => !IgnoreTextChanged && cbVideoEncoder.Text.Trim() != "mp4";
-
-        private bool IsValidAudio => cbAudioEncoder.Enabled && cbAudioEncoder.SelectedIndex > 0 &&
-                                     cbAudioEncoder.Text.Trim() != "mp3" && cbAudioEncoder.Text.Trim() != "m4a";
-
-        private void GenerateDownloadCommand()
-        {
-            Url = textUrl.Text.Trim();
-            Filepath = textLocation.Text.Trim();
-
-            if (chkBoxEmbedThumbnail.Checked)
-            {
-                if (IsValidVideo)
-                {
-                    MessageBox.Show(Resources.InvalidVideo, @"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-                if (IsValidAudio)
-                {
-                    MessageBox.Show(Resources.InvalidAudio, @"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-            }
-
-            if (!videoIdLookupTable.TryGetValue(cbVideoFormat.Text, out string? videoFormatId))
-                return;
-            
-            if (!audioIdLookupTable.TryGetValue(cbAudioFormat.Text, out string? audioFormatId))
-                return;
-
-            GenerateCommand(videoFormatId, audioFormatId);
-
-            Title = labelTitle.Text.Trim();
-        }
-
-        private void GenerateCommand(string videoFormatId, string audioFormatId)
-        {
-            int k = Filepath.LastIndexOf('.');
-            string fileNameFormatted = Filepath;
-            if (k > -1)
-            {
-                fileNameFormatted = Filepath[..k];
-            }
-            string filePathTemplate = $"{fileNameFormatted}.%(ext)s"; // youtube-dl doesn't like it when you provide --audio-format and extension in -o together
-            string optAuth = "";
-            if (!string.IsNullOrEmpty(textUsername.Text) && !string.IsNullOrEmpty(textPassword.Text))
-            {
-                optAuth = $"--username {textUsername.Text} --password {textPassword.Text}";
-            }
-            string optEncode = !IgnoreTextChanged ? "--recode-video " + cbVideoEncoder.Text.Trim() : "";
-            string optMetadata = chkBoxWriteMetadata.Checked ? "--add-metadata" : "";
-            string optAds = chkBoxIncludeAds.Checked ? "--include-ads" : "";
-            string optEmbedThumbnail = chkBoxEmbedThumbnail.Checked ? "--embed-thumbnail" : "";
-            string optEmbedSubs = chkEmbedSubs.Checked ? "--embed-subs" : "";
-            const string optGeneral = "-i --no-check-certificate --prefer-ffmpeg --no-warnings --restrict-filenames";
-            switch (chkBoxExportVideo.Checked)
-            {
-                case true when chkBoxExportAudio.Checked:
-                case true when !chkBoxExportAudio.Checked:
-                    // video and audio
-                    // TODO: split video/audio and video only
-                    Parameters =
-                        $"-f {videoFormatId}+{audioFormatId}/best {optEncode} {optGeneral} {optMetadata} {optEmbedThumbnail} {optEmbedSubs} {optAds} {optAuth} -o {filePathTemplate} {Url}";
-                    Type = "video"; // TODO: +audio"; ?
-                    break;
-                case false when chkBoxExportAudio.Checked:
-                    // audio only
-                    Parameters =
-                        $"-f {audioFormatId} -x --audio-format {cbAudioEncoder.Text.Trim()} --audio-quality 0 {optGeneral} {optMetadata} {optAds} -o {optAds} {filePathTemplate}";
-                    Type = "audio";
-                    break;
-            }
-        }
-
+        
         private void CbVideoFormat_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (cbVideoFormat.SelectedIndex == 0)
-            {
                 cbVideoFormat.SelectedIndex = 1;
-            }
         }
 
         private void CbAudioFormat_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (cbAudioFormat.SelectedIndex == 0)
-            {
                 cbAudioFormat.SelectedIndex = 1;
-            }
         }
+
+        #endregion
     }
 }

@@ -1,10 +1,19 @@
-﻿namespace JackTheVideoRipper
+﻿using Newtonsoft.Json;
+
+namespace JackTheVideoRipper
 {
     public class DownloadMediaItem
     {
-        public string Title { get; set; }
-        public string Url { get; set; }
-        public string Parameters { get; set; }
-        public string FilePath { get; set; }
+        [JsonProperty("title")]
+        public string? Title { get; set; }
+        
+        [JsonProperty("url")]
+        public string? Url { get; set; }
+        
+        [JsonProperty("parameters")]
+        public string? Parameters { get; set; }
+        
+        [JsonProperty("filepath")]
+        public string? Filepath { get; set; }
     }
 }

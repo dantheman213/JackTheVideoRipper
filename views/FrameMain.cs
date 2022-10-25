@@ -1,16 +1,13 @@
-﻿using System.Text.RegularExpressions;
+﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models;
-using JackTheVideoRipper.Properties;
+using JackTheVideoRipper.models.enums;
 using Timer = System.Threading.Timer;
 
 namespace JackTheVideoRipper
 {
     public partial class FrameMain : Form
     {
-        private static readonly Dictionary<string, ProcessUpdateRow> _ProcessUpdates = new();
-
-        private static readonly Queue<ProcessUpdateRow> ProcessQueue = new();
-        private static readonly HashSet<ProcessUpdateRow> FinishedProcesses = new();
+        private readonly ProcessPool ProcessPool;
 
         private static Timer? _listItemRowsUpdateTimer;
         
@@ -22,245 +19,295 @@ namespace JackTheVideoRipper
         
         private string GetSubItem(int index) => firstSelected.SubItems[index].Text;
 
-        public ProcessStatus GetSelectedProcessStatus()
-        {
-            ListViewItem selected = firstSelected;
-            
-            if (FinishedProcesses.FirstOrDefault(p => p.ViewItem == selected) is { } processUpdateRow)
-            {
-                return processUpdateRow.Failed ? ProcessStatus.Error : ProcessStatus.Complete;
-            }
-            
-            if (_ProcessUpdates.Values.FirstOrDefault(p => p.ViewItem == selected) is not null)
-            {
-                return ProcessStatus.Running;
-            }
-            
-            if (ProcessQueue.FirstOrDefault(p => p.ViewItem == selected) is not null)
-            {
-                return ProcessStatus.Queued;
-            }
-
-            return ProcessStatus.Error;
-        }
+        private ProcessUpdateRow? SelectedRow => ProcessPool.Get(firstSelected);
         
-        private static bool locked;
+        private string SelectedRowStatus => GetSubItem(1);
+        
+        public ProcessStatus SelectedProcessStatus => ProcessPool.Get(firstSelected)?.ProcessStatus ?? ProcessStatus.Created;
+        
+        private string _url => GetSubItem(7);
+        private string _filepath => GetSubItem(8);
+
+        private string ToolbarStatus
+        {
+            get => toolbarLabelStatus.Text;
+            set => toolbarLabelStatus.Text = value;
+        }
 
         public FrameMain()
         {
+            ProcessPool = new ProcessPool(ProcessCompletionCallback, ProcessStartedCallback);
             InitializeComponent();
+
+            // Allows us to read out the console values
+            Input.RunAsConsole();
         }
 
-        private static DialogResult OpenYesNoModal(string text, string caption, MessageBoxIcon icon = MessageBoxIcon.Warning)
+        private void Update(object? state)
         {
-            return MessageBox.Show(text, caption, MessageBoxButtons.YesNo, icon);
+            UpdateListItemRows();
         }
-        
-        private static DialogResult OpenConfirmModal(string text, string caption, MessageBoxIcon icon = MessageBoxIcon.Warning)
+
+        private string GetProgramStatus()
         {
-            return MessageBox.Show(text, caption, MessageBoxButtons.OK, icon);
+            if (ProcessPool.AnyRunning)
+                return "Downloading Media";
+            if (ProcessPool.AnyQueued)
+                return "Awaiting Download";
+            if (ProcessPool.QueueEmpty)
+                return "Idle";
+            return "";
         }
-        
-        private static void CheckDependencies()
+
+        private void UpdateListItemRows()
         {
-            if (!YouTubeDl.IsInstalled())
-            {
-                DialogResult result = OpenYesNoModal(Resources.InstallationSuccess, "Required Components Installed");
-                if (result == DialogResult.Yes)
-                {
-                    FrameYTDLDependencyInstall frameDependencyInstall = new();
-                    frameDependencyInstall.ShowDialog();
-                    // TODO ?
-                    OpenConfirmModal(Resources.InstallationSuccess, "Required Components Installed",
-                        MessageBoxIcon.Information);
-                    frameDependencyInstall.Close();
-                }
-                else
-                {
-                    OpenConfirmModal(Resources.InstallationError, "Application Error", MessageBoxIcon.Error);
-                    return;
-                }
-            }
-
-            if (!FFmpeg.IsInstalled())
-            {
-                OpenConfirmModal(Resources.FfmpegMissing, "Required components not installed");
-            }
-
-            if (!AtomicParsley.IsInstalled())
-            {
-                OpenConfirmModal(Resources.AtomicParsleyMissing, "Required components not installed");
-            }
-        }
-        
-        private static void LoadConfig()
-        {
-            Settings.Load();
+            ProcessPool.ActiveProcesses.ForEach(p => UpdateModule(p.UpdateRow));
         }
 
-        private void FrameMain_Load(object sender, EventArgs e)
-        {
-            LoadConfig();
-            
-            Text = $@"JackTheVideoRipper {Common.GetAppVersion()}";
-            _listItemRowsUpdateTimer = new Timer(UpdateListItemRows, null, 0, 800);
-            TimerStatusBar_Tick(sender, e);
-            timerStatusBar.Enabled = true;
-        }
-
-        private bool Contains(string line, string word)
-        {
-            return line.IndexOf(word, StringComparison.Ordinal) > -1;
-        }
-
-        private void UpdateListItemRows(object? state)
-        {
-            List<ProcessUpdateRow> finishedProcesses = new();
-            
-            foreach (ProcessUpdateRow processUpdateRow in _ProcessUpdates.Values)
-            {
-                if (processUpdateRow.Completed)
-                {
-                    finishedProcesses.Add(processUpdateRow);
-                    Update(() => processUpdateRow.Complete());
-                    TimerProcessLimit_Tick();
-                    continue;
-                }
-
-                if (processUpdateRow.Results.Count - 1 < processUpdateRow.Cursor)
-                    continue;
-
-                string line = Regex.Replace(processUpdateRow.Results[processUpdateRow.Cursor], @"\s+", " ");
-                if (!string.IsNullOrEmpty(line))
-                {
-                    if (Contains(line, "[youtube]"))
-                    {
-                        Update(() => processUpdateRow.UpdateStatus("Reading Metadata"));
-                    }
-                    else if (Contains(line, "[ffmpeg]"))
-                    {
-                        Update(() => processUpdateRow.UpdateStatus("Transcoding") );
-                    }
-                    else if (Contains(line, "[download]"))
-                    {
-                        string[] parts = line.Split(' ');
-                        
-                        if (Contains(line, "%") && parts.Length >= 8)
-                        {
-                            // download messages stream fast, bump the cursor up to one of the latest messages, if it exists...
-                            // only start skipping cursor ahead once download messages have started otherwise important info could be skipped
-                            if (processUpdateRow.Cursor + 10 < processUpdateRow.Results.Count)
-                            {
-                                processUpdateRow.Cursor = processUpdateRow.Results.Count;
-                            }
-
-                            Update(() => processUpdateRow.DownloadUpdate(parts));
-                        }
-                    }
-                    else if (line.ToLower().IndexOf("error", StringComparison.Ordinal) > -1 || line[..21] == "Usage: youtube-dl.exe")
-                    {
-                        Console.WriteLine($@"error {line}");
-                        finishedProcesses.Add(processUpdateRow);
-                        Update(() => { processUpdateRow.SetErrorState(); });
-                        Console.Write(processUpdateRow.Results);
-                        TimerProcessLimit_Tick();
-                    }
-                }
-
-                processUpdateRow.Cursor += 1;
-            }
-
-            FinishedProcesses.UnionWith(finishedProcesses);
-            foreach (ProcessUpdateRow processUpdateRow in finishedProcesses)
-            {
-                _ProcessUpdates.Remove(processUpdateRow.Tag);
-            }
-        }
-
-        private void Update(Action action)
+        private void UpdateModule(Action action)
         {
             BeginInvoke(action, null);
         }
 
-        private void DownloadVideoToolStripMenuItem_Click(object sender, EventArgs e)
+        private void UpdateProcessQueue()
         {
-            DownloadMediaDialog("video");
+            TimerProcessLimit_Tick();
         }
 
-        private void DownloadAudioToolStripMenuItem_Click(object sender, EventArgs e)
+        private void ProcessCompletionCallback(ProcessUpdateRow processUpdateRow)
         {
-            DownloadMediaDialog("audio");
+            UpdateProcessQueue();
+        }
+        
+        private void ProcessStartedCallback()
+        {
+            UpdateProcessQueue();
         }
 
-        private void DownloadMediaDialog(string type)
+        private void DownloadMediaDialog(MediaType type)
         {
             FrameNewMedia frameNewMedia = new(type);
 
             if (frameNewMedia.ShowDialog() != DialogResult.OK)
                 return;
-            
-            AddMediaItemRow(frameNewMedia.Title, frameNewMedia.Type, frameNewMedia.Url, frameNewMedia.Parameters, frameNewMedia.Filepath);
-            TimerProcessLimit_Tick();
+
+            AddMediaItemRow(frameNewMedia.MediaItemRow);
+            UpdateProcessQueue();
         }
 
-        private void AddMediaItemRow(string title, string type, string url, string opts, string filePath)
+        private void AddListItem(ListViewItem item)
         {
-            string tag = $"{Common.RandomString(5)}{DateTime.UtcNow.Ticks}";
-            string[] elements = { title, "Waiting", type, "-", "", "0%", "0.0 KB/s", url, filePath };
-            
-            listItems.Items.Add(new ListViewItem(elements)
+            listItems.Items.Add(item);
+        }
+
+        private void RemoveListItem(ListViewItem item)
+        {
+            listItems.Items.Remove(item);
+        }
+        
+        private void AddMediaItemRow(MediaItemRow row)
+        {
+            AddListItem(row);
+            ProcessPool.QueueProcess(row, lastViewItem);
+        }
+
+        private void AddMediaItemRow(string title, MediaType type, string url, string filepath)
+        {
+            AddMediaItemRow(new MediaItemRow
             {
-                Tag = tag,
-                BackColor = Color.LightGray
+                Title = title,
+                Type = type,
+                Url = url,
+                Parameters = new Parameters(),
+                Filepath = filepath
             });
-
-            AddProcess(tag, opts, type == "audio" ? 1 : 0);
         }
 
-        private void AddProcess(string tag, string parameterString, int index)
+        private void QueueBatchDownloads()
         {
-            ProcessUpdateRow processUpdateRow = new(parameterString)
+            for (int i = 0; i < Settings.Data.MaxConcurrentDownloads; i++)
             {
-                ViewItem = lastViewItem,
-                Tag = tag
-            };
+                Application.DoEvents();
+                Thread.Sleep(300);
+                UpdateProcessQueue();
+            }
+        }
 
-            ProcessQueue.Enqueue(processUpdateRow);
-            processUpdateRow.ViewItem.ImageIndex = index;
+        private void ClearAllViewItems()
+        {
+            listItems.Items.Clear();
+        }
+
+        private void RemoveViewItems(IEnumerable<ProcessUpdateRow> processUpdateRows)
+        {
+            processUpdateRows.ForEach(p => RemoveListItem(p.ViewItem));
+        }
+        
+        private void OpenContextMenu()
+        {
+            contextMenuListItems.Show(Cursor.Position);
+            contextMenuListItems.Items["retryDownloadToolStripMenuItem"].Visible =
+                SelectedProcessStatus == ProcessStatus.Error;
+            contextMenuListItems.Items["stopDownloadToolStripMenuItem"].Visible =
+                SelectedProcessStatus == ProcessStatus.Running;
+        }
+        
+        private void StartEventTimer(object sender, EventArgs e)
+        {
+            _listItemRowsUpdateTimer = new Timer(Update, null, 0, 800);
+            TimerStatusBar_Tick(sender, e);
+            timerStatusBar.Enabled = true;
+        }
+
+        #region Form Events
+        
+        private void FrameMain_Load(object sender, EventArgs e)
+        {
+            Settings.Load();
+            Text = $@"JackTheVideoRipper {Common.GetAppVersion()}";
+            StartEventTimer(sender, e);
+        }
+
+        private void FrameMain_Shown(object sender, EventArgs e)
+        {
+            Core.Startup();
+        }
+
+        private void FrameMain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (!ProcessPool.AnyActive)
+                return;
+            
+            if (Core.ConfirmExit())
+            {
+                ProcessPool.KillAllActive();
+            }
+            else
+            {
+                e.Cancel = true;
+            }
+        }
+
+        #endregion
+
+        #region Timer Events
+        
+        private void TimerStatusBar_Tick(object sender, EventArgs e)
+        {
+            ToolbarStatus = $"{GetProgramStatus(),-20} | ";
+            toolBarLabelCpu.Text = $@"CPU: {Statistics.GetCpuUsagePercentage(),7} | ";
+            //toolBarLabelMemory.Text = $@"Available Memory: {Statistics.GetAvailableMemory(),9} | ";
+            toolBarLabelNetwork.Text = $@"Network Usage: {Statistics.GetNetworkTransfer(),10}";
+        }
+        
+        private void TimerCheckForUpdates_Tick(object sender, EventArgs e)
+        {
+            timerCheckForUpdates.Enabled = false;
+            CheckForUpdatesToolStripMenuItem_Click(false, e);
+        }
+
+        private void TimerProcessLimit_Tick(object? sender = null, EventArgs? e = null)
+        {
+            timerProcessLimit.Enabled = true;
+        }
+
+        #endregion
+
+        #region Event Handlers
+
+        private void CheckForUpdatesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // if sender obj is bool then version being checked on startup passively and dont show dialog that it's up to date
+            AppVersionModel result = AppUpdate.CheckForNewAppVersion();
+            switch (result is { IsNewerVersionAvailable: true })
+            {
+                case true when Modals.Update(result):
+                    FileSystem.GetWebResourceHandle(URLs.UPDATE);
+                    break;
+                case false when sender is not bool:
+                    Modals.UpToDate();
+                    break;
+            }
+        }
+
+        private bool IsStatus(params string[] statuses)
+        {
+            return statuses.Any(s => SelectedRowStatus == s);
+        }
+
+        private bool IsStatus(string status)
+        {
+            return SelectedRowStatus == status;
+        }
+        
+        private void RetryDownloadToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (noneSelected || !IsStatus(Statuses.ERROR))
+                return;
+
+            ProcessPool.RetryProcess(firstSelected);
+            UpdateProcessQueue();
+        }
+
+        private void StopDownloadToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (noneSelected || IsStatus(Statuses.COMPLETE, Statuses.ERROR))
+                return;
+
+            BeginInvoke(() => { SelectedRow?.Stop(); }, null);
+        }
+
+        private void DeleteRowToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (noneSelected || !IsStatus(Statuses.COMPLETE, Statuses.ERROR))
+                return;
+
+            ProcessPool.Remove(firstSelected);
+            RemoveListItem(firstSelected);
+        }
+        
+        private void CopyUrlToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (noneSelected)
+                return;
+
+            FileSystem.SetClipboardData(_url);
+        }
+
+        private void ListItems_DoubleClick(object sender, EventArgs e)
+        {
+            if (noneSelected)
+                return;
+            
+            OpenMediaInPlayerToolStripMenuItem_Click(sender, e);
+        }
+        
+        private void DownloadVideoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DownloadMediaDialog(MediaType.Video);
+        }
+
+        private void DownloadAudioToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DownloadMediaDialog(MediaType.Audio);
         }
 
         private void OpenFolderToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            string filePath = firstSelected.SubItems[8].Text;
-            if (!string.IsNullOrEmpty(filePath))
-            {
-                // TODO: fix file pathing issue
-                if (File.Exists(filePath))
-                {
-                    Common.OpenFolderWithFileSelect(filePath);
-                }
-                else if (File.Exists($"{filePath}.part"))
-                {
-                    Common.OpenFolderWithFileSelect($"{filePath}.part");
-                }
-                return;
-            }
+            FileSystem.OpenFile(_filepath);
+        }
 
-            // couldn't find folder, rolling back to just the folder with no select
-            Console.WriteLine($@"Couldn't find file to open at {filePath}");
-            Common.OpenFolder(Settings.Data.DefaultDownloadPath);
+        private bool InItemBounds(MouseEventArgs e)
+        {
+            return listItems.FocusedItem.Bounds.Contains(e.Location);
         }
 
         private void ListItems_MouseClick(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Right || !listItems.FocusedItem.Bounds.Contains(e.Location))
+            if (e.Button != MouseButtons.Right || !InItemBounds(e))
                 return;
 
-            contextMenuListItems.Show(Cursor.Position);
-            contextMenuListItems.Items["retryDownloadToolStripMenuItem"].Visible =
-                GetSelectedProcessStatus() == ProcessStatus.Error;
-            contextMenuListItems.Items["stopDownloadToolStripMenuItem"].Visible =
-                GetSelectedProcessStatus() == ProcessStatus.Running;
+            OpenContextMenu();
         }
 
         private void ExitToolStripMenuItem_Click(object sender, EventArgs e)
@@ -270,14 +317,12 @@ namespace JackTheVideoRipper
 
         private void AboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using Form form = new FrameAbout();
-            form.ShowDialog();
+            Pages.OpenPage<FrameAbout>();
         }
 
         private void ConvertMediaToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using Form form = new FrameConvert();
-            form.ShowDialog();
+            Pages.OpenPage<FrameConvert>();
         }
 
         private void OpenURLInBrowserToolStripMenuItem_Click(object sender, EventArgs e)
@@ -285,112 +330,22 @@ namespace JackTheVideoRipper
             if (noneSelected)
                 return;
             
-            string url = firstSelected.SubItems[7].Text;
-            if (!string.IsNullOrEmpty(url))
+            string url = _url;
+            if (url.HasValue())
             {
-                Common.GetWebResourceHandle(url);
+                FileSystem.GetWebResourceHandle(url);
             }
         }
 
         private void OpenMediaInPlayerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (noneSelected || GetSubItem(1) != "Complete") 
+            if (noneSelected || IsStatus(Statuses.COMPLETE)) 
                 return;
             
-            string filePath = GetSubItem(8);
-            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            string filePath = _filepath;
+            if (filePath.HasValue() && File.Exists(filePath))
             {
-                Common.GetWebResourceHandle(filePath);
-            }
-        }
-        
-        private ProcessUpdateRow GetSelectedRow()
-        {
-            return _ProcessUpdates.FirstOrDefault(p => p.Value.ViewItem == firstSelected).Value;
-        }
-        
-        private void RetryDownloadToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (noneSelected || GetSubItem(1) != "Error")
-                return;
-
-            ProcessUpdateRow? processUpdateRow = FinishedProcesses.FirstOrDefault(p => p.ViewItem == firstSelected);
-            if (processUpdateRow is not null)
-            {
-                FinishedProcesses.Remove(processUpdateRow);
-                ProcessQueue.Enqueue(processUpdateRow);
-                processUpdateRow.Retry();
-                TimerProcessLimit_Tick();
-            }
-        }
-
-        private void StopDownloadToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (noneSelected || (GetSubItem(1) == "Complete" && GetSubItem(1) == "Error"))
-                return;
-
-            ProcessUpdateRow processUpdateRow = GetSelectedRow();
-            Update(() => { processUpdateRow.Stop(); });
-        }
-
-        private void DeleteRowToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (noneSelected || (GetSubItem(1) != "Complete" && GetSubItem(1) != "Error"))
-                return;
-
-            FinishedProcesses.RemoveWhere(p => p.ViewItem == firstSelected);
-            listItems.Items.Remove(firstSelected);
-        }
-        
-        private void CopyUrlToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (noneSelected)
-                return;
-
-            Clipboard.SetText(firstSelected.SubItems[7].Text);
-        }
-
-        private void ListItems_DoubleClick(object sender, EventArgs e)
-        {
-            if (!noneSelected)
-            {
-                OpenMediaInPlayerToolStripMenuItem_Click(sender, e);
-            }
-        }
-
-        private void FrameMain_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            if (!listItems.Items.Cast<ListViewItem>().Any(item =>
-                {
-                    string? text = item.SubItems[1].Text;
-                    return text != "Complete" && text != "Error";
-                })) 
-                return;
-            
-            if (MessageBox.Show(Resources.ExitWarning, "Verify Exit", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
-            {
-                e.Cancel = true;
-                return;
-            }
-
-            KillActiveDownloads();
-
-            e.Cancel = false;
-        }
-
-        private void KillActiveDownloads()
-        {
-            // kill all processes
-            foreach (ProcessUpdateRow pur in _ProcessUpdates.Values)
-            {
-                try
-                {
-                    Common.KillProcessAndChildren(pur.Process.Id);
-                }
-                catch
-                {
-                    // do nothing
-                }
+                FileSystem.GetWebResourceHandle(filePath);
             }
         }
 
@@ -406,162 +361,79 @@ namespace JackTheVideoRipper
         
         private void DownloadFfmpegToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.GetWebResourceHandle("https://www.ffmpeg.org/download.html");
+            FileSystem.GetWebResourceHandle(FFMPEG.DOWNLOAD_URL);
         }
 
         private void DownloadHandbrakeToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.GetWebResourceHandle("https://handbrake.fr/downloads.php");
+            FileSystem.GetWebResourceHandle(URLs.HANDBRAKE);
         }
 
         private void DownloadVLCPlayerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.GetWebResourceHandle("https://www.videolan.org/vlc");
+            FileSystem.GetWebResourceHandle(URLs.VLC);
         }
         
         private void DownloadAtomicParsleyToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.GetWebResourceHandle("http://atomicparsley.sourceforge.net");
+            FileSystem.GetWebResourceHandle(AtomicParsley.DOWNLOAD_URL);
         }
-
-        private void TimerStatusBar_Tick(object sender, EventArgs e)
-        {
-            toolBarLabelCpu.Text = $@"CPU: {Common.GetCpuUsagePercentage()}";
-            toolBarLabelMemory.Text = $@"Available Memory: {Common.GetAvailableMemory()}";
-            toolBarLabelNetwork.Text = $@"Network Ingress: {Common.GetNetworkTransfer()}";
-        }
-
-        private void CheckForUpdatesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            // if sender obj is bool then version being checked on startup passively and dont show dialog that it's up to date
-            AppVersionModel? result = AppUpdate.CheckForNewAppVersion();
-            switch (result is { IsNewerVersionAvailable: true })
-            {
-                case true:
-                {
-                    if (OpenYesNoModal(string.Format(Resources.NewUpdate, result?.Version), "New Version Available",
-                            MessageBoxIcon.Information) == DialogResult.Yes)
-                    {
-                        Common.GetWebResourceHandle("https://github.com/dantheman213/JackTheVideoRipper/releases");
-                    }
-
-                    break;
-                }
-                case false when sender is not bool:
-                    OpenConfirmModal(Resources.UpToDate, "Version Current", MessageBoxIcon.Information);
-                    break;
-            }
-        }
-
-        private void FrameMain_Shown(object sender, EventArgs e)
-        {
-            CheckDependencies();
-
-            Task.Run(YouTubeDl.CheckForUpdates);
-        }
-
+        
         private void DownloadVS2010RedistributableToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.GetWebResourceHandle("https://www.microsoft.com/en-us/download/details.aspx?id=26999");
+            FileSystem.GetWebResourceHandle(URLs.REDISTRIBUTABLES);
         }
 
         private void OpenDownloadFolderToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.OpenFolder(Settings.Data.DefaultDownloadPath);
+            FileSystem.OpenDownloads();
         }
         
         private void DownloadBatchManualToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string? urls = null;
             if (sender is string s)
-            {
                 urls = s;
-            }
 
             FrameNewMediaBatch frameNewMediaBatch = new(urls);
-            DialogResult result = frameNewMediaBatch.ShowDialog();
-
-            if (result != DialogResult.OK || frameNewMediaBatch.items is not { Count: > 0 })
+            
+            if (frameNewMediaBatch.ShowDialog() != DialogResult.OK || 
+                frameNewMediaBatch.Items is not { Count: > 0 } items)
                 return;
             
-            foreach(DownloadMediaItem item in frameNewMediaBatch.items)
-            {
-                AddMediaItemRow(item.Title, frameNewMediaBatch.type, item.Url, item.Parameters, item.FilePath);
-            }
+            items.ForEach(item => AddMediaItemRow(item.Title!, frameNewMediaBatch.Type, item.Url!, item.Filepath!));
 
             QueueBatchDownloads();
         }
 
-        private void QueueBatchDownloads()
-        {
-            for (int i = 0; i < Settings.Data.MaxConcurrentDownloads; i++)
-            {
-                Application.DoEvents();
-                Thread.Sleep(300);
-                TimerProcessLimit_Tick();
-            }
-        }
-
         private void DownloadBatchDocumentToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            OpenFileDialog openFileDialog = new()
-            {
-                InitialDirectory = Settings.Data.DefaultDownloadPath,
-                Filter = @"All Files (*.*)|*.*"
-            };
+            string fileContent = FileSystem.GetFileUsingDialog();
 
-            if (openFileDialog.ShowDialog() != DialogResult.OK || !File.Exists(openFileDialog.FileName))
+            if (fileContent.IsNullOrEmpty())
                 return;
 
-            string payload = File.ReadAllText(openFileDialog.FileName);
-            if (string.IsNullOrEmpty(payload)) 
-                return;
+            string urls = Import.GetAllUrlsFromPayload(fileContent).Merge("\r\n");
 
-            DownloadBatchManualToolStripMenuItem_Click(string.Join("\r\n", Import.GetAllUrlsFromPayload(payload)), e);
+            DownloadBatchManualToolStripMenuItem_Click(urls, e);
         }
-
-        private string GetYouTubeLink(string id) => $"https://www.youtube.com/watch?v={id}";
-
+        
         private void DownloadBatchYouTubePlaylistToolStripMenuItem_Click(object sender, EventArgs e)
         {
             FrameImportPlaylist frameImportPlaylist = new();
             
-            if (frameImportPlaylist.ShowDialog() != DialogResult.OK)
+            if (frameImportPlaylist.ShowDialog() != DialogResult.OK || 
+                YouTubeDL.GetPlaylistMetadata(frameImportPlaylist.Url) is not { } items)
                 return;
 
-            if (YouTubeDl.GetPlaylistMetadata(frameImportPlaylist.Url) is not { } items)
-                return;
-            
-            string result = string.Join("\r\n", items.Select(item => GetYouTubeLink(item.Id)));
+            string result = items.Select(item => YouTubeDL.GetYouTubeLink(item.Id!)).Merge("\r\n");
 
             DownloadBatchManualToolStripMenuItem_Click(result, e);
         }
-
-        private void TimerCheckForUpdates_Tick(object sender, EventArgs e)
-        {
-            timerCheckForUpdates.Enabled = false;
-            CheckForUpdatesToolStripMenuItem_Click(false, e);
-        }
-
-        private void TimerProcessLimit_Tick(object? sender = null, EventArgs? e = null)
-        {
-            if (ProcessQueue.Count < 1)
-                return;
-
-            for (int i = _ProcessUpdates.Count; i < Settings.Data.MaxConcurrentDownloads; i++)
-            {
-                if (ProcessQueue.Count < 1)
-                    break;
-                ProcessUpdateRow nextProcess = ProcessQueue.Dequeue();
-                _ProcessUpdates.Add(nextProcess.Tag, nextProcess);
-                nextProcess.Start();
-                timerProcessLimit.Enabled = false;
-            }
-        }
-
+        
         private void SettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (new FrameSettings().ShowDialog() == DialogResult.OK)
+            if (Pages.OpenPage<FrameSettings>() == DialogResult.OK)
             {
                 QueueBatchDownloads();
             }
@@ -569,7 +441,7 @@ namespace JackTheVideoRipper
 
         private void OpenTaskManagerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.OpenTaskManager();
+            FileSystem.OpenTaskManager();
         }
 
         private void StatusBar_DoubleClick(object sender, EventArgs e)
@@ -579,82 +451,47 @@ namespace JackTheVideoRipper
 
         private void DownloadYtdlpToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.GetWebResourceHandle("https://github.com/yt-dlp/yt-dlp");
+            FileSystem.GetWebResourceHandle(YouTubeDL.UPDATE_URL);
         }
 
         private void OpenDependenciesFolderToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Common.OpenFileExplorer(Common.InstallDirectory);
-        }
-
-        private void FileToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            
-        }
-
-        private void EditToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            
+            FileSystem.OpenFileExplorer(Common.Paths.Install);
         }
 
         private void ClearSuccessesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            foreach (ProcessUpdateRow processUpdateRow in FinishedProcesses.Where(p => !p.Failed))
-            {
-                listItems.Items.Remove(processUpdateRow.ViewItem);
-            }
-            
-            FinishedProcesses.RemoveWhere(p => !p.Failed);
+            RemoveViewItems(ProcessPool.GetAll(ProcessStatus.Completed));
+            ProcessPool.RemoveAll(ProcessStatus.Completed);
         }
 
         private void ClearAllToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            listItems.Items.Clear();
-            FinishedProcesses.Clear();
-            foreach (ProcessUpdateRow processUpdateRow in _ProcessUpdates.Values)
-            {
-                processUpdateRow.Stop();
-            }
-            _ProcessUpdates.Clear();
-            ProcessQueue.Clear();
+            ClearAllViewItems();
+            ProcessPool.ClearAll();
         }
 
         private void ClearFailuresToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            foreach (ProcessUpdateRow processUpdateRow in FinishedProcesses.Where(p => p.Failed))
-            {
-                listItems.Items.Remove(processUpdateRow.ViewItem);
-            }
-            
-            FinishedProcesses.RemoveWhere(p => p.Failed);
+            RemoveViewItems(ProcessPool.GetAll(ProcessStatus.Error));
+            ProcessPool.RemoveAll(ProcessStatus.Error);
         }
 
         private void StopAllToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            foreach (ProcessUpdateRow processUpdateRow in _ProcessUpdates.Values)
-            {
-                processUpdateRow.Stop();
-            }
+            ProcessPool.StopAll();
         }
 
         private void RetryAllToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            foreach (ProcessUpdateRow processUpdateRow in FinishedProcesses.Where(p => p.Failed))
-            {
-                ProcessQueue.Enqueue(processUpdateRow);
-                processUpdateRow.Retry();
-                TimerProcessLimit_Tick();
-            }
-
-            FinishedProcesses.RemoveWhere(p => p.Failed);
+            ProcessPool.RetryAllProcesses();
         }
-
+        
         private void CopyFailedUrlsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            IEnumerable<string> failedUrls = FinishedProcesses
-                .Where(p => p.Failed)
-                .Select(p => p.ViewItem.SubItems[7].Text);
-            Clipboard.SetText(string.Join("\n", failedUrls));
+            FileSystem.SetClipboardData(ProcessPool.GetAllFailedUrls().Merge("\n"));
         }
+
+        #endregion
     }
 }

@@ -11,7 +11,7 @@
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            Common.GetWebResourceHandle(handBrakeUrl, false);
+            FileSystem.GetWebResourceHandle(handBrakeUrl, false);
         }
     }
 }

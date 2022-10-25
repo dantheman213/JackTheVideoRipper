@@ -147,4 +147,7 @@
   <data name="InvalidAudio" xml:space="preserve">
     <value>Can only embed thumbnails in mp3 and m4a containers!</value>
   </data>
+  <data name="YouTubeDLUpdated" xml:space="preserve">
+    <value>Dependency yt-dlp has been upgraded from {0} to {1}!</value>
+  </data>
 </root>

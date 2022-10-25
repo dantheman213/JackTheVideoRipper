@@ -11,7 +11,7 @@
 
         private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            Common.GetWebResourceHandle(projectUrl);
+            FileSystem.GetWebResourceHandle(projectUrl);
         }
 
         private void FrameAbout_Load(object sender, EventArgs e)
@@ -20,9 +20,9 @@
 
             try
             {
-                string lines = $"* {YouTubeDl.GetExtractors().Replace("\n", "\r\n* ")}";
+                string lines = $"* {YouTubeDL.GetExtractors().Replace("\n", "\r\n* ")}";
                 textExtractors.Text = lines;
-                labelYouTubeDL.Text = $@"yt-dlp {YouTubeDl.GetVersion()}";
+                labelYouTubeDL.Text = $@"yt-dlp {YouTubeDL.GetVersion()}";
             }
             catch (Exception ex)
             {

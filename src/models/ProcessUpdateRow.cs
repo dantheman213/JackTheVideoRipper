@@ -1,167 +1,338 @@
-﻿using System.Diagnostics;
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.models.enums;
 
-namespace JackTheVideoRipper
+namespace JackTheVideoRipper;
+
+public class ProcessUpdateRow : ProcessRunner
 {
-    internal class ProcessUpdateRow
+    #region Data Members
+
+    public ListViewItem ViewItem { get; init; } = null!;
+
+    public string Tag { get; init; } = null!;
+
+    public ProcessStatus ProcessStatus { get; private set; } = ProcessStatus.Created;
+
+    private readonly Action<ProcessUpdateRow> _completionCallback;
+        
+    private readonly string _parameterString;
+
+    #endregion
+
+    #region Events
+
+    public static event Action<string, Exception> ErrorLogEvent_Tag = delegate {  };
+        
+    public static event Action<ProcessUpdateRow, Exception> ErrorLogEvent_Process = delegate {  };
+        
+    public static event Action<ProcessError> ErrorLogEvent_Error = delegate {  };
+
+    #endregion
+
+    #region Properties
+
+    public bool Started => ProcessStatus != ProcessStatus.Created;
+                
+    public bool Finished => ProcessStatus is ProcessStatus.Completed or ProcessStatus.Error;
+
+    public bool Completed => Started && Process.HasExited;
+
+    public DownloadStage DownloadStage => GetDownloadStage(ProcessLine);
+
+    #endregion
+
+    #region View Item Accessors
+
+    public string Title
     {
-        public Process Process { get; set; }
-        public ListViewItem ViewItem { get; set; }
-        public List<string> Results { get; set; } = new() { "" }; // Placeholder result
-        public int Cursor { get; set; } // where in message buffer are we
-        public bool Started = false;
-        public bool Finished = false;
-
-        public bool Completed => Started && Process.HasExited;
-
-        public bool Failed => Process.ExitCode > 0;
-
-        public string Tag;
-
-        private string _parameterString;
-
-        public ProcessUpdateRow(string parameterString)
-        {
-            _parameterString = parameterString;
-            CreateProcess();
-        }
-
-        public void CreateProcess()
-        {
-            Process = YouTubeDl.Run(_parameterString);
-        }
-
-        public void Start()
-        {
-            Process.Start();
-            Started = true;
-            TrackStandardOut();
-            TrackStandardError();
-            ViewItem.BackColor = Color.Turquoise;
-        }
+        get => ViewItem.SubItems[0].Text;
+        set => ViewItem.SubItems[0].Text = value;
+    }
         
-        public bool SubViewHasText(int index, string text)
-        {
-            return ViewItem.SubItems[index].Text.Contains(text);
-        }
+    public string Status
+    {
+        get => ViewItem.SubItems[1].Text;
+        set => ViewItem.SubItems[1].Text = value;
+    }
         
-        public bool SubViewHasText(int index, params string[] texts)
-        {
-            return texts.Any(text => ViewItem.SubItems[index].Text.Contains(text));
-        }
+    public string Type
+    {
+        get => ViewItem.SubItems[2].Text;
+        set => ViewItem.SubItems[2].Text = value;
+    }
         
-        public void SetSubViewItems(string? zeroth = null, string? first = null, 
-            string? second = null, string? third = null, string? fourth = null, string? fifth = null, 
-            string? sixth = null, string? seventh = null, string? eighth = null)
-        {
-            if (zeroth is not null)
-                ViewItem.SubItems[0].Text = zeroth;
-            if (first is not null)
-                ViewItem.SubItems[1].Text = first;
-            if (second is not null)
-                ViewItem.SubItems[2].Text = second;
-            if (third is not null)
-                ViewItem.SubItems[3].Text = third;
-            if (fourth is not null)
-                ViewItem.SubItems[4].Text = fourth;
-            if (fifth is not null)
-                ViewItem.SubItems[5].Text = fifth;
-            if (sixth is not null)
-                ViewItem.SubItems[6].Text = sixth;
-            if (seventh is not null)
-                ViewItem.SubItems[7].Text = seventh;
-            if (eighth is not null)
-                ViewItem.SubItems[8].Text = eighth;
-        }
-
-        public void AppendStatusLine()
-        {
-            string? line = Process.StandardOutput.ReadLine();
-            if (line is not null)
-                Results.Add(line);
-        }
-
-        public void TrackStandardOut()
-        {
-            Task.Run(() =>
-            {
-                // spawns a new thread to read standard out data
-                while (Process is { HasExited: false })
-                {
-                    AppendStatusLine();
-                }
-            });
-        }
+    public string Size
+    {
+        get => ViewItem.SubItems[3].Text;
+        set => ViewItem.SubItems[3].Text = value;
+    }
         
-        public void AppendErrorLine()
+    public string Progress
+    {
+        get => ViewItem.SubItems[4].Text;
+        set => ViewItem.SubItems[4].Text = value;
+    }
+        
+    public string DownloadSpeed
+    {
+        get => ViewItem.SubItems[5].Text;
+        set => ViewItem.SubItems[5].Text = value;
+    }
+        
+    public string Eta
+    {
+        get => ViewItem.SubItems[6].Text;
+        set => ViewItem.SubItems[6].Text = value;
+    }
+        
+    public string Url
+    {
+        get => ViewItem.SubItems[7].Text;
+        set => ViewItem.SubItems[7].Text = value;
+    }
+        
+    public string Path
+    {
+        get => ViewItem.SubItems[8].Text;
+        set => ViewItem.SubItems[8].Text = value;
+    }
+        
+    private Color Color
+    {
+        get => ViewItem.BackColor;
+        set => ViewItem.BackColor = value;
+    }
+        
+    #endregion
+
+    #region Constructor
+        
+    public ProcessUpdateRow(string parameterString, Action<ProcessUpdateRow> completionCallback)
+    {
+        _parameterString = parameterString;
+        _completionCallback = completionCallback;
+        CreateProcess();
+    }
+        
+    #endregion
+
+    public void Start()
+    {
+        Process.Start();
+        SetProcessStatus(ProcessStatus.Running);
+        TrackStandardOut();
+        TrackStandardError();
+    }
+
+    public void Complete()
+    {
+        // Switch exit code here to determine more information and set status
+
+        if (Failed)
         {
-            string? line = Process.StandardError.ReadLine();
-            if (line is not null)
-                Results.Add(line);
+            SetErrorState();
+            return;
         }
 
-        public void TrackStandardError()
+        SetProcessStatus(ProcessStatus.Completed);
+
+        NotifyCompletion();
+    }
+
+    public void Stop()
+    {
+        SetProcessStatus(ProcessStatus.Stopped);
+
+        TryKillProcess();
+
+        NotifyCompletion();
+    }
+        
+    public void SetErrorState(Exception? exception = null)
+    {
+        if (ProcessStatus == ProcessStatus.Error)
+            return;
+
+        SetProcessStatus(ProcessStatus.Error);
+
+        WriteErrorMessage(exception);
+            
+        TryKillProcess();
+            
+        NotifyCompletion();
+    }
+
+    public void Retry()
+    {
+        SetProcessStatus(ProcessStatus.Created);
+            
+        CreateProcess();
+    }
+
+    public void Cancel()
+    {
+        SetProcessStatus(ProcessStatus.Cancelled);
+            
+        TryKillProcess();
+
+        NotifyCompletion();
+    }
+        
+    private void WriteErrorMessage(Exception? exception = null)
+    {
+        ErrorLogEvent_Process.Invoke(this, exception ?? new ApplicationException(Results.Merge("\n")));
+        Console.Write(Results);
+    }
+
+    public void UpdateStatusMessage(string status)
+    {
+        if (Status != status)
+            Status = status;
+    }
+
+    // Extract elements of CLI output from YouTube-DL
+    public void DownloadUpdate(string[] tokens)
+    {
+        Progress = tokens[1];
+        Size = tokens[3];
+        DownloadSpeed = tokens[5];
+        Eta = tokens[7];
+    }
+
+    private void NotifyCompletion()
+    {
+        _completionCallback.Invoke(this);
+    }
+
+    public void UpdateRow()
+    {
+        if (Completed)
         {
-            Task.Run(() =>
-            {
-                // spawns a new thread to read error stream data
-                while (Process is { HasExited: false })
-                {
-                    AppendErrorLine();
-                }
-            });
+            Complete();
+            return;
         }
 
-        private void SetColor(Color color)
+        if (AtEndOfBuffer)
+            return;
+
+        switch (DownloadStage)
         {
-            ViewItem.BackColor = color;
+            default:
+            case DownloadStage.None:
+            case DownloadStage.Waiting:
+                break;
+            case DownloadStage.Metadata:
+                UpdateDownloads(Messages.READING_METADATA);
+                break;
+            case DownloadStage.Transcoding:
+                UpdateDownloads(Messages.TRANSCODING);
+                break;
+            case DownloadStage.Downloading:
+                UpdateDownloads(Messages.DOWNLOADING);
+                break;
+            case DownloadStage.Error:
+                SetErrorState();
+                break;
         }
 
-        public void Complete()
-        {
-            string status = Failed ? "Error" : "Complete";
-            SetColor(Failed ? Color.LightCoral : Color.LightGreen);
-            SetSubViewItems(first:status, fourth:"100%", fifth:"", sixth:"00:00");
-            Finished = true;
-        }
+        Cursor += 1;
+    }
 
-        public void Stop()
-        {
-            SetColor(Color.DarkSalmon);
-            SetSubViewItems(first:"Stopped", fifth:"", sixth:"00:00");
-            Process.Kill();
-            Finished = true;
-        }
+    private void UpdateDownloads(string statusMessage)
+    {
+        if (TokenizedProcessLine is not { Length: >= 8 } tokens )
+            return;
+            
+        // download messages stream fast, bump the cursor up to one of the latest messages, if it exists...
+        // only start skipping cursor ahead once download messages have started otherwise important info could be skipped
+        SkipToEnd();
 
-        public void UpdateStatus(string status)
-        {
-            if (!SubViewHasText(1, status))
-                SetSubViewItems(first: status);
-        }
+        UpdateStatusMessage(statusMessage);
 
-        public void DownloadUpdate(string[] parts)
-        {
-            SetSubViewItems( 
-                first: ViewItem.SubItems[1].Text != @"Downloading" ? "Downloading" : null, 
-                third: ViewItem.SubItems[3].Text is "" or "-" ? parts[3] : null,
-                fourth: parts[1].Trim() != "100%" ? parts[1] : null,
-                fifth: ViewItem.SubItems[5].Text = parts[5],
-                sixth: parts[7].Trim() != "00:00" ? parts[7] : null);
-        }
+        DownloadUpdate(tokens);
+    }
 
-        public void SetErrorState()
-        {
-            if (SubViewHasText(1, "Error"))
-                return;
-            SetSubViewItems(first: "Error", fifth:"", sixth:"00:00");
-            Process.Kill();
-        }
+    #region Private Methods
 
-        public void Retry()
+    private void CreateProcess()
+    {
+        Process = YouTubeDL.Run(_parameterString);
+    }
+
+    private void SetProcessStatus(ProcessStatus processStatus)
+    {
+        ProcessStatus = processStatus;
+        Color = processStatus switch
         {
-            Started = false;
-            Finished = false;
-            CreateProcess();
-            SetSubViewItems(first: "Waiting", third:"-", fourth:"", fifth:"0%", sixth:"0.0 KB/s");
+            ProcessStatus.Running   => Color.Turquoise,
+            ProcessStatus.Cancelled => Color.LightYellow,
+            ProcessStatus.Completed => Color.LightGreen,
+            ProcessStatus.Error     => Color.LightCoral,
+            ProcessStatus.Stopped   => Color.DarkSalmon,
+            ProcessStatus.Created   => Color.LightGray,
+            _ => Color.White
+        };
+        SetDefaultMessages(processStatus);
+    }
+        
+    private void SetValues(string? status = null, string? size = null, string? progress = null,
+        string? downloadSpeed = null, string? eta = null)
+    {
+        if (status.HasValue())
+            Status = status!;
+        if (size.HasValue())
+            Size = size!;
+        if (progress.HasValue())
+            Progress = progress!;
+        if (downloadSpeed.HasValue())
+            DownloadSpeed = downloadSpeed!;
+        if (eta.HasValue())
+            Eta = eta!;
+    }
+        
+    private static DownloadStage GetDownloadStage(string line)
+    {
+        if (line.IsNullOrEmpty())
+            return DownloadStage.None;
+        if (line.Contains(Tags.YOUTUBE))
+            return DownloadStage.Metadata;
+        if (line.Contains(Tags.FFMPEG))
+            return DownloadStage.Transcoding;
+        if (line.Contains(Tags.DOWNLOAD))
+            return DownloadStage.Downloading;
+        if (line.Contains(Tags.ERROR, StringComparison.OrdinalIgnoreCase) || line[..21].Contains("Usage"))
+            return DownloadStage.Error;
+        if (line.Contains('%'))
+            return DownloadStage.Waiting;
+        return DownloadStage.None;
+    }
+
+    private void SetDefaultMessages(ProcessStatus processStatus)
+    {
+        switch (processStatus)
+        {
+            default:
+            case ProcessStatus.Succeeded:
+            case ProcessStatus.Queued:
+            case ProcessStatus.Running:
+                break;
+            case ProcessStatus.Created:
+                SetValues(Statuses.WAITING, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED, Tags.DEFAULT_TIME);
+                break;
+            case ProcessStatus.Completed:
+                SetValues(Statuses.COMPLETE, progress:Tags.PROGRESS_COMPLETE, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                break;
+            case ProcessStatus.Error:
+                SetValues(Statuses.ERROR, Tags.DEFAULT_SIZE, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                break;
+            case ProcessStatus.Stopped:
+                SetValues(Statuses.STOPPED, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                break;
+            case ProcessStatus.Cancelled:
+                SetValues(Status = Statuses.CANCELLED, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED, Tags.DEFAULT_TIME);
+                break;
         }
     }
+
+    #endregion
 }
