@@ -193,7 +193,7 @@ namespace JackTheVideoRipper
             if (info.Formats is {Count: > 0})
                 RefreshFormatViews(info);
 
-            UpdateMediaPreview(info.MediaPreview);
+            UpdateMediaPreview(info.MetaData);
         }
 
         private void RefreshFormatViews(MediaInfoData mediaInfoData)
@@ -203,12 +203,12 @@ namespace JackTheVideoRipper
             UpdateFormatViewItems();
         }
 
-        private void UpdateMediaPreview(MediaPreview mediaPreview)
+        private void UpdateMediaPreview(MetaData metaData)
         {
-            pbPreview.ImageLocation = mediaPreview.ThumbnailFilepath;
-            Title = mediaPreview.Title;
-            Description = mediaPreview.Description;
-            Filepath = mediaPreview.MediaFilepath;
+            pbPreview.ImageLocation = metaData.ThumbnailFilepath;
+            Title = metaData.Title;
+            Description = metaData.Description;
+            Filepath = metaData.MediaFilepath;
         }
 
         private void CopyUrlToClipboard()
