@@ -47,13 +47,13 @@ public class ProcessUpdateRow : ProcessRunner
         set => ViewItem.SubItems[1].Text = value;
     }
         
-    public string Type
+    public string MediaType
     {
         get => ViewItem.SubItems[2].Text;
         set => ViewItem.SubItems[2].Text = value;
     }
         
-    public string Size
+    public string FileSize
     {
         get => ViewItem.SubItems[3].Text;
         set => ViewItem.SubItems[3].Text = value;
@@ -237,7 +237,7 @@ public class ProcessUpdateRow : ProcessRunner
     private void DownloadUpdate(IReadOnlyList<string> tokens)
     {
         Progress = tokens[1];
-        Size = tokens[3];
+        FileSize = tokens[3];
         DownloadSpeed = tokens[5];
         Eta = tokens[7];
     }
@@ -289,7 +289,7 @@ public class ProcessUpdateRow : ProcessRunner
         if (status.HasValue())
             Status = status!;
         if (size.HasValue())
-            Size = size!;
+            FileSize = size!;
         if (progress.HasValue())
             Progress = progress!;
         if (downloadSpeed.HasValue())
