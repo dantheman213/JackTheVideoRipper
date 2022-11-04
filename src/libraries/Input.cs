@@ -12,25 +12,28 @@ public static class Input
     private const int _TYPING_PING = 1800;
 
     #endregion
+    
+    #region Imports
+
     [DllImport("kernel32.dll", SetLastError = true)]
     //public static extern bool AttachConsole(uint dwProcessId);
-    public static extern bool AttachConsole(int pid);
+    private static extern bool AttachConsole(int pid);
         
     [DllImport("kernel32")]
-    public static extern bool AllocConsole();
+    private static extern bool AllocConsole();
         
     [DllImport("kernel32.dll")]
-    public static extern IntPtr GetStdHandle(int nStdHandle);
-        
+    private static extern IntPtr GetStdHandle(int nStdHandle);
+
+    #endregion
+    
+    #region Public Methods
+
     public static bool RunAsConsole()
     {
         // Check if Console exists, if not, attach it
         return AttachConsole(-1) || AllocConsole();
     }
-
-    public static IntPtr StandardOutputHandle => GetStdHandle(-11);
-        
-    public static SafeFileHandle StandardOutputHandleSafe => new(StandardOutputHandle, false);
 
     public static StreamWriter GetConsoleWriter()
     {
@@ -57,4 +60,14 @@ public static class Input
         // typing appears to have stopped, continue
         _TaskTypeQueue.Clear();
     }
+
+    #endregion
+
+    #region Private Methods
+
+    private static IntPtr StandardOutputHandle => GetStdHandle(-11);
+
+    private static SafeFileHandle StandardOutputHandleSafe => new(StandardOutputHandle, false);
+
+    #endregion
 }

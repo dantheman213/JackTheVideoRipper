@@ -62,6 +62,9 @@ namespace JackTheVideoRipper
         private void UpdateListItemRows()
         {
             ProcessPool.ActiveProcesses.ForEach(p => UpdateModule(p.UpdateRow));
+            // Allows us to read out the console values
+            if (Debugger.IsAttached)
+                Input.RunAsConsole();
         }
 
         private void UpdateModule(Action action)
