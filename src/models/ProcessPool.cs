@@ -46,7 +46,6 @@ public class ProcessPool
         _processCompletionCallback = processCompletionCallback;
         _processStartedCallback = processStartedCallback;
 
-        InitializeLogging();
     }
 
     #endregion
