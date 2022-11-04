@@ -120,15 +120,8 @@ namespace JackTheVideoRipper
 
         private void ButtonLocationBrowse_Click(object sender, EventArgs e)
         {
-            FolderBrowserDialog f = new()
-            {
-                SelectedPath = Filepath
-            };
-            
-            if (f.ShowDialog() == DialogResult.OK)
-            {
-                Filepath = f.SelectedPath.Trim();
-            }
+            if (FileSystem.SelectFile() is { } filepath)
+                Filepath = filepath;
         }
         
         private void ChkBoxExportAudio_CheckedChanged(object sender, EventArgs e)
@@ -139,7 +132,7 @@ namespace JackTheVideoRipper
             if (ExportAudio)
             {
                 ToggleAudio(true);
-                CbAudioEncoder_TextChanged(sender, e);
+                CbAudioEncoder_TextChanged();
             }
             else
             {
@@ -156,7 +149,7 @@ namespace JackTheVideoRipper
             if (ExportVideo)
             {
                 ToggleVideo(true);
-                CbVideoEncoder_TextChanged(sender, e);
+                CbVideoEncoder_TextChanged();
             }
             else
             {
@@ -165,14 +158,14 @@ namespace JackTheVideoRipper
             }
         }
 
-        private void CbVideoEncoder_TextChanged(object sender, EventArgs e)
+        private void CbVideoEncoder_TextChanged()
         {
             if (!EncodeVideo) 
                 return;
             Filepath = $"{Filename}.{VideoExtension}";
         }
         
-        private void CbAudioEncoder_TextChanged(object sender, EventArgs e)
+        private void CbAudioEncoder_TextChanged()
         {
             if (ShouldUpdateAudio)
                 return;
@@ -220,7 +213,8 @@ namespace JackTheVideoRipper
         {
             if (!FileSystem.IsValidUrl(url))
             {
-                Modals.Notification($@"Invalid URL detected, skipping: {url}", @"Invalid URL", MessageBoxIcon.Error);
+                Core.SendNotification($"Invalid URL detected, skipping: {url}");
+                //Modals.Warning($@"Invalid URL detected, skipping: {url}", @"Invalid URL");
                 return;
             }
 
