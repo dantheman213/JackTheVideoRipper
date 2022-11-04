@@ -5,7 +5,7 @@ namespace JackTheVideoRipper
 {
     internal static class Settings
     {
-        public static SettingsModel Data { get; set; }
+        public static SettingsModel Data { get; private set; }
 
         public static void Save()
         {
