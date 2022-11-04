@@ -15,6 +15,7 @@
 
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
+                    Statistics.InitializeCounters();
                     Application.Run(new FrameMain());
                 }
                 else

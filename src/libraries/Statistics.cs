@@ -7,82 +7,72 @@ public static class Statistics
 {
     private static PerformanceCounter? _cpuCounter;
     private static PerformanceCounter? _ramCounter;
-    private static List<PerformanceCounter>? _networkCounters;
+    private static readonly List<PerformanceCounter> _NetworkCounters = new();
 
     public static void InitializeCounters()
     {
-        
+        _cpuCounter = InitializePerformanceCounter("Processor", "% Processor Time", "_Total");
+        _ramCounter = InitializePerformanceCounter("Memory", "% Available Megabytes");
+        InitializeNetworkTrackers();
+    }
+
+    private static PerformanceCounter? InitializePerformanceCounter(string categoryName, string counterName, string instanceName = "")
+    {
+        try
+        {
+            return instanceName.HasValue() ?
+                new PerformanceCounter(categoryName, counterName, instanceName) :
+                new PerformanceCounter(categoryName, counterName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            return null;
+        }
+    }
+
+    private static void InitializeNetworkTrackers()
+    {
+        try
+        {
+            PerformanceCounterCategory category = new("Network Interface");
+                
+            category.GetInstanceNames().ForEach(instance =>
+            {
+                _NetworkCounters.Add(new PerformanceCounter("Network Interface", "Bytes Received/sec", instance));
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
     }
     
     public static string GetCpuUsagePercentage()
     {
-        if (_cpuCounter is not null) 
-            return $"{_cpuCounter.NextValue():0.00}%";
-        
-        try
-        {
-            _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-        }
-        catch (Exception ex)
-        {
-            // TBA
-            Console.WriteLine(ex);
-            return Tags.NOT_APPLICABLE;
-        }
-        
-        return $"{_cpuCounter.NextValue():0.00}%";
+        return _cpuCounter is not null ? $"{_cpuCounter.NextValue():0.00}%" : Tags.NOT_APPLICABLE;
     }
     
     public static string GetAvailableMemory()
     {
-        if (_ramCounter != null)
-            return $"{_ramCounter.NextValue()} MB";
-        
-        try
-        {
-            _ramCounter = new PerformanceCounter("Memory", "% Available Megabytes");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-            return Tags.NOT_APPLICABLE;
-        }
-        
-        return $"{_ramCounter.NextValue()} MB";
+        return _ramCounter is not null ? $"{_ramCounter.NextValue()} MB" : Tags.NOT_APPLICABLE;
     }
     
     public static string GetNetworkTransfer()
     {
-        try
-        {
-            // get the network transfer in kbps or mbps automatically
+        return _NetworkCounters.Any() ? CalculateNetworkUsage() : Tags.NOT_APPLICABLE;
+    }
 
-            _networkCounters ??= new List<PerformanceCounter>();
+    private static string CalculateNetworkUsage()
+    {
+        double count = NetworkUsage;
+        return $"{(count >= 1024 ? RoundBytes(count) : count)} {(count >= 1024 ? "mbps" : "kbps")}";
+    }
 
-            if (!_networkCounters.Any())
-            {
-                PerformanceCounterCategory category = new("Network Interface");
-                
-                category.GetInstanceNames().ForEach(instance => 
-                    _networkCounters.Add(new PerformanceCounter("Network Interface", "Bytes Received/sec", instance)));
-            }
+    private static double NetworkUsage => _NetworkCounters.Sum(counter => RoundBytes(counter.NextValue()));
 
-            double count = _networkCounters.Sum(counter => Math.Round(counter.NextValue() / 1024, 2));
-
-            string suffix = "kbps";
-            
-            if (count >= 1000)
-            {
-                suffix = "mbps";
-                count = Math.Round(count / 1000, 2);
-            }
-
-            return $"{count} {suffix}";
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-            return Tags.NOT_APPLICABLE;
-        }           
+    private static double RoundBytes(double initialValue)
+    {
+        return Math.Round(initialValue / 1024, 2);
     }
 }
