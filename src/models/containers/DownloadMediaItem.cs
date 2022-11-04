@@ -20,5 +20,17 @@ namespace JackTheVideoRipper
         
         [JsonProperty("media_type")]
         public MediaType MediaType { get; set; }
+        
+        public static implicit operator MediaItemRow (DownloadMediaItem item)
+        {
+            return new MediaItemRow
+            {
+                Title = item.Title!,
+                Type = item.MediaType,
+                Url = item.Url!,
+                Parameters = new Parameters(),
+                Filepath = item.Filepath!
+            };
+        }
     }
 }
