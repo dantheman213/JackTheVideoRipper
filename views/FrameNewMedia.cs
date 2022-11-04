@@ -269,7 +269,7 @@ namespace JackTheVideoRipper
                     AddMetaData = WriteMetaData,
                     IncludeAds = IncludeAds,
                     EmbedThumbnail = EmbedThumbnail,
-                    EmbedSubs = EmbedSubtitles,
+                    EmbedSubtitles = EmbedSubtitles,
                     ExportAudio = ExportAudio,
                     ExportVideo = ExportVideo,
                     AudioFormat = AudioExtension,
