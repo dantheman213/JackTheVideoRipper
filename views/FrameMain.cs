@@ -215,20 +215,6 @@ namespace JackTheVideoRipper
 
         #region Event Handlers
 
-        private void CheckForUpdatesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            // if sender obj is bool then version being checked on startup passively and dont show dialog that it's up to date
-            AppVersionModel result = AppUpdate.CheckForNewAppVersion();
-            switch (result is { IsNewerVersionAvailable: true })
-            {
-                case true when Modals.Update(result):
-                    FileSystem.GetWebResourceHandle(URLs.UPDATE);
-                    break;
-                case false when sender is not bool:
-                    Modals.UpToDate();
-                    break;
-            }
-        }
 
         private bool IsStatus(params string[] statuses)
         {
