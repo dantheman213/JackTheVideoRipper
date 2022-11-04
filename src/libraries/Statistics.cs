@@ -36,10 +36,9 @@ public static class Statistics
         try
         {
             PerformanceCounterCategory category = new("Network Interface");
-                
             category.GetInstanceNames().ForEach(instance =>
             {
-                _NetworkCounters.Add(new PerformanceCounter("Network Interface", "Bytes Received/sec", instance));
+                _NetworkCounters.Add(new PerformanceCounter(category.CategoryName, "Bytes Received/sec", instance));
             });
         }
         catch (Exception ex)
