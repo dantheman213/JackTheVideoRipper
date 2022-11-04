@@ -90,7 +90,7 @@ public class FormatManager
                     _videoFormatList.Add(videoFormat);
                 }
 
-                AddFormat(MediaType.Video, videoFormat, format.FormatId);
+                AddFormat(MediaType.Video, videoFormat, format.FormatId!);
             }
 
             if (format.HasAudio && format.AudioString() is { } audioFormat && IsValidFormat(audioFormat))
@@ -105,12 +105,12 @@ public class FormatManager
                     _audioFormatList.Add(audioFormat);
                 }
 
-                AddFormat(MediaType.Audio, audioFormat, format.FormatId);
+                AddFormat(MediaType.Audio, audioFormat, format.FormatId!);
             }
         }
     }
 
-    private bool IsValidFormat(string str)
+    private static bool IsValidFormat(string str)
     {
         return !(str.Contains(Tags.UNRECOGNIZED_CODEC) || str.Contains(Tags.NONE));
     }
