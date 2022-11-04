@@ -222,7 +222,7 @@ public class ProcessUpdateRow : ProcessRunner
     }
 
     // Extract elements of CLI output from YouTube-DL
-    private void DownloadUpdate(string[] tokens)
+    private void DownloadUpdate(IReadOnlyList<string> tokens)
     {
         Progress = tokens[1];
         Size = tokens[3];
