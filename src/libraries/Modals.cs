@@ -28,7 +28,7 @@ public static class Modals
     
     public static bool Update(AppVersionModel? result)
     {
-        return Confirmation(string.Format(Resources.NewUpdate, result?.Version), "New Version Available",
+        return Confirmation(string.Format(Resources.NewUpdate, result?.VersionString), "New Version Available",
             MessageBoxIcon.Information);
     }
 
