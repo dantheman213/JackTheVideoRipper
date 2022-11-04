@@ -1,4 +1,5 @@
-﻿using JackTheVideoRipper.extensions;
+﻿using System.Diagnostics;
+using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
 using Timer = System.Threading.Timer;
@@ -40,7 +41,8 @@ namespace JackTheVideoRipper
             InitializeComponent();
 
             // Allows us to read out the console values
-            Input.RunAsConsole();
+            if (Debugger.IsAttached)
+                Input.RunAsConsole();
         }
 
         private void Update(object? state)
@@ -62,9 +64,6 @@ namespace JackTheVideoRipper
         private void UpdateListItemRows()
         {
             ProcessPool.ActiveProcesses.ForEach(p => UpdateModule(p.UpdateRow));
-            // Allows us to read out the console values
-            if (Debugger.IsAttached)
-                Input.RunAsConsole();
         }
 
         private void UpdateModule(Action action)
