@@ -13,7 +13,7 @@ public class ProcessPool
     private readonly Dictionary<string, ProcessUpdateRow> _activeProcesses = new();
     private readonly HashSet<ProcessUpdateRow> _finishedProcesses = new();
 
-    private readonly Dictionary<string, List<ProcessError>> _processErrors = new();
+    public static readonly ErrorLogger ErrorLogger = new();
 
     private readonly Action<ProcessUpdateRow> _processCompletionCallback;
 
@@ -241,41 +241,17 @@ public class ProcessPool
 
     #region Logging Methods
 
-    private void InitializeLogging()
     {
-        ProcessUpdateRow.ErrorLogEvent_Tag += LogError;
-        ProcessUpdateRow.ErrorLogEvent_Process += LogError;
-        ProcessUpdateRow.ErrorLogEvent_Error += LogError;
     }
 
-    public void LogError(string processTag, Exception exception)
     {
-        if (!_processErrors.ContainsKey(processTag))
-        {
-            _processErrors[processTag] = new List<ProcessError>();
-        }
 
-        _processErrors[processTag].Add(new ProcessError(processTag, exception));
     }
     
-    public void LogError(ProcessUpdateRow processUpdateRow, Exception exception)
     {
-        if (!_processErrors.ContainsKey(processUpdateRow.Tag))
-        {
-            _processErrors[processUpdateRow.Tag] = new List<ProcessError>();
-        }
-
-        _processErrors[processUpdateRow.Tag].Add(new ProcessError(processUpdateRow, exception));
     }
     
-    public void LogError(ProcessError error)
     {
-        if (!_processErrors.ContainsKey(error.ProcessTag))
-        {
-            _processErrors[error.ProcessTag] = new List<ProcessError>();
-        }
-
-        _processErrors[error.ProcessTag].Add(error);
     }
 
     #endregion
