@@ -1,4 +1,6 @@
-﻿using JackTheVideoRipper.extensions;
+﻿using System.Diagnostics;
+using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models.enums;
 
 namespace JackTheVideoRipper;
@@ -10,20 +12,6 @@ public class ProcessUpdateRow : ProcessRunner
     public ListViewItem ViewItem { get; init; } = null!;
 
     public string Tag { get; init; } = null!;
-
-    private readonly Action<ProcessUpdateRow> _completionCallback;
-        
-    private readonly string _parameterString;
-
-    #endregion
-
-    #region Events
-
-    public static event Action<string, Exception> ErrorLogEvent_Tag = delegate {  };
-        
-    public static event Action<ProcessUpdateRow, Exception> ErrorLogEvent_Process = delegate {  };
-        
-    public static event Action<ProcessError> ErrorLogEvent_Error = delegate {  };
 
     #endregion
 
@@ -99,75 +87,23 @@ public class ProcessUpdateRow : ProcessRunner
 
     #region Constructor
         
-    public ProcessUpdateRow(string parameterString, Action<ProcessUpdateRow> completionCallback)
+    public ProcessUpdateRow(string parameterString, Action<IProcessRunner> completionCallback) :
+        base(parameterString, completionCallback)
     {
-        _parameterString = parameterString;
-        _completionCallback = completionCallback;
-        CreateProcess();
     }
         
     #endregion
+    
+    #region Overrides
 
-    #region Public Methods
-
-    public void Start()
+    protected override Process CreateProcess()
     {
-        Process.Start();
-        
-        SetProcessStatus(ProcessStatus.Running);
-        
-        TrackStandardOut();
-        
-        TrackStandardError();
+        return YouTubeDL.CreateCommand(ParameterString);
     }
 
-    public void Stop()
+    public override void Update()
     {
-        SetProcessStatus(ProcessStatus.Stopped);
-
-        TryKillProcess();
-
-        NotifyCompletion();
-    }
-
-    public void Retry()
-    {
-        SetProcessStatus(ProcessStatus.Created);
-            
-        CreateProcess();
-    }
-
-    public void Cancel()
-    {
-        SetProcessStatus(ProcessStatus.Cancelled);
-            
-        TryKillProcess();
-
-        NotifyCompletion();
-    }
-
-    public override void Pause()
-    {
-        base.Pause();
-        SetProcessStatus(ProcessStatus.Paused);
-    }
-
-    public override void Resume()
-    {
-        base.Resume();
-        SetProcessStatus(ProcessStatus.Running);
-    }
-
-    public void UpdateRow()
-    {
-        if (Completed)
-        {
-            Complete();
-            return;
-        }
-
-        if (AtEndOfBuffer)
-            return;
+        base.Update();
 
         switch (DownloadStage)
         {
@@ -176,94 +112,18 @@ public class ProcessUpdateRow : ProcessRunner
             case DownloadStage.Waiting:
                 break;
             case DownloadStage.Metadata:
-                UpdateDownloads(Messages.READING_METADATA);
+                UpdateDownloadStatus(Messages.READING_METADATA);
                 break;
             case DownloadStage.Transcoding:
-                UpdateDownloads(Messages.TRANSCODING);
+                UpdateDownloadStatus(Messages.TRANSCODING);
                 break;
             case DownloadStage.Downloading:
-                UpdateDownloads(Messages.DOWNLOADING);
+                UpdateDownloadStatus(Messages.DOWNLOADING);
                 break;
             case DownloadStage.Error:
                 SetErrorState();
                 break;
         }
-
-        Cursor += 1;
-    }
-    
-    #endregion
-
-    #region Private Methods
-    
-    protected override void Complete()
-    {
-        base.Complete();
-        
-        // Switch exit code here to determine more information and set status
-
-        if (Failed)
-        {
-            SetErrorState();
-            return;
-        }
-
-        SetProcessStatus(ProcessStatus.Completed);
-
-        NotifyCompletion();
-    }
-    
-    private void SetErrorState(Exception? exception = null)
-    {
-        if (ProcessStatus == ProcessStatus.Error)
-            return;
-
-        SetProcessStatus(ProcessStatus.Error);
-
-        WriteErrorMessage(exception);
-            
-        TryKillProcess();
-            
-        NotifyCompletion();
-    }
-    
-    private void WriteErrorMessage(Exception? exception = null)
-    {
-        ErrorLogEvent_Process(this, exception ?? new ApplicationException(Results.MergeNewline()));
-        Console.Write(Results);
-    }
-
-    // Extract elements of CLI output from YouTube-DL
-    private void DownloadUpdate(IReadOnlyList<string> tokens)
-    {
-        Progress = tokens[1];
-        FileSize = tokens[3];
-        DownloadSpeed = tokens[5];
-        Eta = tokens[7];
-    }
-
-    private void NotifyCompletion()
-    {
-        _completionCallback.Invoke(this);
-    }
-    
-    private void UpdateDownloads(string statusMessage)
-    {
-        if (TokenizedProcessLine is not { Length: >= 8 } tokens )
-            return;
-            
-        // download messages stream fast, bump the cursor up to one of the latest messages, if it exists...
-        // only start skipping cursor ahead once download messages have started otherwise important info could be skipped
-        SkipToEnd();
-
-        Status = statusMessage;
-
-        DownloadUpdate(tokens);
-    }
-
-    private void CreateProcess()
-    {
-        Process = YouTubeDL.CreateCommand(_parameterString);
     }
 
     protected override void SetProcessStatus(ProcessStatus processStatus)
@@ -282,7 +142,34 @@ public class ProcessUpdateRow : ProcessRunner
         };
         SetDefaultMessages(processStatus);
     }
-        
+
+    #endregion
+
+    #region Private Methods
+
+    private void UpdateDownloadStatus(string statusMessage)
+    {
+        if (TokenizedProcessLine is not { Length: >= 8 } tokens )
+            return;
+            
+        // download messages stream fast, bump the cursor up to one of the latest messages, if it exists...
+        // only start skipping cursor ahead once download messages have started otherwise important info could be skipped
+        SkipToEnd();
+
+        Status = statusMessage;
+
+        SetDownloadProgressText(tokens);
+    }
+    
+    // Extract elements of CLI output from YouTube-DL
+    private void SetDownloadProgressText(IReadOnlyList<string> tokens)
+    {
+        Progress = tokens[1];
+        FileSize = tokens[3];
+        DownloadSpeed = tokens[5];
+        Eta = tokens[7];
+    }
+
     private void SetValues(string? status = null, string? size = null, string? progress = null,
         string? downloadSpeed = null, string? eta = null)
     {
@@ -337,7 +224,7 @@ public class ProcessUpdateRow : ProcessRunner
                     eta:Tags.DEFAULT_TIME);
                 break;
             case ProcessStatus.Stopped:
-                SetValues(Statuses.STOPPED, downloadSpeed:Tags.DEFAULT_SPEED,eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.STOPPED, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
                 break;
             case ProcessStatus.Cancelled:
                 SetValues(Status = Statuses.CANCELLED, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED,

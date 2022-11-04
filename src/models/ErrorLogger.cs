@@ -9,7 +9,6 @@ public class ErrorLogger
     private void InitializeLogging()
     {
         ProcessUpdateRow.ErrorLogEvent_Tag += LogError;
-        ProcessUpdateRow.ErrorLogEvent_Process += LogError;
         ProcessUpdateRow.ErrorLogEvent_Error += LogError;
     }
 
@@ -21,16 +20,6 @@ public class ErrorLogger
         }
 
         _errorTable[processTag].Add(new ProcessError(processTag, exception));
-    }
-    
-    public void LogError(ProcessUpdateRow processUpdateRow, Exception exception)
-    {
-        if (!_errorTable.ContainsKey(processUpdateRow.Tag))
-        {
-            _errorTable[processUpdateRow.Tag] = new List<ProcessError>();
-        }
-
-        _errorTable[processUpdateRow.Tag].Add(new ProcessError(processUpdateRow, exception));
     }
     
     public void LogError(ProcessError error)
