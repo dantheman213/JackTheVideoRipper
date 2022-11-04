@@ -5,13 +5,13 @@ namespace JackTheVideoRipper;
 
 public static class Modals
 {
-    public static bool Confirmation(string text, string caption, MessageBoxIcon icon = MessageBoxIcon.Warning, 
+    public static bool Confirmation(string text, string caption = "Confirm", MessageBoxIcon icon = MessageBoxIcon.Warning, 
         MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Button1)
     {
         return MessageBox.Show(text, caption, MessageBoxButtons.YesNo, icon, defaultButton:defaultButton) == DialogResult.Yes;
     }
         
-    public static DialogResult Notification(string text, string caption, MessageBoxIcon icon = MessageBoxIcon.Information)
+    public static DialogResult Notification(string text, string caption = "Info", MessageBoxIcon icon = MessageBoxIcon.Information)
     {
         return MessageBox.Show(text, caption, MessageBoxButtons.OK, icon);
     }
