@@ -146,6 +146,18 @@ public class ProcessUpdateRow : ProcessRunner
         NotifyCompletion();
     }
 
+    public override void Pause()
+    {
+        base.Pause();
+        SetProcessStatus(ProcessStatus.Paused);
+    }
+
+    public override void Resume()
+    {
+        base.Resume();
+        SetProcessStatus(ProcessStatus.Running);
+    }
+
     public void UpdateRow()
     {
         if (Completed)
@@ -265,6 +277,7 @@ public class ProcessUpdateRow : ProcessRunner
             ProcessStatus.Error     => Color.LightCoral,
             ProcessStatus.Stopped   => Color.DarkSalmon,
             ProcessStatus.Created   => Color.LightGray,
+            ProcessStatus.Paused    => Color.DarkGray,
             _ => Color.White
         };
         SetDefaultMessages(processStatus);
@@ -330,6 +343,8 @@ public class ProcessUpdateRow : ProcessRunner
                 SetValues(Status = Statuses.CANCELLED, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED,
                     eta:Tags.DEFAULT_TIME);
                 break;
+            case ProcessStatus.Paused:
+                SetValues(Status = Statuses.PAUSED, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
                 break;
         }
     }

@@ -24,5 +24,8 @@ public enum ProcessStatus
     Cancelled,
     
     // Process succeeded
-    Succeeded
+    Succeeded,
+    
+    // Process paused
+    Paused
 }

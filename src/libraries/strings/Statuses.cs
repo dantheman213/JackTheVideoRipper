@@ -9,4 +9,5 @@ public static class Statuses
     public const string STOPPED = "Stopped";
     public const string CANCELLED = "Cancelled";
     public const string IDLE = "Idle";
+    public const string PAUSED = "Paused";
 }
