@@ -191,10 +191,10 @@ namespace JackTheVideoRipper
             AudioFormatItems.Clear();
         }
         
-        public void ExtractMediaInfo(string url)
+        public void ExtractMediaInfo()
         {
             // Meta data lookup failed (happens on initial lookup)
-            if (YouTubeDL.GetMediaData(url) is not { } info)
+            if (YouTubeDL.GetMediaData(Url) is not { } info)
                 return;
 
             if (info.Formats is {Count: > 0})
