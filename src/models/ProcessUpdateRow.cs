@@ -11,8 +11,6 @@ public class ProcessUpdateRow : ProcessRunner
 
     public string Tag { get; init; } = null!;
 
-    public ProcessStatus ProcessStatus { get; private set; } = ProcessStatus.Created;
-
     private readonly Action<ProcessUpdateRow> _completionCallback;
         
     private readonly string _parameterString;
@@ -30,12 +28,6 @@ public class ProcessUpdateRow : ProcessRunner
     #endregion
 
     #region Properties
-
-    public bool Started => ProcessStatus != ProcessStatus.Created;
-                
-    public bool Finished => ProcessStatus is ProcessStatus.Completed or ProcessStatus.Error;
-
-    public bool Completed => Started && Process.HasExited;
 
     public DownloadStage DownloadStage => GetDownloadStage(ProcessLine);
 
@@ -121,8 +113,11 @@ public class ProcessUpdateRow : ProcessRunner
     public void Start()
     {
         Process.Start();
+        
         SetProcessStatus(ProcessStatus.Running);
+        
         TrackStandardOut();
+        
         TrackStandardError();
     }
 
@@ -189,8 +184,10 @@ public class ProcessUpdateRow : ProcessRunner
 
     #region Private Methods
     
-    private void Complete()
+    protected override void Complete()
     {
+        base.Complete();
+        
         // Switch exit code here to determine more information and set status
 
         if (Failed)
@@ -224,12 +221,6 @@ public class ProcessUpdateRow : ProcessRunner
         Console.Write(Results);
     }
 
-    private void UpdateStatusMessage(string status)
-    {
-        if (Status != status)
-            Status = status;
-    }
-
     // Extract elements of CLI output from YouTube-DL
     private void DownloadUpdate(string[] tokens)
     {
@@ -253,7 +244,7 @@ public class ProcessUpdateRow : ProcessRunner
         // only start skipping cursor ahead once download messages have started otherwise important info could be skipped
         SkipToEnd();
 
-        UpdateStatusMessage(statusMessage);
+        Status = statusMessage;
 
         DownloadUpdate(tokens);
     }
@@ -263,9 +254,9 @@ public class ProcessUpdateRow : ProcessRunner
         Process = YouTubeDL.CreateCommand(_parameterString);
     }
 
-    private void SetProcessStatus(ProcessStatus processStatus)
+    protected override void SetProcessStatus(ProcessStatus processStatus)
     {
-        ProcessStatus = processStatus;
+        base.SetProcessStatus(processStatus);
         Color = processStatus switch
         {
             ProcessStatus.Running   => Color.Turquoise,
@@ -321,19 +312,24 @@ public class ProcessUpdateRow : ProcessRunner
             case ProcessStatus.Running:
                 break;
             case ProcessStatus.Created:
-                SetValues(Statuses.WAITING, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED, Tags.DEFAULT_TIME);
+                SetValues(Statuses.WAITING, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED, 
+                    eta:Tags.DEFAULT_TIME);
                 break;
             case ProcessStatus.Completed:
-                SetValues(Statuses.COMPLETE, progress:Tags.PROGRESS_COMPLETE, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.COMPLETE, progress:Tags.PROGRESS_COMPLETE, downloadSpeed:Tags.DEFAULT_SPEED,
+                    eta:Tags.DEFAULT_TIME);
                 break;
             case ProcessStatus.Error:
-                SetValues(Statuses.ERROR, Tags.DEFAULT_SIZE, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.ERROR, Tags.DEFAULT_SIZE, downloadSpeed:Tags.DEFAULT_SPEED,
+                    eta:Tags.DEFAULT_TIME);
                 break;
             case ProcessStatus.Stopped:
-                SetValues(Statuses.STOPPED, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.STOPPED, downloadSpeed:Tags.DEFAULT_SPEED,eta:Tags.DEFAULT_TIME);
                 break;
             case ProcessStatus.Cancelled:
-                SetValues(Status = Statuses.CANCELLED, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED, Tags.DEFAULT_TIME);
+                SetValues(Status = Statuses.CANCELLED, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED,
+                    eta:Tags.DEFAULT_TIME);
+                break;
                 break;
         }
     }
