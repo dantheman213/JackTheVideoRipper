@@ -116,6 +116,8 @@ namespace JackTheVideoRipper
 
         #endregion
 
+        #region Private Methods
+
         private void AddVideoFormats()
         {
             VideoFormatItems.AddRange(_formatManager.GetVideoFormatRows().ToArray<object>());
@@ -291,6 +293,22 @@ namespace JackTheVideoRipper
             cbAudioEncoder.Enabled = enabled && !ExportVideo;
             cbVideoEncoder.Enabled = !enabled || ExportVideo;
         }
+        
+        #endregion
+
+        #region Static Methods
+
+        public static MediaItemRow? GetMedia(MediaType type)
+        {
+            FrameNewMedia frameNewMedia = new(type);
+
+            if (frameNewMedia.ShowDialog() != DialogResult.OK)
+                return null;
+
+            return frameNewMedia.MediaItemRow;
+        }
+
+        #endregion
 
         #region Timer Events
 
