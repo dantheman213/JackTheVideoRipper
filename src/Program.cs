@@ -2,18 +2,16 @@
 {
     internal static class Program
     {
-        /// <summary>
-        /// The main entry point for the application.
-        /// </summary>
         [STAThread]
         private static void Main(string[] args)
         {
-            using (new Mutex(true, "JackTheVideoRipper", out bool firstRun))
+            using (new Mutex(true, FileSystem.PROGRAM_NAME, out bool firstRun))
             {
                 if (firstRun)
                 {
+                    // fixes blurry text on some screens
                     if (Environment.OSVersion.Version.Major >= 6)
-                        SetProcessDPIAware(); // fixes blurry text on some screens
+                        SetProcessDPIAware();
 
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
@@ -21,7 +19,7 @@
                 }
                 else
                 {
-                    MessageBox.Show(@"Application already running!", @"Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Modals.Notification(@"Application already running!");
                 }
             }
         }
