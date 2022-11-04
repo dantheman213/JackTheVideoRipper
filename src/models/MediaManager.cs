@@ -18,13 +18,13 @@ public class MediaManager
 
     public ProcessUpdateRow? Selected => _processPool.Selected;
 
-    public string ToolbarStatus => $"{GetProgramStatus(),-20}";
+    public string ToolbarStatus => $"{GetProgramStatus(),-20}"; // 20 chars
 
-    public static string ToolbarCpu => $@"CPU: {Statistics.GetCpuUsagePercentage(),7}";
+    public static string ToolbarCpu => $@"CPU: {Statistics.GetCpuUsagePercentage(),7}"; // 12 chars
 
-    public static string ToolbarMemory => $@"Available Memory: {Statistics.GetAvailableMemory(),9}";
+    public static string ToolbarMemory => $@"Available Memory: {Statistics.GetAvailableMemory(),9}"; // 27 chars
 
-    public static string ToolbarNetwork => $@"Network Usage: {Statistics.GetNetworkTransfer(),10}";
+    public static string ToolbarNetwork => $@"Network Usage: {Statistics.GetNetworkTransfer(),10}"; // 25 chars
 
     #endregion
 
