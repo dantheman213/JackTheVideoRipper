@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
+using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 
 namespace JackTheVideoRipper;
@@ -21,6 +22,16 @@ public class ProcessRunner : IProcessRunner
     protected string ProcessLine => Results[Cursor];
     
     public string[] TokenizedProcessLine => _SpaceSplitPattern.Split(ProcessLine);
+    
+    public ProcessStatus ProcessStatus { get; private set; } = ProcessStatus.Created;
+    
+    public bool Started => ProcessStatus is not ProcessStatus.Created;
+                
+    public bool Finished => ProcessStatus is ProcessStatus.Completed or ProcessStatus.Error;
+
+    public bool Completed => Started && Process.HasExited;
+
+    public bool Paused { get; private set; }
 
     public void SkipToEnd()
     {
@@ -37,6 +48,20 @@ public class ProcessRunner : IProcessRunner
     public void TrackStandardOut()
     {
         RunWhileProcessActive(AppendStatusLine);
+    }
+
+    public virtual void Pause()
+    {
+        if (Paused) return;
+        Process.Suspend();
+        Paused = true;
+    }
+
+    public virtual void Resume()
+    {
+        if (!Paused) return;
+        Process.Resume();
+        Paused = false;
     }
 
     private void RunWhileProcessActive(Action action)
@@ -62,5 +87,15 @@ public class ProcessRunner : IProcessRunner
         {
             Console.WriteLine(exception);
         }
+    }
+
+    protected virtual void SetProcessStatus(ProcessStatus processStatus)
+    {
+        ProcessStatus = processStatus;
+    }
+
+    protected virtual void Complete()
+    {
+        
     }
 }
