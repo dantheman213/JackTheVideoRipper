@@ -5,6 +5,13 @@ namespace JackTheVideoRipper;
 
 public static class Input
 {
+    #region Data Members
+
+    private static readonly List<Task<bool>> _TaskTypeQueue = new();
+    
+    private const int _TYPING_PING = 1800;
+
+    #endregion
     [DllImport("kernel32.dll", SetLastError = true)]
     //public static extern bool AttachConsole(uint dwProcessId);
     public static extern bool AttachConsole(int pid);
@@ -28,5 +35,26 @@ public static class Input
     public static StreamWriter GetConsoleWriter()
     {
         return new StreamWriter(new FileStream(StandardOutputHandleSafe, FileAccess.Write));
+    }
+    
+    public static async void WaitForFinishTyping<T>(Func<T> valueGenerator) where T : IComparable
+    {
+        async Task<bool> IsStillTyping()
+        {
+            Application.DoEvents();
+
+            int taskCount = _TaskTypeQueue.Count;
+            T oldValue = valueGenerator.Invoke();
+            await Task.Delay(_TYPING_PING);
+
+            return oldValue.Equals(valueGenerator.Invoke()) || taskCount != _TaskTypeQueue.Count - 1;
+        }
+
+        _TaskTypeQueue.Add(IsStillTyping());
+        if (await _TaskTypeQueue[^1])
+            return;
+
+        // typing appears to have stopped, continue
+        _TaskTypeQueue.Clear();
     }
 }

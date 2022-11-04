@@ -280,29 +280,6 @@ namespace JackTheVideoRipper
             };
         }
 
-        private const int _TYPING_PING = 1800;
-        
-        private async void WaitForFinishTyping()
-        {
-            async Task<bool> IsStillTyping()
-            {
-                Application.DoEvents();
-
-                int taskCount = _taskTypeQueue.Count;
-                string oldStr = Url;
-                await Task.Delay(_TYPING_PING);
-
-                return oldStr != Url || taskCount != _taskTypeQueue.Count - 1;
-            }
-
-            _taskTypeQueue.Add(IsStillTyping());
-            if (await _taskTypeQueue[^1])
-                return;
-
-            // typing appears to have stopped, continue
-            _taskTypeQueue.Clear();
-        }
-        
         private void ToggleVideo(bool enabled)
         {
             cbVideoFormat.Enabled = enabled;
@@ -367,7 +344,7 @@ namespace JackTheVideoRipper
 
         private async void TextUrl_TextChanged(object sender, EventArgs e)
         {
-            WaitForFinishTyping();
+            Input.WaitForFinishTyping(() => Url);
 
             if (!ValidateUrl(Url))
                 return;
