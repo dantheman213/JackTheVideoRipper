@@ -355,14 +355,10 @@ namespace JackTheVideoRipper
 
             if (!ValidateUrl(Url))
                 return;
-            
-            IngestMediaUrl();
 
-            if (File.Exists(Filepath))
-            {
-                Modals.Confirmation("It looks like this file has already been downloaded, overwrite it?",
-                    "Warning: File Already Exists");
-            }
+            RetrieveMetadata();
+
+            FileSystem.WarnIfFileExists(Filepath);
         }
 
         private void ChkBoxExportAudio_CheckedChanged(object sender, EventArgs e)
