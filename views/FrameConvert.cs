@@ -2,7 +2,7 @@
 {
     public partial class FrameConvert : Form
     {
-        private static string handBrakeUrl = "https://handbrake.fr/";
+        private const string _HAND_BRAKE_URL = "https://handbrake.fr/";
 
         public FrameConvert()
         {
@@ -11,7 +11,7 @@
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            FileSystem.GetWebResourceHandle(handBrakeUrl, false);
+            FileSystem.GetWebResourceHandle(_HAND_BRAKE_URL, false);
         }
     }
 }
