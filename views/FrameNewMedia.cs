@@ -13,8 +13,6 @@ namespace JackTheVideoRipper
 
         private readonly MediaType _startType;
         private string? _lastValidUrl;
-
-        private readonly List<Task<bool>> _taskTypeQueue = new();
         
         private readonly FormatManager _formatManager = new();
 
