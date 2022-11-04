@@ -11,11 +11,22 @@ public struct MediaItemRow
     public string Url = string.Empty;
     public Parameters? Parameters = null;
     public string Filepath = string.Empty;
-    public readonly ListViewItem? ListViewItem = null;
+
+    private ListViewItem? _listViewItem = null;
+
+    public ListViewItem ListViewItem
+    {
+        get
+        {
+            if (_listViewItem is null)
+                CreateListViewItem();
+            return _listViewItem!;
+        }
+    }
 
     public static implicit operator ListViewItem(MediaItemRow row)
     {
-        return row.ListViewItem ?? row.CreateListViewItem();
+        return row.ListViewItem;
     }
 
     public MediaItemRow()
@@ -39,9 +50,9 @@ public struct MediaItemRow
         };
     }
 
-    public ListViewItem CreateListViewItem()
+    private void CreateListViewItem()
     {
-        return new ListViewItem(DefaultRow(Title, Type, Url, Filepath))
+        _listViewItem = new ListViewItem(DefaultRow(Title, Type, Url, Filepath))
         {
             Tag = Tag,
             BackColor = Color.LightGray,
