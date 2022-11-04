@@ -22,9 +22,7 @@ namespace JackTheVideoRipper
         public static void CheckDownload()
         {
             if (!IsInstalled())
-            {
                 DownloadAndInstall();
-            }
         }
 
         public static void DownloadAndInstall()
@@ -41,7 +39,7 @@ namespace JackTheVideoRipper
             if (!IsInstalled())
                 return;
             
-            CLI.RunCommand($"{binName} -U", Common.Paths.Install);
+            CLI.RunCommand($"{binPath} -U", Common.Paths.Install);
             string previousVersion = Settings.Data.LastVersionYouTubeDL;
             string currentVersion = GetVersion();
 
@@ -62,11 +60,6 @@ namespace JackTheVideoRipper
         }
         
         public static string GetYouTubeLink(string id) => $"https://www.youtube.com/watch?v={id}";
-
-        public static Process Run(string opts)
-        {
-            return CLI.RunYouTubeCommand(binPath, opts);
-        }
 
         public static string? DownloadThumbnail(string thumbnailUrl)
         {
@@ -97,37 +90,47 @@ namespace JackTheVideoRipper
             return tmpFilePath;
         }
 
-        public static List<PlaylistInfoItem>? GetPlaylistMetadata(string url)
+        // youtube-dl returns an individual json object per line
+        public static IEnumerable<PlaylistInfoItem> GetPlaylistMetadata(string url)
         {
-            string json = RunCommand($"-i --no-warnings --no-cache-dir --dump-json --flat-playlist --skip-download --yes-playlist{url}");
-            // youtube-dl returns an individual json object per line
-            return JsonConvert.DeserializeObject<List<PlaylistInfoItem>>($"[{json.Split("\n").Merge("\n")}]");
+            return FileSystem.ReceiveMultiJsonResponse<IEnumerable<PlaylistInfoItem>>(binPath, url, Params.PlaylistMetadata) 
+                   ?? Array.Empty<PlaylistInfoItem>();
+        }
+
+        private static class Params
+        {
+            public const string PlaylistMetadata = "-i --no-warnings --no-cache-dir --dump-json --flat-playlist --skip-download --yes-playlist";
+            public const string MediaData = "-s --no-warnings --no-cache-dir --print-json";
+            public const string Extractors = "--list-extractors";
+            public const string Version = "--version";
+            public const string Title = "--get-title";
         }
 
         public static MediaInfoData? GetMediaData(string url)
         {
-            string json = RunCommand($"-s --no-warnings --no-cache-dir --print-json {url}");
-            return JsonConvert.DeserializeObject<MediaInfoData>(json);
+            return FileSystem.ReceiveJsonResponse<MediaInfoData>(binPath, url, Params.MediaData);
         }
+
+        private static readonly Command _Command = new(binPath);
 
         public static string GetExtractors()
         {
-            return RunCommand("--list-extractors");
+            return _Command.RunCommand(Params.Extractors);
         }
 
         public static string GetVersion()
         {
-            return RunCommand("--version");
+            return _Command.RunCommand(Params.Version);
         }
 
         public static string GetTitle(string url)
         {
-            return RunCommand($"--get-title {url}");
+            return _Command.RunWebCommand(Params.Title, url);
         }
 
-        private static string RunCommand(string paramString)
+        public static Process CreateCommand(string parameters)
         {
-            return FileSystem.RunProcess(CLI.RunYouTubeCommand(binPath, paramString));
+            return _Command.CreateCommand(parameters);
         }
     }
 }

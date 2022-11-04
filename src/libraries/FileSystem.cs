@@ -38,6 +38,43 @@ public static class FileSystem
     {
         return JsonConvert.DeserializeObject<T>(File.ReadAllText(url));
     }
+    
+    public static Process CreateProcess(string bin, string parameters, string workingDir = "", bool runAsAdmin = false)
+    {
+        if (bin.IsNullOrEmpty())
+            return new Process();
+            
+        return new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                WindowStyle = ProcessWindowStyle.Hidden,
+                FileName = bin,
+                Arguments = parameters,
+                WorkingDirectory = workingDir.HasValue() ? workingDir : Common.Paths.AppPath,
+                UseShellExecute = runAsAdmin,
+                RedirectStandardError = !runAsAdmin,
+                RedirectStandardOutput = !runAsAdmin,
+                CreateNoWindow = true,
+                Verb = runAsAdmin ? "runas" : ""
+            }
+        };
+    }
+    
+    public static string RunCommand(string binPath, string paramString, string workingDir = "", bool runAsAdmin = false)
+    {
+        return RunProcess(CreateProcess(binPath, paramString, workingDir, runAsAdmin));
+    }
+    
+    public static T? ReceiveJsonResponse<T>(string binPath, string url, string parameterString)
+    {
+        return Deserialize<T>(RunCommand(binPath, $"{parameterString} {url}"));
+    }
+        
+    public static T? ReceiveMultiJsonResponse<T>(string binPath, string url, string parameterString)
+    {
+        return Deserialize<T>($"[{RunCommand(binPath, $"{parameterString} {url}").Split("\n").Merge("\n")}]");
+    }
 
     public static Process? OpenFileExplorer(string directory)
     {
@@ -222,10 +259,39 @@ public static class FileSystem
 
         return File.ReadAllText(openFileDialog.FileName);
     }
+    public static string TryRunProcess(Process process)
+    {
+        try
+        {
+            process.Start();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+        
+        return process.StandardOutput.ReadToEnd().Trim();
+    }
+    
 
     public static string RunProcess(Process process)
     {
         process.Start();
         return process.StandardOutput.ReadToEnd().Trim();
+    }
+
+    public static Process TryStartProcess(Process process)
+    {
+        try
+        {
+            process.Start();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+       
+        return process;
     }
 }
