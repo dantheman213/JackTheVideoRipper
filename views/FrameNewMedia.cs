@@ -26,9 +26,9 @@ namespace JackTheVideoRipper
 
         private bool FormatAudio => cbAudioEncoder.Enabled && cbAudioEncoder.SelectedIndex > 0;
         
-        private bool IsValidVideo => VideoExtension != "mp4";
+        private bool IsValidVideo => VideoExtension.HasValueAndNot("mp4");
 
-        private bool IsValidAudio => AudioExtension != "mp3" && AudioExtension != "m4a";
+        private bool IsValidAudio => AudioExtension.HasValueAndNot("mp3", "m4a");
         
         private bool ShouldUpdateAudio => ExportAudio && !FormatVideo;
         
@@ -101,17 +101,21 @@ namespace JackTheVideoRipper
 
         private bool EmbedSubtitles => chkEmbedSubs.Checked;
 
-        private string VideoFormatId => _formatManager.GetVideoFormatId(VideoFormat);
+        private string VideoFormatId => _formatManager.GetVideoFormatId(VideoFormat)!;
         
-        private string AudioFormatId => _formatManager.GetAudioFormatId(AudioFormat);
+        private string AudioFormatId => _formatManager.GetAudioFormatId(AudioFormat)!;
         
         #endregion
+
+        #region Constructor
 
         public FrameNewMedia(MediaType type)
         {
             _startType = type;
             InitializeComponent();
         }
+
+        #endregion
 
         private void AddVideoFormats()
         {
@@ -172,7 +176,12 @@ namespace JackTheVideoRipper
             frameCheckMetadata.Show();
             Application.DoEvents();
 
-            ExtractMediaInfo(url);
+            try { ExtractMediaInfo(); }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Modals.Error(@"Unable to retrieve metadata!");
+            }
             
             frameCheckMetadata.Close();
             Enabled = true;
@@ -307,6 +316,12 @@ namespace JackTheVideoRipper
 
         #region Event Handlers
         
+        private void FrameNewMedia_Load(object sender, EventArgs e)
+        {
+            if (_startType == MediaType.Audio)
+                ExportVideo = false;
+        }
+        
         private void ButtonDownload_Click(object sender, EventArgs e)
         {
             if (Url.HasValue())
@@ -334,12 +349,6 @@ namespace JackTheVideoRipper
 
             if (FileSystem.SaveCopy(Filepath) is { } result && result.HasValue())
                 Filepath = result;
-        }
-        
-        private void FrameNewMedia_Load(object sender, EventArgs e)
-        {
-            if (_startType == MediaType.Audio)
-                ExportVideo = false;
         }
 
         private async void TextUrl_TextChanged(object sender, EventArgs e)
@@ -405,6 +414,13 @@ namespace JackTheVideoRipper
                 return;
             UpdateFormat(VideoFormat);
         }
+        
+        private void CbAudioEncoder_TextChanged(object sender, EventArgs e)
+        {
+            if (ShouldUpdateAudio)
+                return;
+            Filepath = $"{Filename}.{AudioExtension}";
+        }
 
         private void CbAudioFormat_TextChanged(object sender, EventArgs e)
         {
@@ -413,13 +429,6 @@ namespace JackTheVideoRipper
             UpdateFormat(AudioFormat);
         }
 
-        private void CbAudioEncoder_TextChanged(object sender, EventArgs e)
-        {
-            if (ShouldUpdateAudio)
-                return;
-            Filepath = $"{Filename}.{AudioExtension}";
-        }
-        
         private void ButtonGetCommand_Click(object sender, EventArgs e)
         {
             if (Url.HasValue())
@@ -436,6 +445,7 @@ namespace JackTheVideoRipper
             }
         }
         
+        // Can't select the preview rows
         private void CbVideoFormat_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (cbVideoFormat.SelectedIndex == 0)
