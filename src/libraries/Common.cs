@@ -13,6 +13,8 @@ namespace JackTheVideoRipper
         
         private static readonly Regex _NumericPattern = new(@"[^\d]", RegexOptions.Compiled);
         
+        private static readonly Regex _SpaceSplitPattern = new(@"\s+");
+        
         private const string _CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
         #endregion
@@ -63,6 +65,11 @@ namespace JackTheVideoRipper
                 Thread.Sleep(sleepTime);
                 action.Invoke();
             }
+        }
+
+        public static string[] Tokenize(string line)
+        {
+            return _SpaceSplitPattern.Split(line);
         }
 
         #endregion
