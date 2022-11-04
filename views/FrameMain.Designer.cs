@@ -408,7 +408,6 @@
          this.checkForUpdatesToolStripMenuItem.Name = "checkForUpdatesToolStripMenuItem";
          this.checkForUpdatesToolStripMenuItem.Size = new System.Drawing.Size(216, 22);
          this.checkForUpdatesToolStripMenuItem.Text = "Check For Updates";
-         this.checkForUpdatesToolStripMenuItem.Click += new System.EventHandler(this.CheckForUpdatesToolStripMenuItem_Click);
          // 
          // toolStripSeparator6
          // 
