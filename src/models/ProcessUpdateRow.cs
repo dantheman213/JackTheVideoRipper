@@ -289,7 +289,7 @@ public class ProcessUpdateRow : ProcessRunner
     {
         if (line.IsNullOrEmpty())
             return DownloadStage.None;
-        if (line.Contains(Tags.YOUTUBE))
+        if (line.Contains(Tags.YOUTUBE) || line.Contains(Tags.INFO))
             return DownloadStage.Metadata;
         if (line.Contains(Tags.FFMPEG))
             return DownloadStage.Transcoding;
