@@ -2,7 +2,7 @@
 {
     public partial class FrameAbout : Form
     {
-        private static string projectUrl = "https://github.com/dantheman213/JackTheVideoRipper";
+        private const string _PROJECT_URL = "https://github.com/dantheman213/JackTheVideoRipper";
 
         public FrameAbout()
         {
@@ -11,7 +11,7 @@
 
         private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            FileSystem.GetWebResourceHandle(projectUrl);
+            FileSystem.GetWebResourceHandle(_PROJECT_URL);
         }
 
         private void FrameAbout_Load(object sender, EventArgs e)
