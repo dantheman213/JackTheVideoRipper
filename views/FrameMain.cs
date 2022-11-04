@@ -257,7 +257,7 @@ namespace JackTheVideoRipper
             if (noneSelected)
                 return;
 
-            FileSystem.SetClipboardData(_url);
+            FileSystem.SetClipboardText(_url);
         }
 
         private void ListItems_DoubleClick(object sender, EventArgs e)
@@ -475,7 +475,7 @@ namespace JackTheVideoRipper
         
         private void CopyFailedUrlsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.SetClipboardData(ProcessPool.GetAllFailedUrls().Merge("\n"));
+            FileSystem.SetClipboardText(ProcessPool.GetAllFailedUrls().Merge("\n"));
         }
 
         #endregion

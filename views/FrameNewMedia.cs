@@ -213,7 +213,7 @@ namespace JackTheVideoRipper
 
         private void CopyUrlToClipboard()
         {
-            string clipboard = FileSystem.GetClipboardData();
+            string clipboard = FileSystem.GetClipboardText();
             if (!Common.IsValidUrl(clipboard)) 
                 return;
             Url = clipboard;
@@ -426,7 +426,7 @@ namespace JackTheVideoRipper
             {
                 GenerateDownloadCommand();
                 
-                FileSystem.SetClipboardData($"{YouTubeDL.binPath} {MediaItemRow.ParameterString}");
+                FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.ParameterString}");
 
                 Modals.Notification(@"Command copied to clipboard!", @"Generate Command");
             }
