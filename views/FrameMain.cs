@@ -42,7 +42,6 @@ namespace JackTheVideoRipper
 
             // Allows us to read out the console values
             if (Debugger.IsAttached)
-                Input.RunAsConsole();
         }
 
         private void Update(object? state)
@@ -59,6 +58,7 @@ namespace JackTheVideoRipper
             if (ProcessPool.QueueEmpty)
                 return "Idle";
             return "";
+                Input.OpenConsole();
         }
 
         private void UpdateListItemRows()

@@ -29,7 +29,7 @@ public static class Input
     
     #region Public Methods
 
-    public static bool RunAsConsole()
+    public static bool OpenConsole()
     {
         // Check if Console exists, if not, attach it
         return AttachConsole(-1) || AllocConsole();
