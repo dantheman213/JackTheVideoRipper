@@ -220,7 +220,7 @@ public class ProcessUpdateRow : ProcessRunner
     
     private void WriteErrorMessage(Exception? exception = null)
     {
-        ErrorLogEvent_Process.Invoke(this, exception ?? new ApplicationException(Results.Merge("\n")));
+        ErrorLogEvent_Process(this, exception ?? new ApplicationException(Results.MergeNewline()));
         Console.Write(Results);
     }
 
