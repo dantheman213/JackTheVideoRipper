@@ -192,7 +192,7 @@ public class ProcessPool
     public void KillAllActive()
     {
         // kill all processes
-        _activeProcesses.Values.ForEach(p => Common.KillProcessAndChildren(p.Process.Id));
+        _activeProcesses.Values.ForEach(p => FileSystem.TryKillProcessAndChildren(p.Process.Id));
     }
 
     public void StopAll()
