@@ -4,12 +4,35 @@ namespace JackTheVideoRipper
 {
     public partial class FrameImportPlaylist : Form
     {
-        public string Url;
+        #region List Item Accessors
+
+        private string TextUrl => textUrl.Text.Trim();
+
+        private string _url;
+        
+        public string Url
+        {
+            get => _url;
+            private set
+            {
+                if (value.Invalid(FileSystem.IsValidUrl))
+                    return;
+                _url = value;
+            }
+        }
+
+        #endregion
+
+        #region Constructor
 
         public FrameImportPlaylist()
         {
             InitializeComponent();
         }
+
+        #endregion
+
+        #region Form Events
 
         private void buttonCancel_Click(object sender, EventArgs e)
         {
@@ -18,11 +41,26 @@ namespace JackTheVideoRipper
 
         private void buttonImport_Click(object sender, EventArgs e)
         {
-            string url = textUrl.Text.Trim();
-            if (url.IsNullOrEmpty() || !Common.IsValidUrl(url)) return;
-            Url = url;
+            Url = TextUrl;
             DialogResult = DialogResult.OK;
             Close();
         }
+
+        #endregion
+
+        #region Static Methods
+
+        public static IEnumerable<string>? GetMetadata()
+        {
+            FrameImportPlaylist frameImportPlaylist = new();
+            
+            if (frameImportPlaylist.ShowDialog() != DialogResult.OK || 
+                YouTubeDL.GetPlaylistMetadata(frameImportPlaylist.Url) is not { } items)
+                return null;
+
+            return items.Select(item => YouTubeDL.GetYouTubeLink(item.Id!));
+        }
+
+        #endregion
     }
 }
