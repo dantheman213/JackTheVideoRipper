@@ -6,21 +6,31 @@ namespace JackTheVideoRipper.models;
 public struct MediaItemRow
 {
     public readonly string Tag;
-    public string Title = string.Empty;
-    public MediaType Type = MediaType.Video;
-    public string Url = string.Empty;
+    public readonly string Title;
+    public readonly string Url;
     public Parameters? Parameters = null;
-    public string Filepath = string.Empty;
-    public readonly ListViewItem? ListViewItem = null;
+    public readonly string Filepath;
+    public readonly MediaType Type;
+    public readonly ListViewItem ListViewItem;
 
     public static implicit operator ListViewItem(MediaItemRow row)
     {
-        return row.ListViewItem ?? row.CreateListViewItem();
+        return row.ListViewItem;
     }
 
-    public MediaItemRow()
+    public MediaItemRow(string title, string url, string filepath, MediaType mediaType = MediaType.Video)
     {
+        Title = title;
+        Url = url;
+        Filepath = filepath;
         Tag = $"{Common.RandomString(5)}{DateTime.UtcNow.Ticks}";
+        ListViewItem = new ListViewItem(DefaultRow(Title, mediaType, Url, Filepath))
+        {
+            Tag = Tag,
+            BackColor = Color.LightGray,
+            ImageIndex = mediaType == MediaType.Video ? 0 : 1
+        };
+        Type = mediaType;
     }
 
     public static string[] DefaultRow(string title, MediaType type, string url, string filepath)
@@ -39,15 +49,5 @@ public struct MediaItemRow
         };
     }
 
-    public ListViewItem CreateListViewItem()
-    {
-        return new ListViewItem(DefaultRow(Title, Type, Url, Filepath))
-        {
-            Tag = Tag,
-            BackColor = Color.LightGray,
-            ImageIndex = Type == MediaType.Video ? 0 : 1
-        };
-    }
-
-    public string ParameterString => Parameters is not null ? Parameters.As<Parameters>().ToString() : string.Empty;
+    public string ParameterString => Parameters?.As<Parameters>().ToString() ?? string.Empty;
 }

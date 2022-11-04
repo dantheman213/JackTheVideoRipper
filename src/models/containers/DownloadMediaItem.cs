@@ -23,13 +23,9 @@ namespace JackTheVideoRipper
         
         public static implicit operator MediaItemRow (DownloadMediaItem item)
         {
-            return new MediaItemRow
+            return new MediaItemRow(item.Title!, item.Url!, item.Filepath!, item.MediaType)
             {
-                Title = item.Title!,
-                Type = item.MediaType,
-                Url = item.Url!,
-                Parameters = new Parameters(),
-                Filepath = item.Filepath!
+                Parameters = new Parameters()
             };
         }
     }

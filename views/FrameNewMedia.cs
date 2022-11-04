@@ -9,7 +9,7 @@ namespace JackTheVideoRipper
     {
         #region Data Members
 
-        public MediaItemRow MediaItemRow = new();
+        public MediaItemRow MediaItemRow;
 
         private readonly MediaType _startType;
         
@@ -253,12 +253,8 @@ namespace JackTheVideoRipper
 
         private void GenerateMediaItemRow()
         {
-            MediaItemRow = new MediaItemRow
+            MediaItemRow = new MediaItemRow(Title, Url, Filepath, ExportVideo ? MediaType.Video : MediaType.Audio)
             {
-                Url = Url,
-                Filepath = Filepath,
-                Type = ExportVideo ? MediaType.Video : MediaType.Audio,
-                Title = Title,
                 Parameters = new Parameters
                 {
                     MediaSourceUrl = Url,
