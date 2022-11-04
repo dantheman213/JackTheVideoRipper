@@ -13,7 +13,7 @@ public struct Parameters
     public bool AddMetaData;
     public bool IncludeAds;
     public bool EmbedThumbnail;
-    public bool EmbedSubs;
+    public bool EmbedSubtitles;
     public bool ExportVideo;
     public bool ExportAudio;
     public string AudioFormatId;
@@ -48,7 +48,7 @@ public struct Parameters
                 buffer.Append(" --embed-thumbnail");
             }
             
-            if (EmbedSubs)
+            if (EmbedSubtitles)
             {
                 buffer.Append(" --embed-subs");
             }
