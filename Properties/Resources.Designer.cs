@@ -141,6 +141,15 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to It looks like this file has already been downloaded, overwrite it?.
+        /// </summary>
+        internal static string OverwriteFile {
+            get {
+                return ResourceManager.GetString("OverwriteFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to App is currently up to date!.
         /// </summary>
         internal static string UpToDate {

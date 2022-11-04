@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
 using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.Properties;
 using Newtonsoft.Json;
 using SpecialFolder = System.Environment.SpecialFolder;
 
@@ -424,7 +425,7 @@ public static class FileSystem
 
     public static bool WarnIfFileExists(string filepath)
     {
-        return !File.Exists(filepath) || Modals.Confirmation("It looks like this file has already been downloaded, overwrite it?", "Warning: File Already Exists");
+        return !File.Exists(filepath) || Modals.Confirmation(Resources.OverwriteFile, "Warning: File Already Exists");
     }
 
     public static string? SelectFile(string initialPath = "")

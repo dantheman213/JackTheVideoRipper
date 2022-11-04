@@ -150,4 +150,7 @@
   <data name="YouTubeDLUpdated" xml:space="preserve">
     <value>Dependency yt-dlp has been upgraded from {0} to {1}!</value>
   </data>
+  <data name="OverwriteFile" xml:space="preserve">
+    <value>It looks like this file has already been downloaded, overwrite it?</value>
+  </data>
 </root>
