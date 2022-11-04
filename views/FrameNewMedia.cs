@@ -12,8 +12,9 @@ namespace JackTheVideoRipper
         public MediaItemRow MediaItemRow = new();
 
         private readonly MediaType _startType;
-        private string? _lastValidUrl;
         
+        private string? LastValidUrl { get; set; }
+
         private readonly FormatManager _formatManager = new();
 
         #endregion
@@ -138,34 +139,28 @@ namespace JackTheVideoRipper
         private void UpdateFormatViewItems()
         {
             AddVideoFormats();
-
             AddAudioFormats();
         }
-
-        private void IngestMediaUrl()
+        
+        private void ClearFormatViewItems()
         {
-            try { RetrieveMetadata(Url); }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                Modals.Error(@"Unable to retrieve metadata!");
-            }
+            VideoFormatItems.Clear();
+            AudioFormatItems.Clear();
         }
 
         private bool ValidateUrl(string url)
         {
-            if (url == _lastValidUrl || !Common.IsValidUrl(url))
+            if (url == LastValidUrl || url.Invalid(FileSystem.IsValidUrl))
                 return false;
             
-            _lastValidUrl = url;
+            LastValidUrl = url;
 
             return true;
         }
 
-        private void RetrieveMetadata(string url)
+        private void RetrieveMetadata()
         {
-            if (!Common.IsValidUrl(url))
-                return;
+            ValidateUrl(Url);
             
             FrameCheckMetadata frameCheckMetadata = new();
             
@@ -185,12 +180,6 @@ namespace JackTheVideoRipper
             Enabled = true;
         }
 
-        private void ClearFormatItems()
-        {
-            VideoFormatItems.Clear();
-            AudioFormatItems.Clear();
-        }
-        
         public void ExtractMediaInfo()
         {
             // Meta data lookup failed (happens on initial lookup)
@@ -205,7 +194,7 @@ namespace JackTheVideoRipper
 
         private void RefreshFormatViews(MediaInfoData mediaInfoData)
         {
-            ClearFormatItems();
+            ClearFormatViewItems();
             _formatManager.UpdateAvailableFormats(mediaInfoData);
             UpdateFormatViewItems();
         }
@@ -221,8 +210,10 @@ namespace JackTheVideoRipper
         private void CopyUrlToClipboard()
         {
             string clipboard = FileSystem.GetClipboardText();
-            if (!Common.IsValidUrl(clipboard)) 
+            
+            if (!FileSystem.IsValidUrl(clipboard))
                 return;
+            
             Url = clipboard;
         }
 
