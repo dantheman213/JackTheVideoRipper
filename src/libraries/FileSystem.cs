@@ -1,27 +1,97 @@
 ﻿using System.Diagnostics;
+using System.Management;
 using System.Reflection;
+using System.Security.Principal;
 using System.Text.RegularExpressions;
 using JackTheVideoRipper.extensions;
 using Newtonsoft.Json;
+using SpecialFolder = System.Environment.SpecialFolder;
 
 namespace JackTheVideoRipper;
 
 public static class FileSystem
 {
+    public const string PROGRAM_NAME = "JackTheVideoRipper";
+    
+    public const string ALL_FILES_FILTER = "All files (*.*)|*.*";
+    
+    private static readonly Regex _FilenamePattern = new("[^a-zA-Z0-9 -]", RegexOptions.Compiled);
+    
+    private static readonly Regex _UrlPattern = new(@"^(http|http(s)?://)?([\w-]+\.)+[\w-]+[.com|.in|.org|.net]+(\[\?%&=]*)?",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    
+    public static string VersionInfo => FileVersionInfo.GetVersionInfo(ExecutingAssembly.Location).FileVersion ?? string.Empty;
+    
+    public static string TimeStampDate => $"{DateTime.Now:yyyyMMddhmmsstt}";
+
+    public static readonly string TempPath = Path.GetTempPath();
+
+    public static string TempFile => Path.GetTempFileName();
+
+    private const string _PROGRAM_PREFIX = "jtvr";
+    
+    private const string _TASK_MANAGER_EXECUTABLE = "taskmgr.exe";
+    
+    private const string _EXPLORER_EXECUTABLE = "explorer.exe";
+
+    private static string GetProcessQuery(int pid) => @$"Select * From Win32_Process Where ParentProcessID={pid}";
+
+    public static Assembly ExecutingAssembly => Assembly.GetExecutingAssembly();
+    
+    public static WindowsIdentity CurrentUser => WindowsIdentity.GetCurrent();
+
+    public static WindowsPrincipal CurrentUserPrincipal => new(CurrentUser);
+    
+    public static ProcessModule? MainModule => Process.GetCurrentProcess().MainModule;
+
+    public static readonly string PathSeparator = Path.DirectorySeparatorChar.ToString();
+    
+    public static string GetSpecialFolderPath(SpecialFolder specialFolder)
+    {
+        return Environment.GetFolderPath(specialFolder);
+    }
+
+    public static string MergePaths(params string[] parts)
+    {
+        return Path.Combine(parts);
+    }
+    
+    public static string MergePaths(string root, string child)
+    {
+        return Path.Combine(root, child);
+    }
+    
+    public static class Paths
+    {
+        public static readonly string AppPath = Path.GetDirectoryName(MainModule?.FileName) ?? string.Empty;
+        public static readonly string Local = GetSpecialFolderPath(SpecialFolder.LocalApplicationData);
+        public static readonly string Common = GetSpecialFolderPath(SpecialFolder.CommonApplicationData);
+        public static readonly string Root = MergePaths(Common, PROGRAM_NAME);
+        public static readonly string Install = MergePaths(Root, "bin");
+        public static readonly string Settings = MergePaths(Local, PROGRAM_NAME);
+        public static readonly string UserProfile = Environment.ExpandEnvironmentVariables("%userprofile%");
+        public static readonly string Download = Path.Combine(UserProfile, "Downloads");
+    }
+    
     public static void ValidateInstallDirectory()
     {
-        if (!Directory.Exists(Common.Paths.Install))
-            Directory.CreateDirectory(Common.Paths.Install);
+        CreateFolderIfNotExists(Paths.Install);
+    }
+
+    public static void CreateFolderIfNotExists(string directory)
+    {
+        if (!Directory.Exists(directory))
+            CreateFolder(directory);
     }
 
     public static string ProgramPath(string executablePath)
     {
-        return Path.Combine(Common.Paths.Install, executablePath);
+        return MergePaths(Paths.Install, executablePath);
     }
     
     public static Process? GetWebResourceHandle(string url, bool useShellExecute = true)
     {
-        return Process.Start(new ProcessStartInfo(url) {UseShellExecute = useShellExecute});
+        return Process.Start(new ProcessStartInfo(url) { UseShellExecute = useShellExecute });
     }
 
     public static void WriteJsonToFile(string filepath, object obj)
@@ -51,12 +121,12 @@ public static class FileSystem
                 WindowStyle = ProcessWindowStyle.Hidden,
                 FileName = bin,
                 Arguments = parameters,
-                WorkingDirectory = workingDir.HasValue() ? workingDir : Common.Paths.AppPath,
+                WorkingDirectory = workingDir.ValueOrDefault(Paths.AppPath),
                 UseShellExecute = runAsAdmin,
                 RedirectStandardError = !runAsAdmin,
                 RedirectStandardOutput = !runAsAdmin,
                 CreateNoWindow = true,
-                Verb = runAsAdmin ? "runas" : ""
+                Verb = runAsAdmin ? "runas" : string.Empty
             }
         };
     }
@@ -65,60 +135,72 @@ public static class FileSystem
     {
         return RunProcess(CreateProcess(binPath, paramString, workingDir, runAsAdmin));
     }
+
+    public static string RunWebCommand(string binPath, string url, string parameterString)
+    {
+        return RunCommand(binPath, $"{parameterString} {url}");
+    }
     
     public static T? ReceiveJsonResponse<T>(string binPath, string url, string parameterString)
     {
-        return Deserialize<T>(RunCommand(binPath, $"{parameterString} {url}"));
+        return Deserialize<T>(RunWebCommand(binPath, url, parameterString));
     }
         
-    public static T? ReceiveMultiJsonResponse<T>(string binPath, string url, string parameterString)
+    // youtube-dl returns an individual json object per line
+    public static IEnumerable<T> ReceiveMultiJsonResponse<T>(string binPath, string url, string parameterString)
     {
-        return Deserialize<T>($"[{RunCommand(binPath, $"{parameterString} {url}").Split("\n").Merge("\n")}]");
+        return Deserialize<IEnumerable<T>>($"[{RunWebCommand(binPath, url, parameterString).Replace("\n", ",\n")}]") ?? Array.Empty<T>();
     }
 
     public static Process? OpenFileExplorer(string directory)
     {
-        ProcessStartInfo startInfo = new()
+        return Process.Start(new ProcessStartInfo
         {
             Arguments = directory,
-            FileName = "explorer.exe"
-        };
-
-        return Process.Start(startInfo);
+            FileName = _EXPLORER_EXECUTABLE
+        });
     }
 
     public static Process? OpenTaskManager()
     {
-        ProcessStartInfo startInfo = new()
+        return Process.Start(new ProcessStartInfo
         {
-            CreateNoWindow = false, //just hides the window if set to true
-            UseShellExecute = true, //use shell (current programs privillage)
-            FileName = Path.Combine(Environment.SystemDirectory, "taskmgr.exe"), //The file path and file name
-            Arguments = string.Empty //Add your arguments here
-        }; //a processstartinfo object
-
-        return Process.Start(startInfo);
+            CreateNoWindow = false,
+            UseShellExecute = true,
+            FileName = MergePaths(Environment.SystemDirectory, _TASK_MANAGER_EXECUTABLE),
+            Arguments = string.Empty
+        });
     }
 
-    public static void DownloadFile(string url, string localPath)
+    public static string DownloadTempFile(string url, string extension)
     {
-        if (File.Exists(localPath))
-        {
-            File.Delete(localPath);
-        }
+        return DownloadWebFile(url, GetTempFilename(extension));
+    }
 
-        HttpClient client = new();
-        HttpResponseMessage response = client.GetAsync(new Uri(url)).Result;
+    public static string DownloadWebFile(string url, string localPath)
+    {
+        DeleteIfExists(localPath);
+
+        HttpResponseMessage response = SimpleWebQuery(url);
 
         if (response.IsSuccessStatusCode)
-        {
-            using FileStream fileStream = new(localPath, FileMode.CreateNew);
-            response.Content.CopyToAsync(fileStream).Wait();
-        }
-        else
-        {
-            Console.WriteLine(@$"Failed to download {(int) response.StatusCode} ({response.ReasonPhrase})");
-        }
+            return !LogExceptions(() => response.DownloadResponse(localPath)) ? string.Empty : localPath;
+        
+        Log(@$"Failed to download {response.ResponseCode()}");
+        return string.Empty;
+
+    }
+
+    public static HttpResponseMessage SimpleWebQuery(string url)
+    {
+        using HttpClient client = new();
+        return client.GetAsync(new Uri(url)).Result;
+    }
+
+    public static void DeleteIfExists(string filepath)
+    {
+        if (File.Exists(filepath))
+            File.Delete(filepath);
     }
 
     public static void CreateFolder(string path)
@@ -128,7 +210,7 @@ public static class FileSystem
     
     public static void OpenFolderWithFileSelect(string filePath)
     {
-        Process.Start("explorer.exe", $"/select, \"{filePath}\"");
+        Process.Start(_EXPLORER_EXECUTABLE, $"/select, \"{filePath}\"");
     }
     
     public static void OpenDownloads()
@@ -150,42 +232,39 @@ public static class FileSystem
 
     public static void OpenFile(string filepath)
     {
-        if (filepath.HasValue())
+        if (!filepath.HasValue())
         {
-            // TODO: fix file pathing issue
-            if (File.Exists(filepath))
-            {
-                OpenFolderWithFileSelect(filepath);
-            }
-            else if (File.Exists($"{filepath}.part"))
-            {
-                OpenFolderWithFileSelect($"{filepath}.part");
-            }
+            // couldn't find folder, rolling back to just the folder with no select
+            Log($@"Couldn't find file to open at {filepath}");
+            OpenDownloads();
             return;
         }
-
-        // couldn't find folder, rolling back to just the folder with no select
-        Console.WriteLine($@"Couldn't find file to open at {filepath}");
-        OpenDownloads();
+        
+        if (File.Exists(filepath))
+        {
+            OpenFolderWithFileSelect(filepath);
+        }
+        else if (File.Exists($"{filepath}.part"))
+        {
+            OpenFolderWithFileSelect($"{filepath}.part");
+        }
     }
-    
-    public static readonly string PathSeparator = Path.DirectorySeparatorChar.ToString();
-    
+
     public static string GetFilename(string filepath)
     {
         return filepath.Contains('.') ? filepath.BeforeLast(".") : filepath;
-    }
-
-    public static string GetDirectory(string path)
-    {
-        return path.Contains(Path.DirectorySeparatorChar) ? path.BeforeLast(PathSeparator) : path;
     }
     
     public static string GetExtension(string path)
     {
         return path.Contains('.') ? path.AfterLast(".") : path;
     }
-    
+
+    public static string GetDirectory(string path)
+    {
+        return path.Contains(Path.DirectorySeparatorChar) ? path.BeforeLast(PathSeparator) : path;
+    }
+
     public static string GetFileFilter(string extension)
     {
         return $@"{extension} file|*.{extension}";
@@ -193,10 +272,8 @@ public static class FileSystem
 
     public static string GetFileFilterWithAll(string extension)
     {
-        return $@"{extension} file|*.{extension}|{AllFilesFilter}";
+        return $@"{extension} file|*.{extension}|{ALL_FILES_FILTER}";
     }
-
-    public const string AllFilesFilter = "All files (*.*)|*.*";
 
     public static string? SaveCopy(string filepath)
     {
@@ -210,41 +287,32 @@ public static class FileSystem
         return saveFileDialog.ShowDialog() == DialogResult.OK ? saveFileDialog.FileName : null;
     }
 
-    public static string? GetDownloadPath(string filename)
+    public static string GetDownloadPath(string filename)
     {
-        return Settings.Data.DefaultDownloadPath is not null ? 
-            Path.Combine(Settings.Data.DefaultDownloadPath, filename) :
-            null;
+        return MergePaths(Settings.Data.DefaultDownloadPath, ValidateFilename(filename));
     }
     
     public static string ValidateFilename(string filepath)
     {
         return $@"{SanitizeFilename(GetFilename(filepath))}.{GetExtension(filepath)}";
     }
-    
-    private static readonly Regex FilenamePattern = new("[^a-zA-Z0-9 -]", RegexOptions.Compiled);
 
     public static string SanitizeFilename(string filename)
     {
-        return FilenamePattern.Replace(filename, "_").Replace(' ', '_');
-
-        // return str.Split(Path.GetInvalidFileNameChars()).Merge("_");
+        return _FilenamePattern.Replace(filename, "_").Replace(' ', '_');
     }
 
-    public static string GetClipboardData()
+    public static string GetClipboardText()
     {
         return Clipboard.GetText().Trim();
     }
 
-    public static void SetClipboardData(string content)
+    public static void SetClipboardText(string content)
     {
         Clipboard.SetText(content);
     }
 
-    public static string VersionInfo =>
-        FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion ?? string.Empty;
-
-    public static string GetFileUsingDialog(string? initialDirectory = null, string filter = AllFilesFilter)
+    public static string? GetFileUsingDialog(string? initialDirectory = null, string filter = ALL_FILES_FILTER)
     {
         initialDirectory ??= Settings.Data.DefaultDownloadPath;
         
@@ -255,26 +323,15 @@ public static class FileSystem
         };
 
         if (openFileDialog.ShowDialog() != DialogResult.OK || !File.Exists(openFileDialog.FileName))
-            return string.Empty;
+            return null;
 
         return File.ReadAllText(openFileDialog.FileName);
     }
     public static string TryRunProcess(Process process)
     {
-        try
-        {
-            process.Start();
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        
-        return process.StandardOutput.ReadToEnd().Trim();
+        return TryStartProcess(process).StandardOutput.ReadToEnd().Trim();
     }
     
-
     public static string RunProcess(Process process)
     {
         process.Start();
@@ -283,15 +340,100 @@ public static class FileSystem
 
     public static Process TryStartProcess(Process process)
     {
+        LogExceptions(() =>
+        {
+            if (!process.Start()) { Log(@"WARNING: Process already running!"); }
+        });
+       
+        return process;
+    }
+
+    public static string GetTempFilename(string ext)
+    {
+        return MergePaths(TempPath, $"{_PROGRAM_PREFIX}_thumbnail_{TimeStampDate}.{ext}");
+    }
+
+    public static bool UserIsAdmin()
+    {
+        return CurrentUserPrincipal.IsInRole(WindowsBuiltInRole.Administrator);
+    }
+
+    private static ManagementObjectSearcher? GetProcessSearcher(int pid)
+    {
+        ManagementObjectSearcher? result = null;
+        LogExceptions(() => result = new ManagementObjectSearcher(GetProcessQuery(pid)));
+        return result;
+    }
+
+    public static void TryKillProcessAndChildren(int pid)
+    {
+        if (GetProcessSearcher(pid) is not { } process)
+            return;
+            
+        foreach (ManagementObject manager in process.Get().Cast<ManagementObject>())
+        {
+            LogExceptions(() => TryKillProcessAndChildren(GetProcessId(manager)));
+        }
+
+        TryKillProcess(pid);
+    }
+
+    public static int GetProcessId(ManagementObject manager)
+    {
+        return Convert.ToInt32(manager["ProcessID"]);
+    }
+
+    private static void TryKillProcess(int pid)
+    {
+        if (Process.GetProcessById(pid) is not { HasExited: true } process )
+            return;
+
+        LogExceptions(() => process.Kill());
+    }
+
+    private static bool LogExceptions(Action action)
+    {
         try
         {
-            process.Start();
+            action();
+            return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
+            LogException(ex);
+            return false;
         }
-       
-        return process;
+    }
+
+    private static void LogException(Exception exception)
+    {
+        Console.WriteLine(exception);
+    }
+
+    private static void Log(string message)
+    {
+        Console.WriteLine(message);
+    }
+
+    public static bool IsValidUrl(string url)
+    {
+        return _UrlPattern.IsMatch(url);
+    }
+
+    public class FileSystemException : Exception { }
+
+    public static bool WarnIfFileExists(string filepath)
+    {
+        return !File.Exists(filepath) || Modals.Confirmation("It looks like this file has already been downloaded, overwrite it?", "Warning: File Already Exists");
+    }
+
+    public static string? SelectFile(string initialPath = "")
+    {
+        FolderBrowserDialog folderBrowserDialog = new();
+        
+        if (initialPath.HasValue())
+            folderBrowserDialog.SelectedPath = initialPath;
+        
+        return folderBrowserDialog.ShowDialog() == DialogResult.OK ? folderBrowserDialog.SelectedPath : null;
     }
 }
