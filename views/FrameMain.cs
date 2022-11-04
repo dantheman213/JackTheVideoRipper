@@ -349,27 +349,27 @@ namespace JackTheVideoRipper
         
         private void DownloadFfmpegToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.GetWebResourceHandle(FFMPEG.DOWNLOAD_URL);
+            Core.DownloadDependency(Dependencies.FFMPEG);
         }
 
         private void DownloadHandbrakeToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.GetWebResourceHandle(URLs.HANDBRAKE);
+            Core.DownloadDependency(Dependencies.Handbrake);
         }
 
         private void DownloadVLCPlayerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.GetWebResourceHandle(URLs.VLC);
+            Core.DownloadDependency(Dependencies.VLC);
         }
         
         private void DownloadAtomicParsleyToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.GetWebResourceHandle(AtomicParsley.DOWNLOAD_URL);
+            Core.DownloadDependency(Dependencies.AtomicParsley);
         }
         
         private void DownloadVS2010RedistributableToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.GetWebResourceHandle(URLs.REDISTRIBUTABLES);
+            Core.DownloadDependency(Dependencies.Redistributables);
         }
 
         private void OpenDownloadFolderToolStripMenuItem_Click(object sender, EventArgs e)
@@ -383,7 +383,7 @@ namespace JackTheVideoRipper
             if (sender is string s)
                 urls = s;
 
-            FrameNewMediaBatch frameNewMediaBatch = new(urls);
+            FrameNewMediaBatch frameNewMediaBatch = new(urls!);
             
             if (frameNewMediaBatch.ShowDialog() != DialogResult.OK || 
                 frameNewMediaBatch.Items is not { Count: > 0 } items)
@@ -396,12 +396,12 @@ namespace JackTheVideoRipper
 
         private void DownloadBatchDocumentToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            string fileContent = FileSystem.GetFileUsingDialog();
+            string? fileContent = FileSystem.GetFileUsingDialog();
 
             if (fileContent.IsNullOrEmpty())
                 return;
 
-            string urls = Import.GetAllUrlsFromPayload(fileContent).Merge("\r\n");
+            string urls = Import.GetAllUrlsFromPayload(fileContent!).MergeReturn();
 
             DownloadBatchManualToolStripMenuItem_Click(urls, e);
         }
@@ -439,12 +439,12 @@ namespace JackTheVideoRipper
 
         private void DownloadYtdlpToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.GetWebResourceHandle(YouTubeDL.UPDATE_URL);
+            Core.DownloadDependency(Dependencies.YouTubeDL);;
         }
 
         private void OpenDependenciesFolderToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FileSystem.OpenFileExplorer(Common.Paths.Install);
+            FileSystem.OpenFileExplorer(FileSystem.Paths.Install);
         }
 
         private void ClearSuccessesToolStripMenuItem_Click(object sender, EventArgs e)
