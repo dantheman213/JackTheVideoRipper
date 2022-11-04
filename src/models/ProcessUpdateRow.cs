@@ -116,6 +116,8 @@ public class ProcessUpdateRow : ProcessRunner
         
     #endregion
 
+    #region Public Methods
+
     public void Start()
     {
         Process.Start();
@@ -124,41 +126,12 @@ public class ProcessUpdateRow : ProcessRunner
         TrackStandardError();
     }
 
-    public void Complete()
-    {
-        // Switch exit code here to determine more information and set status
-
-        if (Failed)
-        {
-            SetErrorState();
-            return;
-        }
-
-        SetProcessStatus(ProcessStatus.Completed);
-
-        NotifyCompletion();
-    }
-
     public void Stop()
     {
         SetProcessStatus(ProcessStatus.Stopped);
 
         TryKillProcess();
 
-        NotifyCompletion();
-    }
-        
-    public void SetErrorState(Exception? exception = null)
-    {
-        if (ProcessStatus == ProcessStatus.Error)
-            return;
-
-        SetProcessStatus(ProcessStatus.Error);
-
-        WriteErrorMessage(exception);
-            
-        TryKillProcess();
-            
         NotifyCompletion();
     }
 
@@ -176,32 +149,6 @@ public class ProcessUpdateRow : ProcessRunner
         TryKillProcess();
 
         NotifyCompletion();
-    }
-        
-    private void WriteErrorMessage(Exception? exception = null)
-    {
-        ErrorLogEvent_Process.Invoke(this, exception ?? new ApplicationException(Results.Merge("\n")));
-        Console.Write(Results);
-    }
-
-    public void UpdateStatusMessage(string status)
-    {
-        if (Status != status)
-            Status = status;
-    }
-
-    // Extract elements of CLI output from YouTube-DL
-    public void DownloadUpdate(string[] tokens)
-    {
-        Progress = tokens[1];
-        Size = tokens[3];
-        DownloadSpeed = tokens[5];
-        Eta = tokens[7];
-    }
-
-    private void NotifyCompletion()
-    {
-        _completionCallback.Invoke(this);
     }
 
     public void UpdateRow()
@@ -237,7 +184,66 @@ public class ProcessUpdateRow : ProcessRunner
 
         Cursor += 1;
     }
+    
+    #endregion
 
+    #region Private Methods
+    
+    private void Complete()
+    {
+        // Switch exit code here to determine more information and set status
+
+        if (Failed)
+        {
+            SetErrorState();
+            return;
+        }
+
+        SetProcessStatus(ProcessStatus.Completed);
+
+        NotifyCompletion();
+    }
+    
+    private void SetErrorState(Exception? exception = null)
+    {
+        if (ProcessStatus == ProcessStatus.Error)
+            return;
+
+        SetProcessStatus(ProcessStatus.Error);
+
+        WriteErrorMessage(exception);
+            
+        TryKillProcess();
+            
+        NotifyCompletion();
+    }
+    
+    private void WriteErrorMessage(Exception? exception = null)
+    {
+        ErrorLogEvent_Process.Invoke(this, exception ?? new ApplicationException(Results.Merge("\n")));
+        Console.Write(Results);
+    }
+
+    private void UpdateStatusMessage(string status)
+    {
+        if (Status != status)
+            Status = status;
+    }
+
+    // Extract elements of CLI output from YouTube-DL
+    private void DownloadUpdate(string[] tokens)
+    {
+        Progress = tokens[1];
+        Size = tokens[3];
+        DownloadSpeed = tokens[5];
+        Eta = tokens[7];
+    }
+
+    private void NotifyCompletion()
+    {
+        _completionCallback.Invoke(this);
+    }
+    
     private void UpdateDownloads(string statusMessage)
     {
         if (TokenizedProcessLine is not { Length: >= 8 } tokens )
@@ -252,11 +258,9 @@ public class ProcessUpdateRow : ProcessRunner
         DownloadUpdate(tokens);
     }
 
-    #region Private Methods
-
     private void CreateProcess()
     {
-        Process = YouTubeDL.Run(_parameterString);
+        Process = YouTubeDL.CreateCommand(_parameterString);
     }
 
     private void SetProcessStatus(ProcessStatus processStatus)
