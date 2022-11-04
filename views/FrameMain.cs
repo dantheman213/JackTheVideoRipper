@@ -203,7 +203,7 @@ namespace JackTheVideoRipper
         private void TimerCheckForUpdates_Tick(object sender, EventArgs e)
         {
             timerCheckForUpdates.Enabled = false;
-            CheckForUpdatesToolStripMenuItem_Click(false, e);
+            Core.CheckForUpdates(false);
         }
 
         private void TimerProcessLimit_Tick(object? sender = null, EventArgs? e = null)
