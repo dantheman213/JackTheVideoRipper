@@ -235,11 +235,10 @@ public class ProcessPool
     }
 
     public IEnumerable<string> GetAllFailedUrls()
+    #region Bulk Actions
     {
         return _finishedProcesses.Where(p => p.Failed).Select(p => p.Url);
     }
-
-    #region Logging Methods
 
     {
     }
