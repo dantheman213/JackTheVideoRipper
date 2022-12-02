@@ -5,16 +5,16 @@ namespace JackTheVideoRipper
 {
     internal static class AppUpdate
     {
-        public static void CheckForNewAppVersion(bool isStartup = true)
+        public static async Task CheckForNewAppVersion(bool isStartup = true)
         {
             // if sender obj is bool then version being checked on startup passively and dont show dialog that it's up to date
-            AppVersionModel result = AppVersionModel.GetFromServer();
+            AppVersionModel result = await AppVersionModel.GetFromServer();
             switch (result is {IsNewerVersionAvailable: true})
             {
                 case true when Modals.Update(result):
                     FileSystem.GetWebResourceHandle(URLs.UPDATE);
                     break;
-                case false when !isStartup:
+                case false when isStartup:
                     Core.SendNotification(Resources.UpToDate);
                     break;
             }

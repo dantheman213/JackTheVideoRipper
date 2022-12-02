@@ -1,53 +1,27 @@
-﻿using JackTheVideoRipper.extensions;
+﻿using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models.enums;
 
 namespace JackTheVideoRipper.models;
 
-public struct MediaItemRow
+public struct MediaItemRow : IMediaItem
 {
-    public readonly string Tag;
-    public readonly string Title;
-    public readonly string Url;
-    public Parameters? Parameters = null;
-    public readonly string Filepath;
-    public readonly MediaType Type;
-    public readonly ListViewItem ListViewItem;
+    public string Title { get; }
 
-    public static implicit operator ListViewItem(MediaItemRow row)
-    {
-        return row.ListViewItem;
-    }
+    public string Url { get; }
+    
+    public MediaParameters MediaParameters { get; } = new();
+    
+    public string Filepath { get; }
 
-    public MediaItemRow(string title, string url, string filepath, MediaType mediaType = MediaType.Video)
+    public MediaType MediaType { get; }
+
+    public MediaItemRow(string title, string url, string filepath, MediaType mediaMediaType = MediaType.Video,
+        MediaParameters? mediaParameters = null)
     {
         Title = title;
         Url = url;
         Filepath = filepath;
-        Tag = $"{Common.RandomString(5)}{DateTime.UtcNow.Ticks}";
-        ListViewItem = new ListViewItem(DefaultRow(Title, mediaType, Url, Filepath))
-        {
-            Tag = Tag,
-            BackColor = Color.LightGray,
-            ImageIndex = mediaType == MediaType.Video ? 0 : 1
-        };
-        Type = mediaType;
+        MediaType = mediaMediaType;
+        MediaParameters = mediaParameters ?? new MediaParameters();
     }
-
-    public static string[] DefaultRow(string title, MediaType type, string url, string filepath)
-    {
-        return new[]
-        {
-            title,
-            Statuses.WAITING,
-            type.ToString(),
-            Tags.DEFAULT_SIZE,
-            Tags.DEFAULT_PROGRESS,
-            Tags.DEFAULT_SPEED,
-            Tags.DEFAULT_TIME,
-            url,
-            filepath
-        };
-    }
-
-    public string ParameterString => Parameters?.As<Parameters>().ToString() ?? string.Empty;
 }

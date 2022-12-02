@@ -108,25 +108,25 @@ namespace JackTheVideoRipper
         public bool HasVideo => Width.HasValue() && Height.HasValue();
 
         [JsonIgnore]
-        public bool HasAudio => ACodec.HasValueAndNot(Tags.NONE);
+        public bool HasAudio => ACodec.HasValueAndNot(Text.NONE);
 
         [JsonIgnore]
-        public string Bitrate => Abr.FormattedOrDefault("{0} kbps", Tags.DASHES);
+        public string Bitrate => Abr.FormattedOrDefault("{0} kbps", Text.DASHES);
         
         [JsonIgnore]
-        public string SampleRate => Asr.FormattedOrDefault("{0} Hz", Tags.DASHES);
+        public string SampleRate => Asr.FormattedOrDefault("{0} Hz", Text.DASHES);
 
         [JsonIgnore]
-        public string Codec => VCodec.HasValueAndNot(Tags.NONE) ? VCodec! : Tags.UNRECOGNIZED_CODEC;
+        public string Codec => VCodec.HasValueAndNot(Text.NONE) ? VCodec! : Text.UNRECOGNIZED_CODEC;
 
         [JsonIgnore]
-        public string AvgBitrate => Tbr.HasValue() ? $"{Math.Floor(Convert.ToDecimal(Tbr))} k" : Tags.DASHES;
+        public string AvgBitrate => Tbr.HasValue() ? $"{Math.Floor(Convert.ToDecimal(Tbr))} k" : Text.DASHES;
         
         [JsonIgnore]
-        public string DisplayFps => Fps.FormattedOrDefault("{0} fps", Tags.DASHES);
+        public string DisplayFps => Fps.FormattedOrDefault("{0} fps", Text.DASHES);
 
         [JsonIgnore]
-        public string DisplayNote => FormatNote.ValueOrDefault(Tags.DASHES);
+        public string DisplayNote => FormatNote.ValueOrDefault(Text.DASHES);
         
         public string VideoString()
         {

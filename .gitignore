@@ -2,6 +2,7 @@
 [Tt]humbs.db
 
 .vs/
+.idea/
 
 bin/
 obj/

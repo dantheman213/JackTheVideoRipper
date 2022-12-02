@@ -1,4 +1,5 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.modules;
 
 namespace JackTheVideoRipper;
 
@@ -21,7 +22,7 @@ public struct MetaData
     
     public static string DownloadThumbnail(string thumbnailUrl)
     {
-        if (!FileSystem.IsValidUrl(thumbnailUrl))
+        if (thumbnailUrl.Invalid(FileSystem.IsValidUrl))
             return string.Empty;
             
         string urlExt = FileSystem.GetExtension(thumbnailUrl);

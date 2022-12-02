@@ -1,4 +1,6 @@
-﻿namespace JackTheVideoRipper;
+﻿using JackTheVideoRipper.interfaces;
+
+namespace JackTheVideoRipper;
 
 public readonly struct ProcessError
 {
@@ -7,7 +9,7 @@ public readonly struct ProcessError
     public readonly DateTime Timestamp;
     public readonly string AdditionalDetails;
 
-    public ProcessError(ProcessUpdateRow processUpdateRow, Exception exception, string additionalDetails = "")
+    public ProcessError(IProcessUpdateRow processUpdateRow, Exception exception, string additionalDetails = "")
     {
         ProcessTag = processUpdateRow.Tag;
         Exception = exception;

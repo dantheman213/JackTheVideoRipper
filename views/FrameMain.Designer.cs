@@ -108,13 +108,16 @@
          this.toolBarLabelMemory = new System.Windows.Forms.ToolStripStatusLabel();
          this.toolStripStatusLabel3 = new System.Windows.Forms.ToolStripStatusLabel();
          this.toolBarLabelNetwork = new System.Windows.Forms.ToolStripStatusLabel();
+         this.toolStripStatusLabel5 = new System.Windows.Forms.ToolStripStatusLabel();
+         this.toolStripStatusLabel4 = new System.Windows.Forms.ToolStripStatusLabel();
+         this.notificationStatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
          this.timerStatusBar = new System.Windows.Forms.Timer(this.components);
          this.timerCheckForUpdates = new System.Windows.Forms.Timer(this.components);
          this.timerProcessLimit = new System.Windows.Forms.Timer(this.components);
          this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-         this.toolStripStatusLabel4 = new System.Windows.Forms.ToolStripStatusLabel();
-         this.notificationStatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
-         this.toolStripStatusLabel5 = new System.Windows.Forms.ToolStripStatusLabel();
+         this.toolStripMenuItem4 = new System.Windows.Forms.ToolStripMenuItem();
+         this.toolStripSeparator9 = new System.Windows.Forms.ToolStripSeparator();
+         this.folderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.menuStrip.SuspendLayout();
          this.contextMenuListItems.SuspendLayout();
          this.toolBar.SuspendLayout();
@@ -326,6 +329,8 @@
             this.downloadVideoToolStripMenuItem,
             this.downloadAudioToolStripMenuItem,
             this.batchToolStripMenuItem,
+            this.toolStripSeparator9,
+            this.toolStripMenuItem4,
             this.toolStripSeparator3,
             this.openDownloadFolderToolStripMenuItem});
          this.youTubeToolStripMenuItem.Name = "youTubeToolStripMenuItem";
@@ -357,19 +362,19 @@
          // downloadBatchManualToolStripMenuItem
          // 
          this.downloadBatchManualToolStripMenuItem.Name = "downloadBatchManualToolStripMenuItem";
-         this.downloadBatchManualToolStripMenuItem.Size = new System.Drawing.Size(199, 26);
+         this.downloadBatchManualToolStripMenuItem.Size = new System.Drawing.Size(224, 26);
          this.downloadBatchManualToolStripMenuItem.Text = "&Manual";
          // 
          // downloadBatchDocumentToolStripMenuItem
          // 
          this.downloadBatchDocumentToolStripMenuItem.Name = "downloadBatchDocumentToolStripMenuItem";
-         this.downloadBatchDocumentToolStripMenuItem.Size = new System.Drawing.Size(199, 26);
+         this.downloadBatchDocumentToolStripMenuItem.Size = new System.Drawing.Size(224, 26);
          this.downloadBatchDocumentToolStripMenuItem.Text = "Document";
          // 
          // downloadBatchYouTubePlaylistlToolStripMenuItem
          // 
          this.downloadBatchYouTubePlaylistlToolStripMenuItem.Name = "downloadBatchYouTubePlaylistlToolStripMenuItem";
-         this.downloadBatchYouTubePlaylistlToolStripMenuItem.Size = new System.Drawing.Size(199, 26);
+         this.downloadBatchYouTubePlaylistlToolStripMenuItem.Size = new System.Drawing.Size(224, 26);
          this.downloadBatchYouTubePlaylistlToolStripMenuItem.Text = "YouTube Playlist";
          // 
          // toolStripSeparator3
@@ -650,8 +655,8 @@
          // toolbarLabelStatus
          // 
          this.toolbarLabelStatus.Name = "toolbarLabelStatus";
-         this.toolbarLabelStatus.Size = new System.Drawing.Size(87, 31);
-         this.toolbarLabelStatus.Text = "Initializing...".PadRight(20);
+         this.toolbarLabelStatus.Size = new System.Drawing.Size(107, 31);
+         this.toolbarLabelStatus.Text = "Initializing...     ";
          // 
          // toolStripStatusLabel1
          // 
@@ -662,8 +667,8 @@
          // toolBarLabelCpu
          // 
          this.toolBarLabelCpu.Name = "toolBarLabelCpu";
-         this.toolBarLabelCpu.Size = new System.Drawing.Size(70, 31);
-         this.toolBarLabelCpu.Text = "CPU: N/A".PadLeft(12);
+         this.toolBarLabelCpu.Size = new System.Drawing.Size(86, 31);
+         this.toolBarLabelCpu.Text = "    CPU: N/A";
          // 
          // toolStripStatusLabel2
          // 
@@ -674,8 +679,8 @@
          // toolBarLabelMemory
          // 
          this.toolBarLabelMemory.Name = "toolBarLabelMemory";
-         this.toolBarLabelMemory.Size = new System.Drawing.Size(164, 31);
-         this.toolBarLabelMemory.Text = "Available Memory: N/A".PadLeft(27);
+         this.toolBarLabelMemory.Size = new System.Drawing.Size(188, 31);
+         this.toolBarLabelMemory.Text = "      Available Memory: N/A";
          // 
          // toolStripStatusLabel3
          // 
@@ -686,8 +691,26 @@
          // toolBarLabelNetwork
          // 
          this.toolBarLabelNetwork.Name = "toolBarLabelNetwork";
-         this.toolBarLabelNetwork.Size = new System.Drawing.Size(144, 31);
-         this.toolBarLabelNetwork.Text = "Network Usage: N/A".PadLeft(25);
+         this.toolBarLabelNetwork.Size = new System.Drawing.Size(172, 31);
+         this.toolBarLabelNetwork.Text = "       Network Usage: N/A";
+         // 
+         // toolStripStatusLabel5
+         // 
+         this.toolStripStatusLabel5.Name = "toolStripStatusLabel5";
+         this.toolStripStatusLabel5.Size = new System.Drawing.Size(13, 31);
+         this.toolStripStatusLabel5.Text = "|";
+         // 
+         // toolStripStatusLabel4
+         // 
+         this.toolStripStatusLabel4.Name = "toolStripStatusLabel4";
+         this.toolStripStatusLabel4.Size = new System.Drawing.Size(510, 31);
+         this.toolStripStatusLabel4.Spring = true;
+         // 
+         // notificationStatusLabel
+         // 
+         this.notificationStatusLabel.Name = "notificationStatusLabel";
+         this.notificationStatusLabel.Size = new System.Drawing.Size(94, 31);
+         this.notificationStatusLabel.Text = "Notifications";
          // 
          // timerStatusBar
          // 
@@ -724,23 +747,25 @@
          this.splitContainer1.SplitterWidth = 3;
          this.splitContainer1.TabIndex = 4;
          // 
-         // toolStripStatusLabel4
+         // toolStripMenuItem4
          // 
-         this.toolStripStatusLabel4.Name = "toolStripStatusLabel4";
-         this.toolStripStatusLabel4.Size = new System.Drawing.Size(598, 31);
-         this.toolStripStatusLabel4.Spring = true;
+         this.toolStripMenuItem4.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.folderToolStripMenuItem});
+         this.toolStripMenuItem4.Name = "toolStripMenuItem4";
+         this.toolStripMenuItem4.Size = new System.Drawing.Size(247, 26);
+         this.toolStripMenuItem4.Text = "Convert Batch";
          // 
-         // notificationStatusLabel
+         // toolStripSeparator9
          // 
-         this.notificationStatusLabel.Name = "notificationStatusLabel";
-         this.notificationStatusLabel.Size = new System.Drawing.Size(94, 31);
-         this.notificationStatusLabel.Text = "Notifications";
+         this.toolStripSeparator9.Name = "toolStripSeparator9";
+         this.toolStripSeparator9.Size = new System.Drawing.Size(244, 6);
          // 
-         // toolStripStatusLabel5
+         // folderToolStripMenuItem
          // 
-         this.toolStripStatusLabel5.Name = "toolStripStatusLabel5";
-         this.toolStripStatusLabel5.Size = new System.Drawing.Size(13, 31);
-         this.toolStripStatusLabel5.Text = "|";
+         this.folderToolStripMenuItem.Name = "folderToolStripMenuItem";
+         this.folderToolStripMenuItem.Size = new System.Drawing.Size(224, 26);
+         this.folderToolStripMenuItem.Text = "Folder";
+         this.folderToolStripMenuItem.Click += new System.EventHandler(this.FolderToolStripMenuItem_Click);
          // 
          // FrameMain
          // 
@@ -863,6 +888,9 @@
         private ToolStripStatusLabel toolStripStatusLabel5;
         private ToolStripStatusLabel toolStripStatusLabel4;
         private ToolStripStatusLabel notificationStatusLabel;
-    }
+      private ToolStripSeparator toolStripSeparator9;
+      private ToolStripMenuItem toolStripMenuItem4;
+      private ToolStripMenuItem folderToolStripMenuItem;
+   }
 }
 

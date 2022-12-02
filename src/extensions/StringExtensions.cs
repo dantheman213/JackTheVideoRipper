@@ -1,6 +1,4 @@
-﻿using Accessibility;
-
-namespace JackTheVideoRipper.extensions;
+﻿namespace JackTheVideoRipper.extensions;
 
 public static class StringExtensions
 {
@@ -36,12 +34,22 @@ public static class StringExtensions
     
     public static bool HasValueAndNot(this string? str, string other)
     {
-        return !string.IsNullOrEmpty(str) && str != other;
+        return !string.IsNullOrEmpty(str) && !string.Equals(str, other);
+    }
+    
+    public static bool HasValueAndNotIgnoreCase(this string? str, string other)
+    {
+        return !string.IsNullOrEmpty(str) && !string.Equals(str, other, StringComparison.OrdinalIgnoreCase);
     }
     
     public static bool HasValueAndNot(this string? str, params string[] others)
     {
-        return !string.IsNullOrEmpty(str) && others.All(other => str != other);
+        return !string.IsNullOrEmpty(str) && others.All(other => !string.Equals(str, other));
+    }
+    
+    public static bool HasValueAndNotIgnoreCase(this string? str, params string[] others)
+    {
+        return !string.IsNullOrEmpty(str) && others.All(other => !string.Equals(str, other, StringComparison.OrdinalIgnoreCase));
     }
 
     public static string EvaluateOrDefault(this string? str, Func<string, string> func, string defaultValue = "")
@@ -65,9 +73,9 @@ public static class StringExtensions
         return str.HasValue() && predicate(str!);
     }
 
-    public static bool Invalid(this string? str, Func<string, bool> predicate)
+    public static bool Invalid(this string? str, Func<string, bool> isValidPredicate)
     {
-        return str.IsNullOrEmpty() || !predicate(str!);
+        return str.IsNullOrEmpty() || !isValidPredicate(str!);
     }
 
     public static string Remove(this string str, string element)
@@ -99,5 +107,15 @@ public static class StringExtensions
     public static string TruncateEllipse(this string str, int length)
     {
         return str.Length <= length ? str : length <= 3 ? str[..length] : $"{str[..(length - 3)]}...";
+    }
+
+    public static IEnumerable<string> SplitNewline(this string str, StringSplitOptions options = StringSplitOptions.None)
+    {
+        return str.Split("\n", options);
+    }
+    
+    public static IEnumerable<string> SplitReturn(this string str, StringSplitOptions options = StringSplitOptions.None)
+    {
+        return str.Split("\r\n", options);
     }
 }

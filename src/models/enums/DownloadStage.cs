@@ -7,5 +7,6 @@ public enum DownloadStage
     Transcoding,
     Downloading,
     Waiting,
-    Error
+    Error,
+    Retrieving
 }

@@ -7,17 +7,14 @@
             InitializeComponent();
         }
 
-        private void FrameYTDLDependencyInstall_Shown(object sender, EventArgs e)
+        private async void FrameYTDLDependencyInstall_Shown(object sender, EventArgs e)
         {
             Application.DoEvents();
-
-            YouTubeDL.DownloadAndInstall();
-            Close();
+            await YouTubeDL.DownloadAndInstall().ContinueWith(task => Close());
         }
 
         private void FrameYTDLDependencyInstall_Load(object sender, EventArgs e)
         {
-
         }
     }
 }

@@ -8,11 +8,11 @@ public static class Core
     
     public static event Action<string> NotificationEvent = delegate {  };
     
-    public static void Startup()
+    public static async Task Startup()
     {
         FileSystem.ValidateInstallDirectory();
         CheckDependencies();
-        CheckForYouTubeDLUpdates();
+        await CheckForYouTubeDLUpdates();
     }
 
     public static void SendNotification(string notification)
@@ -37,7 +37,7 @@ public static class Core
         }
 
         // Verify FFMPEG
-        if (!FFMPEG.IsInstalled)
+        if (!modules.FFMPEG.IsInstalled)
         {
             Modals.Warning(Resources.FfmpegMissing, Captions.REQUIRED_NOT_INSTALLED);
         }
@@ -58,9 +58,9 @@ public static class Core
         frameDependencyInstall.Close();
     }
 
-    public static void CheckForYouTubeDLUpdates()
+    public static async Task CheckForYouTubeDLUpdates()
     {
-        Task.Run(YouTubeDL.CheckForUpdates);
+        await Task.Run(YouTubeDL.CheckForUpdates);
     }
 
     public static bool ConfirmExit()
@@ -87,7 +87,7 @@ public static class Core
                 FileSystem.GetWebResourceHandle(YouTubeDL.UPDATE_URL);
                 break;
             case Dependencies.FFMPEG:
-                FFMPEG.DownloadLatest();
+                modules.FFMPEG.DownloadLatest();
                 break;
             case Dependencies.Handbrake:
                 FileSystem.GetWebResourceHandle(URLs.HANDBRAKE);
@@ -121,9 +121,18 @@ public static class Core
         Pages.OpenPage<FrameConvert>();
     }
     
-    public static void CheckForUpdates(bool isStartup = true)
+    public static async Task CheckForUpdates()
     {
-        AppUpdate.CheckForNewAppVersion(isStartup);
+        await AppUpdate.CheckForNewAppVersion();
+    }
+    
+    public static Form MainForm => Application.OpenForms[0];
+        
+    public static FrameMain FrameMain => (MainForm as FrameMain)!;
+
+    public static void InvokeInMainContext(Action action)
+    {
+        MainForm.Invoke(action);
     }
     
     [System.Runtime.InteropServices.DllImport("wininet.dll")]

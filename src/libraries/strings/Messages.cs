@@ -1,8 +1,10 @@
 ﻿namespace JackTheVideoRipper;
 
-public class Messages
+public static class Messages
 {
     public const string DOWNLOADING = "Downloading";
-    public const string READING_METADATA = "Reading Metadata";
+    public const string RETRIEVING = "Retrieving Info";
+    public const string METADATA = "Saving Metadata";
     public const string TRANSCODING = "Transcoding";
+    public const string WAITING = "Waiting...";
 }

@@ -1,26 +1,27 @@
 ﻿using System.Diagnostics;
+using JackTheVideoRipper.models;
 
 namespace JackTheVideoRipper.interfaces;
 
 public interface IProcessRunner
 {
-    public Process Process { get; set; }
-    
-    List<string> Results { get; set; }
-    
-    int Cursor { get; set; }
+    Process Process { get; }
     
     bool Paused { get; }
 
     ProcessStatus ProcessStatus { get; }
+    
+    bool Started { get; }
+                
+    bool Finished { get; }
 
-    void AppendStatusLine();
-
-    void TrackStandardOut();
-
-    void AppendErrorLine();
-
-    void TrackStandardError();
+    bool Completed { get; }
+    
+    bool Failed { get; }
+    
+    Guid Guid { get; }
+    
+    ProcessBuffer Buffer { get; }
 
     void Update();
 
@@ -36,5 +37,7 @@ public interface IProcessRunner
 
     void Resume();
 
-    void SkipToEnd();
+    void Kill();
+    
+    void TryKillProcess();
 }

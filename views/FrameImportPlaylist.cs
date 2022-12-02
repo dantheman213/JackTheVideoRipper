@@ -8,7 +8,7 @@ namespace JackTheVideoRipper
 
         private string TextUrl => textUrl.Text.Trim();
 
-        private string _url;
+        private string _url = string.Empty;
         
         public string Url
         {

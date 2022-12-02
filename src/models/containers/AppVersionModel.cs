@@ -22,17 +22,17 @@ namespace JackTheVideoRipper.models
         
         private static Version LocalVersion => new(FileSystem.VersionInfo);
 
-        public static AppVersionModel GetFromServer()
+        public static async Task<AppVersionModel> GetFromServer()
         {
             return new AppVersionModel
             {
-                VersionString = GetVersionFromServer()?.Remove("\n") ?? string.Empty
+                VersionString = (await GetVersionFromServer())?.Remove("\n") ?? string.Empty
             };
         }
         
-        private static string? GetVersionFromServer()
+        private static async Task<string?> GetVersionFromServer()
         {
-            HttpResponseMessage response = FileSystem.SimpleWebQuery(_ASSEMBLY_INFO_FILE_URL);
+            HttpResponseMessage response = await FileSystem.SimpleWebQueryAsync(_ASSEMBLY_INFO_FILE_URL);
 
             if (response.IsSuccessStatusCode)
             {

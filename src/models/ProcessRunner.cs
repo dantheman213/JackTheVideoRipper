@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
+using JackTheVideoRipper.models;
 
 namespace JackTheVideoRipper;
 
@@ -8,47 +9,36 @@ public abstract class ProcessRunner : IProcessRunner
 {
     #region Data Members
 
-    public Process Process { get; set; } = null!;
+    public Process Process { get; private set; } = null!;
 
-    public List<string> Results { get; set; } = new() { string.Empty }; // Placeholder result
-    
-    public int Cursor { get; set; } // where in message buffer are we
-    
-    public bool Paused { get; private set; }
-    
     public ProcessStatus ProcessStatus { get; private set; } = ProcessStatus.Created;
 
     protected readonly string ParameterString;
     
     protected readonly Action<IProcessRunner> CompletionCallback;
 
-    #endregion
-    
-    #region Events
+    public Guid Guid { get; } = new();
 
-    public static event Action<string, Exception> ErrorLogEvent_Tag = delegate {  };
-        
-    public static event Action<ProcessRunner, Exception> ErrorLogEvent_Process = delegate {  };
-        
-    public static event Action<ProcessError> ErrorLogEvent_Error = delegate {  };
+    public ProcessBuffer Buffer { get; } = new();
+    
+    public bool Completed { get; private set; }
+    
+    public int ExitCode { get; private set; }
 
     #endregion
 
     #region Attributes
 
-    public bool AtEndOfBuffer => Cursor >= Results.Count - 1;
-    
-    public bool Failed => Process.ExitCode > 0;
-
-    protected string ProcessLine => Results[Cursor];
-    
-    public string[] TokenizedProcessLine => Common.Tokenize(ProcessLine);
+    public bool Failed => ExitCode > 0;
 
     public bool Started => ProcessStatus is not ProcessStatus.Created;
                 
-    public bool Finished => ProcessStatus is ProcessStatus.Completed or ProcessStatus.Error;
+    public bool Finished => ProcessStatus is ProcessStatus.Completed or ProcessStatus.Error or 
+        ProcessStatus.Cancelled or ProcessStatus.Stopped;
+    
+    public bool Paused => ProcessStatus is ProcessStatus.Paused;
 
-    public bool Completed => Started && Process.HasExited;
+    // public bool Completed => Started && Process.HasExited;
 
     #endregion
 
@@ -63,128 +53,125 @@ public abstract class ProcessRunner : IProcessRunner
     #endregion
 
     #region Process States
-    
+
     public virtual void Update()
     {
-        if (Completed)
-        {
-            Complete();
+        // Don't run updates after we've completed
+        if (Paused || Finished)
             return;
-        }
-
-        if (AtEndOfBuffer)
-            return;
-
-        Cursor++;
+        
+        Buffer.Update();
     }
 
     public virtual void Start()
     {
-        Process = CreateProcess();
+        if (IsProcessStatus(ProcessStatus.Running))
+            return;
         
-        Process.Start();
+        InitializeProcess();
         
         SetProcessStatus(ProcessStatus.Running);
-        
-        TrackStandardOut();
-        
-        TrackStandardError();
     }
     
     public virtual void Stop()
     {
-        SetProcessStatus(ProcessStatus.Stopped);
+        if (!SetProcessStatus(ProcessStatus.Stopped))
+            return;
 
-        TryKillProcess();
-
-        NotifyCompletion();
+        CloseProcess();
     }
     
     public virtual void Retry()
     {
+        if (!IsProcessStatus(ProcessStatus.Error, ProcessStatus.Stopped, ProcessStatus.Cancelled))
+            return;
+        
         SetProcessStatus(ProcessStatus.Created);
+
+        Completed = false;
             
-        CreateProcess();
+        InitializeProcess();
+        
+        Buffer.Clear();
     }
 
     public virtual void Cancel()
     {
-        SetProcessStatus(ProcessStatus.Cancelled);
+        if (!SetProcessStatus(ProcessStatus.Cancelled))
+            return;
             
-        TryKillProcess();
-
-        NotifyCompletion();
+        CloseProcess();
     }
     
     protected virtual void Complete()
     {
-        // Switch exit code here to determine more information and set status
-
-        if (Failed)
-        {
-            SetErrorState();
+        if (Completed || Finished)
             return;
-        }
 
-        SetProcessStatus(ProcessStatus.Completed);
+        ExitCode = Process.ExitCode;
 
-        NotifyCompletion();
+        // TODO: Give more information about exit
+        /*switch (ExitCode)
+        {
+            
+        }*/
+
+        SetProcessStatus(Failed ? ProcessStatus.Error : ProcessStatus.Completed);
+        
+        Completed = true;
     }
     
     public virtual void Pause()
     {
-        if (Paused) return;
+        if (!SetProcessStatus(ProcessStatus.Paused))
+            return;
         Process.Suspend();
-        Paused = true;
-        SetProcessStatus(ProcessStatus.Paused);
     }
 
     public virtual void Resume()
     {
-        if (!Paused) return;
-        Process.Resume();
-        Paused = false;
+        if (!IsProcessStatus(ProcessStatus.Paused))
+            return;
         SetProcessStatus(ProcessStatus.Running);
+        Process.Resume();
+    }
+
+    public virtual void OnProcessExit(object? o, EventArgs eventArgs)
+    {
+        Core.InvokeInMainContext(Complete);
+        CloseProcess();
+    }
+    
+    protected virtual bool SetProcessStatus(ProcessStatus processStatus)
+    {
+        if (IsProcessStatus(processStatus))
+            return false;
+        ProcessStatus = processStatus;
+        return true;
+    }
+
+    protected virtual void NotifyCompletion()
+    {
+        CompletionCallback.Invoke(this);
     }
 
     #endregion
 
     #region Public Methods
-    
-    public void SkipToEnd()
-    {
-        if (Cursor + 10 < Results.Count)
-            Cursor = Results.Count;
-    }
 
-    public void AppendStatusLine()
+    public void Kill()
     {
-        if (Process.StandardOutput.ReadLine() is { } line)
-            Results.Add(line);
+        if (Process.HasExited)
+            return;
+        
+        FileSystem.TryKillProcessAndChildren(Process.Id);
     }
     
-    public void TrackStandardOut()
+    public void TryKillProcess()
     {
-        RunWhileProcessActive(AppendStatusLine);
-    }
-    
-    public void AppendErrorLine()
-    {
-        if (Process.StandardError.ReadLine() is { } line)
-            Results.Add(line);
-    }
-
-    public void TrackStandardError()
-    {
-        RunWhileProcessActive(AppendErrorLine);
-    }
-
-    #endregion
-
-    #region Protected Methods
-    
-    protected void TryKillProcess()
-    {
+        if (Process.HasExited)
+            return;
+        
         try { Process.Kill(); }
         catch (Exception exception)
         {
@@ -192,39 +179,36 @@ public abstract class ProcessRunner : IProcessRunner
         }
     }
 
-    protected virtual void SetProcessStatus(ProcessStatus processStatus)
-    {
-        ProcessStatus = processStatus;
-    }
+    #endregion
 
-    protected virtual void NotifyCompletion()
+    #region Protected Methods
+    
+    protected bool IsProcessStatus(ProcessStatus processStatus) => ProcessStatus == processStatus;
+    
+    protected bool IsProcessStatus(params ProcessStatus[] processStatuses) => processStatuses.Any(IsProcessStatus);
+
+    #endregion
+
+    #region Private Methods
+
+    private void InitializeProcess()
     {
-        CompletionCallback.Invoke(this);
+        Process = CreateProcess();
+
+        Process.Exited += OnProcessExit;
+        Process.OutputDataReceived += (sender, args) => Buffer.AppendResult(args.Data);
+        Process.ErrorDataReceived += (sender, args) => Buffer.AppendError(args.Data);
+        Process.EnableRaisingEvents = true;
+
+        Process.Start();
+        Process.BeginOutputReadLine();
+        Process.BeginErrorReadLine();
     }
     
-    protected void SetErrorState(Exception? exception = null)
+    private void CloseProcess()
     {
-        if (ProcessStatus == ProcessStatus.Error)
-            return;
-
-        SetProcessStatus(ProcessStatus.Error);
-
-        WriteErrorMessage(exception);
-            
-        TryKillProcess();
-            
+        Process.Close();
         NotifyCompletion();
-    }
-    
-    protected void WriteErrorMessage(Exception? exception = null)
-    {
-        ErrorLogEvent_Process(this, exception ?? new ApplicationException(Results.MergeNewline()));
-        Console.Write(Results);
-    }
-    
-    protected void RunWhileProcessActive(Action action)
-    {
-        Task.Run(() => { while (Process is { HasExited: false }) { action(); } });
     }
 
     #endregion

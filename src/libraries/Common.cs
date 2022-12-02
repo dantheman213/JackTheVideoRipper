@@ -72,6 +72,11 @@ namespace JackTheVideoRipper
             return _SpaceSplitPattern.Split(line);
         }
 
+        public static string CreateTag()
+        {
+            return $"{RandomString(5)}{DateTime.UtcNow.Ticks}";
+        }
+
         #endregion
     }
 }

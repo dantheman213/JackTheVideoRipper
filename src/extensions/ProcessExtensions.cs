@@ -35,7 +35,11 @@ public static class ProcessExtensions
             IntPtr pOpenThread = OpenThread(ThreadAccess.SUSPEND_RESUME, false, (uint)thread.Id);
             if (pOpenThread == IntPtr.Zero)
                 break;
-            SuspendThread(pOpenThread);
+            uint result = SuspendThread(pOpenThread);
+            if (result != 0)
+            {
+                throw new ApplicationException($"Failed to suspend thread (id = {thread.Id}! (Error code: {result}");
+            }
         }
     }
     public static void Resume(this Process process)
@@ -45,7 +49,11 @@ public static class ProcessExtensions
             IntPtr pOpenThread = OpenThread(ThreadAccess.SUSPEND_RESUME, false, (uint)thread.Id);
             if (pOpenThread == IntPtr.Zero)
                 break;
-            ResumeThread(pOpenThread);
+            int result = ResumeThread(pOpenThread);
+            if (result != 0)
+            {
+                throw new ApplicationException($"Failed to suspend thread (id = {thread.Id}! (Error code: {result}");
+            }
         }
     }
 }

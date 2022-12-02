@@ -1,5 +1,6 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.modules;
 
 namespace JackTheVideoRipper
 {
@@ -15,16 +16,16 @@ namespace JackTheVideoRipper
         
         public MediaType Type => ExportAudio && !ExportVideo ? MediaType.Audio : MediaType.Video;
 
-        private string FilePathTemplate => Path.Combine(Filepath, "%(title)s.%(ext)s");
+        private string FilePathTemplate => Path.Combine(Filepath, YouTubeDL.DEFAULT_FORMAT);
 
         private bool EncodeVideo => cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0;
 
         private bool EncodeAudio => cbAudioEncoder.Enabled && cbAudioEncoder.SelectedIndex > 0;
         
-        private bool IsValidVideo => VideoExtension.HasValueAndNot("mp4");
+        private bool IsValidVideo => VideoExtension.HasValueAndNotIgnoreCase(FFMPEG.VideoFormats.MP4);
 
-        private bool IsValidAudio => AudioExtension.HasValueAndNot("mp3", "m4a");
-        
+        private bool IsValidAudio => AudioExtension.HasValueAndNotIgnoreCase(FFMPEG.AudioFormats.MP3, FFMPEG.AudioFormats.M4A);
+
         private bool ShouldUpdateAudio => ExportAudio && !EncodeVideo;
         
         private string Filename => FileSystem.GetFilename(Filepath);
@@ -73,9 +74,9 @@ namespace JackTheVideoRipper
 
         private bool EmbedSubtitles => chkEmbedSubs.Checked;
         
-        private string VideoFormat => VideoEncoder.ToLower() == Tags.LOW ? Tags.WORST_VIDEO : Tags.BEST_VIDEO;
+        private string VideoFormat => VideoEncoder.ToLower() == Quality.LOW ? Quality.WORST_VIDEO : Quality.BEST_VIDEO;
 
-        private string AudioFormat => AudioEncoder.ToLower() == Tags.LOW ? Tags.WORST_AUDIO : Tags.BEST_AUDIO;
+        private string AudioFormat => AudioEncoder.ToLower() == Quality.LOW ? Quality.WORST_AUDIO : Quality.BEST_AUDIO;
         
         #endregion
 
@@ -112,7 +113,7 @@ namespace JackTheVideoRipper
             if (Urls.IsNullOrEmpty())
                 return;
             
-            Urls.Remove("\r").Split('\n').ForEach(ProcessUrl);
+            Urls.SplitReturn(StringSplitOptions.RemoveEmptyEntries).ForEach(ProcessUrl);
 
             DialogResult = DialogResult.OK;
             Close();
@@ -197,28 +198,28 @@ namespace JackTheVideoRipper
             cbVideoEncoder.Enabled = !enabled || ExportVideo;
         }
         
-        private void AddItem(string parameters, string url)
+        private void AddItem(MediaParameters mediaParameters)
         {
             Items.Add(new DownloadMediaItem
             {
-                Title = string.Empty,
+                Title = YouTubeDL.GetTitle(mediaParameters.MediaSourceUrl),
                 Filepath = string.Empty,
-                Parameters = parameters,
-                Url = url,
+                MediaParameters = mediaParameters,
+                Url = mediaParameters.MediaSourceUrl,
                 MediaType = Type
             });
         }
         
         private void ProcessUrl(string url)
         {
-            if (!FileSystem.IsValidUrl(url))
+            if (url.Invalid(FileSystem.IsValidUrl))
             {
-                Core.SendNotification($"Invalid URL detected, skipping: {url}");
+                Core.SendNotification($"Invalid URL detected, skipping: {url}"); //< Push to notification bar
                 //Modals.Warning($@"Invalid URL detected, skipping: {url}", @"Invalid URL");
                 return;
             }
 
-            Parameters parameters = new()
+            AddItem(new MediaParameters
             {
                 ExportAudio = ExportAudio,
                 ExportVideo = ExportVideo,
@@ -229,10 +230,9 @@ namespace JackTheVideoRipper
                 IncludeAds = IncludeAds,
                 EmbedThumbnail = EmbedThumbnail,
                 EmbedSubtitles = EmbedSubtitles,
-                FilenameFormatted = FilePathTemplate
-            };
-
-            AddItem(parameters.ToString(), url);
+                FilenameFormatted = FilePathTemplate,
+                MediaSourceUrl = url
+            });
         }
 
         #endregion

@@ -4,7 +4,11 @@ public static class ObjectExtensions
 {
     public static T As<T>(this object obj)
     {
-        if (!obj.GetType().IsAssignableFrom(typeof(T)))
+        var objType = obj.GetType();
+
+        if (!objType.IsAssignableTo(typeof(T)) && 
+            !objType.IsEquivalentTo(typeof(T)) && 
+            !objType.IsInstanceOfType(typeof(T)))
         {
             throw new InvalidCastException();
         }

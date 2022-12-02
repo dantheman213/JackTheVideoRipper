@@ -1,4 +1,6 @@
-﻿namespace JackTheVideoRipper
+﻿using JackTheVideoRipper.extensions;
+
+namespace JackTheVideoRipper
 {
     public partial class FrameAbout : Form
     {
@@ -20,9 +22,8 @@
 
             try
             {
-                string lines = $"* {YouTubeDL.GetExtractors().Replace("\n", "\r\n* ")}";
-                textExtractors.Text = lines;
-                labelYouTubeDL.Text = $@"yt-dlp {YouTubeDL.GetVersion()}";
+                textExtractors.Text = YouTubeDL.GetSupportedServices().Select(s => $"* {s}").MergeReturn();
+                labelYouTubeDL.Text = $@"yt-dlp {YouTubeDL.CurrentVersion}";
             }
             catch (Exception ex)
             {

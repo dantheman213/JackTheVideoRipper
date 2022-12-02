@@ -1,4 +1,5 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
 
@@ -14,9 +15,9 @@ public class MediaManager
 
     #region Attributes
 
-    public ProcessUpdateRow? GetRow(string tag) => _processPool.Get(tag);
+    public IProcessUpdateRow? GetRow(string tag) => _processPool.Get(tag);
 
-    public ProcessUpdateRow? Selected => _processPool.Selected;
+    public IProcessUpdateRow? Selected => _processPool.Selected;
 
     public string ToolbarStatus => $"{GetProgramStatus(),-20}"; // 20 chars
 
@@ -100,15 +101,9 @@ public class MediaManager
         _processPool.RemoveFailed().ForEach(ProcessRemoved);
     }
 
-    public void QueueProcess(MediaItemRow row)
+    public void QueueProcess(IMediaItem row)
     {
-        _processPool.QueueProcess(row);
-        ProcessAdded(row.ListViewItem);
-    }
-
-    private void QueueProcess(DownloadMediaItem item)
-    {
-        QueueProcess(item.As<MediaItemRow>());
+        ProcessAdded(_processPool.QueueDownloadProcess(row));
     }
 
     public void QueueBatchDownloads()
@@ -193,6 +188,7 @@ public class MediaManager
         if (Selected is null)
             return;
 
+        // TODO: These will throw when the Selected doesn't meet criteria...
         switch (contextAction)
         {
             case ContextActions.OpenMedia when Selected.Completed:
@@ -241,7 +237,7 @@ public class MediaManager
         UpdateProcessQueue();
     }
 
-    private void ProcessCompletionCallback(ProcessUpdateRow processUpdateRow)
+    private void ProcessCompletionCallback(IProcessUpdateRow processUpdateRow)
     {
         Core.SendNotification($"\"{processUpdateRow.Title.TruncateEllipse(35)}\" finished downloading!");
         UpdateProcessQueue();
@@ -272,7 +268,7 @@ public class MediaManager
         _processPool.Get(tag)?.Stop();
     }
 
-    public void StopProcess(ProcessUpdateRow? processUpdateRow)
+    public void StopProcess(IProcessUpdateRow? processUpdateRow)
     {
         processUpdateRow?.Stop();
     }

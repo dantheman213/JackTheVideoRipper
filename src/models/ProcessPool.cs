@@ -8,12 +8,11 @@ public class ProcessPool
 {
     #region Data Members
 
-    private readonly Dictionary<string, ProcessUpdateRow> _processTable = new();
-    
-    private readonly Queue<ProcessUpdateRow> _processQueue = new();
-    private readonly List<ProcessUpdateRow> _pausedProcessQueue = new();
-    private readonly Dictionary<string, ProcessUpdateRow> _runningProcesses = new();
-    private readonly HashSet<ProcessUpdateRow> _finishedProcesses = new();
+    private readonly ProcessTable _processTable = new();
+    private readonly Queue<IProcessUpdateRow> _processQueue = new();
+    private readonly List<IProcessUpdateRow> _pausedProcessQueue = new();
+    private readonly ProcessTable _runningProcesses = new();
+    private readonly HashSet<IProcessUpdateRow> _finishedProcesses = new();
 
     public static readonly ErrorLogger ErrorLogger = new();
 
@@ -21,7 +20,7 @@ public class ProcessPool
 
     #region Events
 
-    public event Action<ProcessUpdateRow> ProcessCompleted = delegate {  };
+    public event Action<IProcessUpdateRow> ProcessCompleted = delegate {  };
     
     public event Action ProcessStarted = delegate {  };
 
@@ -31,7 +30,7 @@ public class ProcessPool
 
     public bool AnyActive => AnyRunning || AnyQueued || AnyPaused;
 
-    public bool AnyRunning => _runningProcesses.Count > 0;
+    public bool AnyRunning => !_runningProcesses.Empty();
 
     public bool AnyQueued => _processQueue.Count > 0;
 
@@ -53,27 +52,27 @@ public class ProcessPool
         }
     }
 
-    private ProcessUpdateRow NextProcess
+    private IProcessUpdateRow NextProcess
     {
         get
         {
             if (!AnyPaused)
                 return _processQueue.Dequeue();
-            ProcessUpdateRow nextProcess = _pausedProcessQueue.First();
+            IProcessUpdateRow nextProcess = _pausedProcessQueue.First();
             _pausedProcessQueue.RemoveAt(0);
             return nextProcess;
         }
     }
 
-    private IEnumerable<ProcessUpdateRow> Processes => _processTable.Values;
+    private IEnumerable<IProcessUpdateRow> Processes => _processTable.Processes;
 
-    public ProcessUpdateRow? Selected => Processes.FirstOrDefault(p => p.ViewItem.Selected);
+    public IProcessUpdateRow? Selected => Processes.FirstOrDefault(p => p.ViewItem.Selected);
     
-    public IEnumerable<ProcessUpdateRow> RunningProcesses => _runningProcesses.Values;
+    public IEnumerable<IProcessUpdateRow> RunningProcesses => _runningProcesses.Processes;
     
-    public IEnumerable<ProcessUpdateRow> CompletedProcesses => GetAll(ProcessStatus.Completed);
+    public IEnumerable<IProcessUpdateRow> CompletedProcesses => GetAll(ProcessStatus.Completed);
     
-    public IEnumerable<ProcessUpdateRow> FailedProcesses => GetAll(ProcessStatus.Error);
+    public IEnumerable<IProcessUpdateRow> FailedProcesses => GetAll(ProcessStatus.Error);
 
     #endregion
 
@@ -81,49 +80,44 @@ public class ProcessPool
 
     public void Update()
     {
-        RunningProcesses.ForEach(p => p.Update());
+        lock (_runningProcesses)
+        {
+            // TODO: Is it performant to make a copy every time? Maybe cache last?
+            RunningProcesses.ForEach(p => p.Update());
+        }
     }
 
-    #endregion
-
-    public bool Exists(ProcessUpdateRow processUpdateRow)
+    public bool Exists(IProcessUpdateRow processUpdateRow)
     {
-        return _processTable.ContainsKey(processUpdateRow.Tag);
+        return _processTable.Contains(processUpdateRow);
     }
     
     public bool Exists(string tag)
     {
-        return _processTable.ContainsKey(tag);
+        return _processTable.Contains(tag);
     }
     
-    public void QueueProcess(MediaItemRow row)
+    public ListViewItem QueueDownloadProcess(IMediaItem mediaItem)
     {
-        if (row.Parameters is not { } parameters)
-            return;
-        
-        QueueProcess(row.Tag, parameters.ToString(), row.ListViewItem);
+        return QueueProcess(new DownloadProcessUpdateRow(mediaItem, OnCompleteProcess));
     }
     
-    public void QueueProcess(string tag, string parameterString, ListViewItem listViewItem)
+    public ListViewItem QueueProcess(IProcessUpdateRow processUpdateRow)
     {
-        ProcessUpdateRow processUpdateRow = new(parameterString, OnCompleteProcess)
-        {
-            ViewItem = listViewItem,
-            Tag = tag
-        };
-
-        _processTable.Add(tag, processUpdateRow);
+        _processTable.Add(processUpdateRow);
         _processQueue.Enqueue(processUpdateRow);
-
         UpdateQueue();
+        return processUpdateRow.ViewItem;
     }
     
     public void OnCompleteProcess(IProcessRunner processRunner)
     {
-        ProcessUpdateRow processUpdateRow = processRunner.As<ProcessUpdateRow>();
-        _runningProcesses.Remove(processUpdateRow.Tag);
+        if (processRunner is not IProcessUpdateRow processUpdateRow)
+            return;
+        StopProcess(processUpdateRow);
         _finishedProcesses.Add(processUpdateRow);
         ProcessCompleted(processUpdateRow);
+        UpdateQueue();
     }
 
     public void RetryProcess(string tag)
@@ -134,7 +128,7 @@ public class ProcessPool
         RetryProcess(processUpdateRow);
     }
     
-    public void RetryProcess(ProcessUpdateRow processUpdateRow)
+    public void RetryProcess(IProcessUpdateRow processUpdateRow)
     {
         _finishedProcesses.Remove(processUpdateRow);
         _processQueue.Enqueue(processUpdateRow);
@@ -149,9 +143,9 @@ public class ProcessPool
         PauseProcess(processUpdateRow);
     }
     
-    public void PauseProcess(ProcessUpdateRow processUpdateRow)
+    public void PauseProcess(IProcessUpdateRow processUpdateRow)
     {
-        _runningProcesses.Remove(processUpdateRow.Tag);
+        StopProcess(processUpdateRow);
         _pausedProcessQueue.Add(processUpdateRow);
         processUpdateRow.Pause();
     }
@@ -164,10 +158,10 @@ public class ProcessPool
         ResumeProcess(processUpdateRow);
     }
     
-    public void ResumeProcess(ProcessUpdateRow processUpdateRow)
+    public void ResumeProcess(IProcessUpdateRow processUpdateRow)
     {
         _pausedProcessQueue.Remove(processUpdateRow);
-        _runningProcesses.Add(processUpdateRow.Tag, processUpdateRow);
+        RunProcess(processUpdateRow);
         processUpdateRow.Resume();
     }
     
@@ -176,7 +170,7 @@ public class ProcessPool
         GetAll(ProcessStatus.Error).ForEach(RetryProcess);
     }
 
-    public ProcessUpdateRow? Get(string tag)
+    public IProcessUpdateRow? Get(string tag)
     {
         return Exists(tag) ? _processTable[tag] : null;
     }
@@ -187,22 +181,22 @@ public class ProcessPool
             Remove(Selected);
     }
 
-    public IEnumerable<ProcessUpdateRow> GetAll(ProcessStatus processStatus)
+    public IEnumerable<IProcessUpdateRow> GetAll(ProcessStatus processStatus)
     {
         return Processes.Where(p => p.ProcessStatus == processStatus);
     }
     
-    public IEnumerable<ProcessUpdateRow> GetAll(params ProcessStatus[] statuses)
+    public IEnumerable<IProcessUpdateRow> GetAll(params ProcessStatus[] statuses)
     {
         return Processes.Where(p => statuses.Any(status => p.ProcessStatus == status));
     }
     
-    public IEnumerable<ProcessUpdateRow> GetAll(int status)
+    public IEnumerable<IProcessUpdateRow> GetAll(int status)
     {
-        return Processes.Where(p => (p.ProcessStatus.As<int>() & status) > 0);
+        return Processes.Where(p => ((int)p.ProcessStatus & status) > 0);
     }
     
-    public IEnumerable<ProcessUpdateRow> GetAllFinished(ProcessStatus processStatus)
+    public IEnumerable<IProcessUpdateRow> GetAllFinished(ProcessStatus processStatus)
     {
         return _finishedProcesses.Where(p => p.ProcessStatus == processStatus);
     }
@@ -217,7 +211,7 @@ public class ProcessPool
         return processUpdateRow.ViewItem;
     }
     
-    public void Remove(ProcessUpdateRow processUpdateRow)
+    public void Remove(IProcessUpdateRow processUpdateRow)
     {
         switch (processUpdateRow.ProcessStatus)
         {
@@ -225,7 +219,7 @@ public class ProcessPool
             case ProcessStatus.Created:
                 return;
             case ProcessStatus.Running:
-                _runningProcesses.Remove(processUpdateRow.Tag);
+                StopProcess(processUpdateRow);
                 return;
             case ProcessStatus.Succeeded:
             case ProcessStatus.Completed:
@@ -251,7 +245,10 @@ public class ProcessPool
             case ProcessStatus.Created:
                 return;
             case ProcessStatus.Running:
-                RunningProcesses.ForEach(p => _runningProcesses.Remove(p.Tag));
+                lock (_runningProcesses)
+                {
+                    RunningProcesses.ForEach(p => _runningProcesses.Remove(p.Tag));
+                }
                 return;
             case ProcessStatus.Succeeded:
             case ProcessStatus.Completed:
@@ -286,19 +283,41 @@ public class ProcessPool
 
         return dirtyFlag;
     }
-
-    private void StartNextProcess()
-    {
-        ProcessUpdateRow nextProcess = NextProcess;
-        _runningProcesses.Add(nextProcess.Tag, nextProcess);
-        nextProcess.Start();
-        ProcessStarted();
-    }
-
+    
     public IEnumerable<string> GetAllFailedUrls()
     {
         return FailedProcesses.Select(p => p.Url);
     }
+    
+    #endregion
+
+    #region Private Methods
+
+    private void RunProcess(IProcessUpdateRow processUpdateRow)
+    {
+        lock (_runningProcesses)
+        {
+            _runningProcesses.Add(processUpdateRow);
+        }
+    }
+
+    private void StopProcess(IProcessUpdateRow processUpdateRow)
+    {
+        lock (_runningProcesses)
+        {
+            _runningProcesses.Remove(processUpdateRow);
+        }
+    }
+    
+    private void StartNextProcess()
+    {
+        IProcessUpdateRow nextProcess = NextProcess;
+        RunProcess(nextProcess);
+        nextProcess.Start();
+        ProcessStarted();
+    }
+    
+    #endregion
 
     #region Bulk Actions
 
@@ -315,7 +334,7 @@ public class ProcessPool
     public void KillAllRunning()
     {
         // kill all processes
-        RunningProcesses.ForEach(p => FileSystem.TryKillProcessAndChildren(p.Process.Id));
+        RunningProcesses.ForEach(p => p.Kill());
     }
 
     public void StopAll()
@@ -334,16 +353,16 @@ public class ProcessPool
     
     public IEnumerable<ListViewItem> RemoveCompleted()
     {
-        var completed = CompletedProcesses.Select(p => p.ViewItem);
+        IEnumerable<ListViewItem> completedProcesses = CompletedProcesses.Select(p => p.ViewItem);
         RemoveAll(ProcessStatus.Completed);
-        return completed;
+        return completedProcesses;
     }
     
     public IEnumerable<ListViewItem> RemoveFailed()
     {
-        var failed = FailedProcesses.Select(p => p.ViewItem);
+        IEnumerable<ListViewItem> failedProcesses = FailedProcesses.Select(p => p.ViewItem);
         RemoveAll(ProcessStatus.Error);
-        return failed;
+        return failedProcesses;
     }
 
     #endregion

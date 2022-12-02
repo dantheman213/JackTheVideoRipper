@@ -1,32 +1,27 @@
-﻿using JackTheVideoRipper.models;
+﻿using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models.enums;
 using Newtonsoft.Json;
 
 namespace JackTheVideoRipper
 {
-    public class DownloadMediaItem
+    public class DownloadMediaItem : IMediaItem
     {
         [JsonProperty("title")]
-        public string? Title { get; set; }
+        public string Title { get; set; } = string.Empty;
         
         [JsonProperty("url")]
-        public string? Url { get; set; }
+        public string Url { get; set; } = string.Empty;
         
-        [JsonProperty("parameters")]
-        public string? Parameters { get; set; }
+        [JsonIgnore]
+        public MediaParameters MediaParameters { get; init; }
         
         [JsonProperty("filepath")]
-        public string? Filepath { get; set; }
+        public string Filepath { get; set; } = string.Empty;
         
         [JsonProperty("media_type")]
         public MediaType MediaType { get; set; }
-        
-        public static implicit operator MediaItemRow (DownloadMediaItem item)
-        {
-            return new MediaItemRow(item.Title!, item.Url!, item.Filepath!, item.MediaType)
-            {
-                Parameters = new Parameters()
-            };
-        }
+
+        [JsonProperty("parameters")]
+        public string ParameterString => MediaParameters.ToString();
     }
 }

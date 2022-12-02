@@ -10,6 +10,9 @@
     <ApplicationIcon>assets\app.ico</ApplicationIcon>
     <AssemblyVersion>0.8.1</AssemblyVersion>
     <FileVersion>0.8.1</FileVersion>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>jackthevideoripper.snk</AssemblyOriginatorKeyFile>
+    <PublicSign>true</PublicSign>
   </PropertyGroup>
 
   <ItemGroup>

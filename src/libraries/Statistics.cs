@@ -49,17 +49,17 @@ public static class Statistics
     
     public static string GetCpuUsagePercentage()
     {
-        return _cpuCounter is not null ? $"{_cpuCounter.NextValue():0.00}%" : Tags.NOT_APPLICABLE;
+        return _cpuCounter is not null ? $"{_cpuCounter.NextValue():0.00}%" : Text.NOT_APPLICABLE;
     }
     
     public static string GetAvailableMemory()
     {
-        return _ramCounter is not null ? $"{_ramCounter.NextValue()} MB" : Tags.NOT_APPLICABLE;
+        return _ramCounter is not null ? $"{_ramCounter.NextValue()} MB" : Text.NOT_APPLICABLE;
     }
     
     public static string GetNetworkTransfer()
     {
-        return _NetworkCounters.Any() ? CalculateNetworkUsage() : Tags.NOT_APPLICABLE;
+        return _NetworkCounters.Any() ? CalculateNetworkUsage() : Text.NOT_APPLICABLE;
     }
 
     private static string CalculateNetworkUsage()

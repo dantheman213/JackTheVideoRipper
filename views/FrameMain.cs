@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.modules;
 using Timer = System.Threading.Timer;
 
 namespace JackTheVideoRipper
@@ -21,11 +22,11 @@ namespace JackTheVideoRipper
 
         private ListView.ListViewItemCollection ViewItems => listItems.Items;
 
-        private ListViewItem FirstSelected => Selected[0];
+        public ListViewItem FirstSelected => Selected[0];
         
-        private bool NoneSelected => Selected.Count <= 0;
+        public bool NoneSelected => Selected.Count <= 0;
 
-        private bool InItemBounds(MouseEventArgs e) => listItems.FocusedItem.Bounds.Contains(e.Location);
+        public bool InItemBounds(MouseEventArgs e) => listItems.FocusedItem.Bounds.Contains(e.Location);
         
         private static bool IsRightClick(MouseEventArgs e) => e.Button == MouseButtons.Right;
 
@@ -39,8 +40,7 @@ namespace JackTheVideoRipper
         }
 
         #endregion
-
-
+        
         #region Constructor
 
         public FrameMain()
@@ -48,10 +48,6 @@ namespace JackTheVideoRipper
             InitializeComponent();
 
             SubscribeEvents();
-            
-            // Allows us to read out the console values
-            if (Debugger.IsAttached)
-                Input.OpenConsole();
         }
 
         #endregion
@@ -122,7 +118,6 @@ namespace JackTheVideoRipper
         {
             // Initiate the Update Loop
             _listItemRowsUpdateTimer = new Timer(Update, null, 0, 800);
-            Core.CheckForUpdates();
             timerStatusBar.Enabled = true;
         }
 
@@ -140,14 +135,13 @@ namespace JackTheVideoRipper
         
         private void FrameMain_Load(object sender, EventArgs e)
         {
-            Settings.Load();
             Text = Core.ApplicationTitle;
             StartEventTimer(sender, e);
         }
 
-        private void FrameMain_Shown(object sender, EventArgs e)
+        private async void FrameMain_Shown(object sender, EventArgs e)
         {
-            Core.Startup();
+            await Core.Startup();
         }
 
         private void FrameMain_FormClosing(object sender, FormClosingEventArgs e)
@@ -157,14 +151,25 @@ namespace JackTheVideoRipper
                 e.Cancel = true;
         }
 
+         private void FolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+             if (FileSystem.SelectFile() is not { } filepath)
+                 return;
+
+             foreach (string file in Directory.GetFiles(filepath, $"*.{FFMPEG.VideoFormats.MP4}"))
+             {
+                 FFMPEG.Compress(file);
+             }
+        }
+
         #endregion
 
         #region Timer Events
-        
-        private void TimerCheckForUpdates_Tick(object sender, EventArgs e)
+
+        private async void TimerCheckForUpdates_Tick(object sender, EventArgs e)
         {
             timerCheckForUpdates.Enabled = false;
-            Core.CheckForUpdates(false);
+            await AppUpdate.CheckForNewAppVersion(false);
         }
 
         private void TimerProcessLimit_Tick(object? sender = null, EventArgs? e = null)

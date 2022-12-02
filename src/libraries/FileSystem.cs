@@ -1,9 +1,11 @@
 ﻿using System.Diagnostics;
 using System.Management;
+using System.Net;
 using System.Reflection;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
 using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.Properties;
 using Newtonsoft.Json;
 using SpecialFolder = System.Environment.SpecialFolder;
@@ -84,6 +86,20 @@ public static class FileSystem
         if (!Directory.Exists(directory))
             CreateFolder(directory);
     }
+    
+    public static void CreateFolderIfNotExists(params string[] directories)
+    {
+        foreach (string directory in directories)
+        {
+            if (!Directory.Exists(directory))
+                CreateFolder(directory);
+        }
+    }
+
+    public static void CreatePathIfNoneExists(string filepath)
+    {
+        CreateFolderIfNotExists(Directory.GetDirectories(filepath));
+    }
 
     public static string ProgramPath(string executablePath)
     {
@@ -139,18 +155,23 @@ public static class FileSystem
 
     public static string RunWebCommand(string binPath, string url, string parameterString)
     {
-        return RunCommand(binPath, $"{parameterString} {url}");
+        return url.Valid(IsValidUrl) ? RunCommand(binPath, $"{parameterString} {url}") : string.Empty;
     }
     
     public static T? ReceiveJsonResponse<T>(string binPath, string url, string parameterString)
     {
-        return Deserialize<T>(RunWebCommand(binPath, url, parameterString));
+        return url.Valid(IsValidUrl) ? Deserialize<T>(RunWebCommand(binPath, url, parameterString)) : default;
     }
         
     // youtube-dl returns an individual json object per line
     public static IEnumerable<T> ReceiveMultiJsonResponse<T>(string binPath, string url, string parameterString)
     {
-        return Deserialize<IEnumerable<T>>($"[{RunWebCommand(binPath, url, parameterString).Replace("\n", ",\n")}]") ?? Array.Empty<T>();
+        if (url.Invalid(IsValidUrl))
+            return Array.Empty<T>();
+        string jsonResponse = RunWebCommand(binPath, url, parameterString).Replace("\n", ",\n");
+        if (jsonResponse.IsNullOrEmpty())
+            return Array.Empty<T>();
+        return Deserialize<IEnumerable<T>>($"[{jsonResponse}]") ?? Array.Empty<T>();
     }
 
     public static Process? OpenFileExplorer(string directory)
@@ -175,11 +196,16 @@ public static class FileSystem
 
     public static string DownloadTempFile(string url, string extension)
     {
-        return DownloadWebFile(url, GetTempFilename(extension));
+        return url.Valid(IsValidUrl) ? DownloadWebFile(url, GetTempFilename(extension)) : string.Empty;
     }
 
     public static string DownloadWebFile(string url, string localPath)
     {
+        if (url.Invalid(IsValidUrl))
+            return string.Empty;
+        
+        CreatePathIfNoneExists(localPath);
+        
         DeleteIfExists(localPath);
 
         HttpResponseMessage response = SimpleWebQuery(url);
@@ -189,13 +215,36 @@ public static class FileSystem
         
         Log(@$"Failed to download {response.ResponseCode()}");
         return string.Empty;
+    }
+    
+    public static async Task<string> DownloadWebFileAsync(string url, string localPath)
+    {
+        if (url.Invalid(IsValidUrl))
+            return string.Empty;
 
+        CreatePathIfNoneExists(localPath);
+        
+        DeleteIfExists(localPath);
+
+        HttpResponseMessage response = await SimpleWebQueryAsync(url);
+
+        return response.IsSuccessStatusCode ? response.DownloadResponse(localPath) : string.Empty;
     }
 
     public static HttpResponseMessage SimpleWebQuery(string url)
     {
+        if (url.Invalid(IsValidUrl))
+            return new HttpResponseMessage(HttpStatusCode.BadRequest);
         using HttpClient client = new();
         return client.GetAsync(new Uri(url)).Result;
+    }
+    
+    public static async Task<HttpResponseMessage> SimpleWebQueryAsync(string url)
+    {
+        if (url.Invalid(IsValidUrl))
+            return new HttpResponseMessage(HttpStatusCode.BadRequest);
+        using HttpClient client = new();
+        return await client.GetAsync(new Uri(url));
     }
 
     public static void DeleteIfExists(string filepath)
@@ -259,6 +308,16 @@ public static class FileSystem
     public static string GetExtension(string path)
     {
         return path.Contains('.') ? path.AfterLast(".") : path;
+    }
+    
+    public static string ChangeExtension(string filepath, string extension)
+    {
+        return $"{GetFilename(filepath)}.{extension}";
+    }
+
+    public static string AppendSuffix(string filepath, string suffix, string separator = "")
+    {
+        return $"{GetFilename(filepath)}{separator}{suffix}.{GetExtension(filepath)}";
     }
 
     public static string GetDirectory(string path)
@@ -335,6 +394,20 @@ public static class FileSystem
     
     public static string RunProcess(Process process)
     {
+        process.Start();
+        return process.StandardOutput.ReadToEnd().Trim();
+    }
+    
+    public static string RunProcess(string path, string arguments)
+    {
+        Process process = CreateProcess(path, arguments);
+        process.Start();
+        return process.StandardOutput.ReadToEnd().Trim();
+    }
+    
+    public static string RunProcess(string path, IProcessParameters parameters)
+    {
+        Process process = CreateProcess(path, parameters.ToString());
         process.Start();
         return process.StandardOutput.ReadToEnd().Trim();
     }
@@ -436,5 +509,53 @@ public static class FileSystem
             folderBrowserDialog.SelectedPath = initialPath;
         
         return folderBrowserDialog.ShowDialog() == DialogResult.OK ? folderBrowserDialog.SelectedPath : null;
+    }
+
+    public static long GetFileSize(string filepath)
+    {
+        return filepath.Valid(File.Exists) ? new FileInfo(filepath).Length : 0; //< in Bytes
+    }
+    
+    public static string GetFileSizeFormatted(string filepath)
+    {
+        return GetSizeSuffix(GetFileSize(filepath));
+    }
+    
+    private static readonly string[] _SizeSuffixes = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+
+    public static string GetSizeSuffix(long value, int decimalPlaces = 1)
+    {
+        if (decimalPlaces < 0)
+            throw new ArgumentOutOfRangeException(nameof(decimalPlaces));
+        
+        switch (value)
+        {
+            case < 0:
+                return $"-{GetSizeSuffix(-value, decimalPlaces)}";
+            case 0:
+                return string.Format($"{{0:n{decimalPlaces}}} {_SizeSuffixes[0]}", 0);
+        }
+
+        // mag is 0 for bytes, 1 for KB, 2, for MB, etc.
+        int mag = (int)Math.Log(value, 1024);
+
+        // 1L << (mag * 10) == 2 ^ (10 * mag) 
+        // [i.e. the number of bytes in the unit corresponding to mag]
+        decimal adjustedSize = (decimal)value / (1L << (mag * 10));
+
+        // make adjustment when the value is large enough that
+        // it would round up to 1000 or more
+        if (Math.Round(adjustedSize, decimalPlaces) >= 1000)
+        {
+            mag += 1;
+            adjustedSize /= 1024;
+        }
+
+        return string.Format($"{{0:n{decimalPlaces}}} {{1}}", adjustedSize, _SizeSuffixes[mag]);
+    }
+
+    public static async Task<bool> Install(string downloadUrl, string filename)
+    {
+        return downloadUrl.Valid(IsValidUrl) && (await DownloadWebFileAsync(downloadUrl, Path.Join(Paths.Install, filename))).HasValue();
     }
 }

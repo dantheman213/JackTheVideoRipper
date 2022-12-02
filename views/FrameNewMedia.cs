@@ -1,6 +1,7 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.modules;
 using JackTheVideoRipper.Properties;
 
 namespace JackTheVideoRipper
@@ -25,9 +26,9 @@ namespace JackTheVideoRipper
 
         private bool FormatAudio => cbAudioEncoder.Enabled && cbAudioEncoder.SelectedIndex > 0;
         
-        private bool IsValidVideo => VideoExtension.HasValueAndNot("mp4");
+        private bool IsValidVideo => VideoExtension.HasValueAndNotIgnoreCase(FFMPEG.VideoFormats.MP4);
 
-        private bool IsValidAudio => AudioExtension.HasValueAndNot("mp3", "m4a");
+        private bool IsValidAudio => AudioExtension.HasValueAndNotIgnoreCase(FFMPEG.AudioFormats.MP3, FFMPEG.AudioFormats.M4A);
         
         private bool ShouldUpdateAudio => ExportAudio && !FormatVideo;
         
@@ -162,8 +163,6 @@ namespace JackTheVideoRipper
 
         private void RetrieveMetadata()
         {
-            ValidateUrl(Url);
-            
             FrameCheckMetadata frameCheckMetadata = new();
             
             Enabled = false;
@@ -213,7 +212,7 @@ namespace JackTheVideoRipper
         {
             string clipboard = FileSystem.GetClipboardText();
             
-            if (!FileSystem.IsValidUrl(clipboard))
+            if (clipboard.Invalid(FileSystem.IsValidUrl))
                 return;
             
             Url = clipboard;
@@ -246,34 +245,36 @@ namespace JackTheVideoRipper
 
         private void GenerateDownloadCommand()
         {
-            ValidateMedia();
+            if (!ValidateMedia())
+                return;
 
             GenerateMediaItemRow();
         }
 
         private void GenerateMediaItemRow()
         {
-            MediaItemRow = new MediaItemRow(Title, Url, Filepath, ExportVideo ? MediaType.Video : MediaType.Audio)
+            MediaParameters mediaParameters = new()
             {
-                Parameters = new Parameters
-                {
-                    MediaSourceUrl = Url,
-                    FilenameFormatted = Filepath,
-                    Username = Username,
-                    Password = Password,
-                    EncodeVideo = FormatVideo,
-                    AddMetaData = WriteMetaData,
-                    IncludeAds = IncludeAds,
-                    EmbedThumbnail = EmbedThumbnail,
-                    EmbedSubtitles = EmbedSubtitles,
-                    ExportAudio = ExportAudio,
-                    ExportVideo = ExportVideo,
-                    AudioFormat = AudioExtension,
-                    VideoFormat = VideoExtension,
-                    VideoFormatId = VideoFormatId,
-                    AudioFormatId = AudioFormatId
-                }
+                MediaSourceUrl = Url,
+                FilenameFormatted = Filepath,
+                Username = Username,
+                Password = Password,
+                EncodeVideo = FormatVideo,
+                AddMetaData = WriteMetaData,
+                IncludeAds = IncludeAds,
+                EmbedThumbnail = EmbedThumbnail,
+                EmbedSubtitles = EmbedSubtitles,
+                ExportAudio = ExportAudio,
+                ExportVideo = ExportVideo,
+                AudioFormat = AudioExtension,
+                VideoFormat = VideoExtension,
+                VideoFormatId = VideoFormatId,
+                AudioFormatId = AudioFormatId
             };
+
+            MediaType mediaType = ExportVideo ? MediaType.Video : MediaType.Audio;
+
+            MediaItemRow = new MediaItemRow(Title, Url, Filepath, mediaType, mediaParameters);
         }
 
         private void ToggleVideo(bool enabled)
@@ -327,15 +328,18 @@ namespace JackTheVideoRipper
         
         private void ButtonDownload_Click(object sender, EventArgs e)
         {
-            if (Url.HasValue())
+            if (!Url.Invalid(FileSystem.IsValidUrl))
             {
+                if (!FileSystem.WarnIfFileExists(Filepath))
+                    return;
+
                 GenerateDownloadCommand();
                 DialogResult = DialogResult.OK;
                 Close();
             }
             else
             {
-                // TODO?
+                Modals.Warning("Failed to parse provided url!");
             }
         }
 
@@ -362,8 +366,6 @@ namespace JackTheVideoRipper
                 return;
 
             RetrieveMetadata();
-
-            FileSystem.WarnIfFileExists(Filepath);
         }
 
         private void ChkBoxExportAudio_CheckedChanged(object sender, EventArgs e)
@@ -434,7 +436,7 @@ namespace JackTheVideoRipper
             {
                 GenerateDownloadCommand();
                 
-                FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.ParameterString}");
+                FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.MediaParameters}");
 
                 Modals.Notification(@"Command copied to clipboard!", @"Generate Command");
             }

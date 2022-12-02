@@ -1,23 +1,15 @@
-﻿using System.Diagnostics;
-using JackTheVideoRipper.extensions;
+﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
-using JackTheVideoRipper.models.enums;
 
 namespace JackTheVideoRipper;
 
-public class ProcessUpdateRow : ProcessRunner
+public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow
 {
     #region Data Members
 
-    public ListViewItem ViewItem { get; init; } = null!;
+    public ListViewItem ViewItem { get; }
 
-    public string Tag { get; init; } = null!;
-
-    #endregion
-
-    #region Properties
-
-    public DownloadStage DownloadStage => GetDownloadStage(ProcessLine);
+    public string Tag { get; } = Common.CreateTag();
 
     #endregion
 
@@ -86,49 +78,69 @@ public class ProcessUpdateRow : ProcessRunner
     #endregion
 
     #region Constructor
-        
-    public ProcessUpdateRow(string parameterString, Action<IProcessRunner> completionCallback) :
-        base(parameterString, completionCallback)
+
+    protected ProcessUpdateRow(IMediaItem mediaItem, Action<IProcessRunner> completionCallback) :
+        base(mediaItem.MediaParameters.ToString(), completionCallback)
     {
+        ViewItem = CreateListViewItem(mediaItem);
     }
         
     #endregion
     
     #region Overrides
 
-    protected override Process CreateProcess()
-    {
-        return YouTubeDL.CreateCommand(ParameterString);
-    }
-
     public override void Update()
     {
         base.Update();
 
-        switch (DownloadStage)
-        {
-            default:
-            case DownloadStage.None:
-            case DownloadStage.Waiting:
-                break;
-            case DownloadStage.Metadata:
-                UpdateDownloadStatus(Messages.READING_METADATA);
-                break;
-            case DownloadStage.Transcoding:
-                UpdateDownloadStatus(Messages.TRANSCODING);
-                break;
-            case DownloadStage.Downloading:
-                UpdateDownloadStatus(Messages.DOWNLOADING);
-                break;
-            case DownloadStage.Error:
-                SetErrorState();
-                break;
-        }
+        if (GetStatus() is not { } status || status.IsNullOrEmpty())
+            return;
+        
+        UpdateStatus(status);
     }
 
-    protected override void SetProcessStatus(ProcessStatus processStatus)
+    protected override bool SetProcessStatus(ProcessStatus processStatus)
     {
-        base.SetProcessStatus(processStatus);
+        if (!base.SetProcessStatus(processStatus))
+            return false;
+
+        UpdateRowColors(processStatus);
+        SetDefaultMessages(processStatus);
+        return true;
+    }
+
+    #endregion
+
+    #region Protected Methods
+
+    protected void UpdateStatus(string statusMessage)
+    {
+        Status = statusMessage;
+        
+        if (Buffer.TokenizedProcessLine is not { Length: >= 8 } tokens)
+            return;
+            
+        // download messages stream fast, bump the cursor up to one of the latest messages, if it exists...
+        // only start skipping cursor ahead once download messages have started otherwise important info could be skipped
+        Buffer.SkipToEnd();
+
+        SetProgressText(tokens);
+    }
+
+    #endregion
+
+    #region Abstract Methods
+
+    protected abstract void SetProgressText(IReadOnlyList<string> tokens);
+
+    protected abstract string? GetStatus();
+
+    #endregion
+
+    #region Private Methods
+
+    private void UpdateRowColors(ProcessStatus processStatus)
+    {
         Color = processStatus switch
         {
             ProcessStatus.Running   => Color.Turquoise,
@@ -138,36 +150,8 @@ public class ProcessUpdateRow : ProcessRunner
             ProcessStatus.Stopped   => Color.DarkSalmon,
             ProcessStatus.Created   => Color.LightGray,
             ProcessStatus.Paused    => Color.DarkGray,
-            _ => Color.White
+            _                       => Color.White
         };
-        SetDefaultMessages(processStatus);
-    }
-
-    #endregion
-
-    #region Private Methods
-
-    private void UpdateDownloadStatus(string statusMessage)
-    {
-        if (TokenizedProcessLine is not { Length: >= 8 } tokens )
-            return;
-            
-        // download messages stream fast, bump the cursor up to one of the latest messages, if it exists...
-        // only start skipping cursor ahead once download messages have started otherwise important info could be skipped
-        SkipToEnd();
-
-        Status = statusMessage;
-
-        SetDownloadProgressText(tokens);
-    }
-    
-    // Extract elements of CLI output from YouTube-DL
-    private void SetDownloadProgressText(IReadOnlyList<string> tokens)
-    {
-        Progress = tokens[1];
-        FileSize = tokens[3];
-        DownloadSpeed = tokens[5];
-        Eta = tokens[7];
     }
 
     private void SetValues(string? status = null, string? size = null, string? progress = null,
@@ -184,23 +168,6 @@ public class ProcessUpdateRow : ProcessRunner
         if (eta.HasValue())
             Eta = eta!;
     }
-        
-    private static DownloadStage GetDownloadStage(string line)
-    {
-        if (line.IsNullOrEmpty())
-            return DownloadStage.None;
-        if (line.Contains(Tags.YOUTUBE) || line.Contains(Tags.INFO))
-            return DownloadStage.Metadata;
-        if (line.Contains(Tags.FFMPEG))
-            return DownloadStage.Transcoding;
-        if (line.Contains(Tags.DOWNLOAD))
-            return DownloadStage.Downloading;
-        if (line.Contains(Tags.ERROR, StringComparison.OrdinalIgnoreCase) || line[..21].Contains("Usage"))
-            return DownloadStage.Error;
-        if (line.Contains('%'))
-            return DownloadStage.Waiting;
-        return DownloadStage.None;
-    }
 
     private void SetDefaultMessages(ProcessStatus processStatus)
     {
@@ -212,28 +179,68 @@ public class ProcessUpdateRow : ProcessRunner
             case ProcessStatus.Running:
                 break;
             case ProcessStatus.Created:
-                SetValues(Statuses.WAITING, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED, 
-                    eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.WAITING,
+                    size: Text.DEFAULT_SIZE, 
+                    progress: Text.DEFAULT_PROGRESS,
+                    downloadSpeed: Text.DEFAULT_SPEED, 
+                    eta: Text.DEFAULT_TIME);
                 break;
             case ProcessStatus.Completed:
-                SetValues(Statuses.COMPLETE, progress:Tags.PROGRESS_COMPLETE, downloadSpeed:Tags.DEFAULT_SPEED,
-                    eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.COMPLETE,
+                    progress: Text.PROGRESS_COMPLETE,
+                    downloadSpeed: Text.DEFAULT_SPEED,
+                    eta: Text.DEFAULT_TIME);
                 break;
             case ProcessStatus.Error:
-                SetValues(Statuses.ERROR, Tags.DEFAULT_SIZE, downloadSpeed:Tags.DEFAULT_SPEED,
-                    eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.ERROR,
+                    size: Text.DEFAULT_SIZE,
+                    downloadSpeed: Text.DEFAULT_SPEED,
+                    eta: Text.DEFAULT_TIME);
                 break;
             case ProcessStatus.Stopped:
-                SetValues(Statuses.STOPPED, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.STOPPED,
+                    downloadSpeed: Text.DEFAULT_SPEED,
+                    eta: Text.DEFAULT_TIME);
                 break;
             case ProcessStatus.Cancelled:
-                SetValues(Status = Statuses.CANCELLED, Tags.DEFAULT_SIZE, Tags.DEFAULT_PROGRESS, Tags.DEFAULT_SPEED,
-                    eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.CANCELLED,
+                    size: Text.DEFAULT_SIZE,
+                    progress: Text.DEFAULT_PROGRESS,
+                    downloadSpeed: Text.DEFAULT_SPEED,
+                    eta: Text.DEFAULT_TIME);
                 break;
             case ProcessStatus.Paused:
-                SetValues(Status = Statuses.PAUSED, downloadSpeed:Tags.DEFAULT_SPEED, eta:Tags.DEFAULT_TIME);
+                SetValues(Statuses.PAUSED,
+                    downloadSpeed: Text.DEFAULT_SPEED,
+                    eta: Text.DEFAULT_TIME);
                 break;
         }
+    }
+    
+    private ListViewItem CreateListViewItem(IMediaItem mediaItem)
+    {
+        return new ListViewItem(DefaultRow(mediaItem))
+        {
+            Tag = Tag,
+            BackColor = Color.LightGray,
+            ImageIndex = (int) mediaItem.MediaType
+        };
+    }
+
+    private static string[] DefaultRow(IMediaItem mediaItem)
+    {
+        return new[]
+        {
+            mediaItem.Title,
+            Statuses.WAITING,
+            mediaItem.MediaType.ToString(),
+            Text.DEFAULT_SIZE,
+            Text.DEFAULT_PROGRESS,
+            Text.DEFAULT_SPEED,
+            Text.DEFAULT_TIME,
+            mediaItem.Url,
+            mediaItem.Filepath
+        };
     }
 
     #endregion
