@@ -11,7 +11,7 @@ public static class ConsoleControlExtensions
         consoleControl.WriteOutput(line, DEFAULT_COLOR);
     }
     
-    public static void WriteLine(this ConsoleControl.ConsoleControl consoleControl, string line)
+    public static void WriteLine(this ConsoleControl.ConsoleControl consoleControl, string line = "")
     {
         consoleControl.WriteOutput($"{line}\r\n", DEFAULT_COLOR);
     }
@@ -30,12 +30,14 @@ public static class ConsoleControlExtensions
                 ProcessLogType.Warning   => Color.LightCoral,
                 ProcessLogType.Error     => Color.LightPink,
                 ProcessLogType.Exception => Color.IndianRed,
-                ProcessLogType.Crash     => Color.DarkRed
+                ProcessLogType.Crash     => Color.DarkRed,
+                _                        => Color.White
             };
             
             consoleControl.WriteOutput(logNode.LogType.ToString().ToUpper(), color);
         }
         consoleControl.Write("]: ");
         consoleControl.Write(logNode.Message);
+        consoleControl.WriteLine();
     }
 }

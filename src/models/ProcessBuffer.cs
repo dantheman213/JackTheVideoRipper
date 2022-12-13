@@ -93,8 +93,9 @@ public class ProcessBuffer
 
     public void WriteLogsToConsole(ConsoleControl.ConsoleControl consoleControl)
     {
-        Core.RunInMainThread(() =>
+        Core.RunInMainThreadAsync(async () =>
         {
+            await Tasks.WaitUntil(() => consoleControl.Visible);
             Log.Logs.ForEach(consoleControl.WriteLog);
             consoleControl.Refresh();
         });

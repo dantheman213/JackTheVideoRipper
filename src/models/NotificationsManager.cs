@@ -41,7 +41,7 @@ public class NotificationsManager
     {
         if (_frameNotifications is not null)
         {
-            _frameNotifications.Focus();
+            _frameNotifications.Activate();
             return;
         }
         

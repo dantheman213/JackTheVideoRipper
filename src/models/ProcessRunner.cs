@@ -150,8 +150,8 @@ public abstract class ProcessRunner : IProcessRunner
 
     public virtual void OnProcessExit(object? o, EventArgs eventArgs)
     {
-        Core.RunInMainThread(Complete);
         CloseProcess();
+        Core.RunInMainThread(Complete);
     }
     
     protected virtual bool SetProcessStatus(ProcessStatus processStatus)

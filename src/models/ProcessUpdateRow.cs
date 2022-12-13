@@ -89,9 +89,9 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     {
         ViewItem = CreateListViewItem(mediaItem);
         History.Data.AddHistoryItem(Tag, mediaItem);
-        Buffer.AddLog($"Process initialized at: {DateTime.Now:G}", ProcessLogType.Info);
+        Buffer.AddLog("Process initialized", ProcessLogType.Info);
     }
-        
+    
     #endregion
 
     #region Public Methods
@@ -100,16 +100,18 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
 
     public void OpenInConsole()
     {
-        if (_consoleOpened)
+        if (_consoleOpened && (_frameConsole?.Visible ?? false))
+        {
+            _frameConsole.Activate();
             return;
-
+        }
+        
         string processName = GetFileName(FileName);
         string filename = GetFileName(Path);
 
         string instanceName = processName.HasValue() && filename.HasValue() ?
             $"{processName} | {filename}" : string.Empty;
         _frameConsole = Output.OpenConsoleWindow(instanceName, OnCloseConsole);
-        //_frameConsole.ConsoleControl.InternalRichTextBox.Text = Buffer.GetLogMessages().MergeReturn();
         Buffer.WriteLogsToConsole(_frameConsole.ConsoleControl);
         Buffer.LogAdded += OnLogAdded;
 
@@ -154,6 +156,8 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
             return false;
 
         History.Data.MarkStarted(Tag);
+        
+        Buffer.AddLog("Process started execution", ProcessLogType.Info);
 
         return true;
     }
@@ -163,7 +167,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
         base.Complete();
         
         History.Data.MarkCompleted(Tag, result:ProcessStatus);
-        Buffer.AddLog($"Process completed at: {DateTime.Now:G}", ProcessLogType.Info);
+        Buffer.AddLog("Process completed", ProcessLogType.Info);
     }
 
     protected override bool SetProcessStatus(ProcessStatus processStatus)

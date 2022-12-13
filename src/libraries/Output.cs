@@ -66,7 +66,7 @@ public static class Output
     {
         if (_frameConsole is not null)
         {
-            Core.RunInMainThread(() => _frameConsole.Focus());
+            Core.RunInMainThread(() => _frameConsole.Activate());
             return;
         }
 
@@ -76,10 +76,10 @@ public static class Output
         _frameConsole = new FrameConsole("Main", OnCloseConsole);
         _console = _frameConsole.ConsoleControl;
         _usingConsole = true;
-
-        _LogHistory.ForEach(WriteConsole);
         
         _frameConsole.OpenConsole();
+        _LogHistory.ForEach(WriteConsole);
+        _frameConsole.Refresh();
     }
     
     public static FrameConsole OpenConsoleWindow(string instanceName, FormClosedEventHandler? consoleCloseHandler = null)

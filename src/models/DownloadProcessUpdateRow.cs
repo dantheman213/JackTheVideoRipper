@@ -143,10 +143,12 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
             return false;
         }
 
-        switch (await Web.GetResourceStatus(RedirectedUrl))
+        HttpResponseMessage resourceStatus = await Web.GetResourceStatus(RedirectedUrl);
+
+        switch (resourceStatus.StatusCode)
         {
             case HttpStatusCode.NotFound:
-                Fail(new WebException($"Resource could not be found at: {RedirectedUrl.WrapQuotes()}"));
+                Fail(new WebException($"Resource could not be found at: {RedirectedUrl.WrapQuotes()} (Error {resourceStatus.ResponseCode()})"));
                 return false;
         }
         

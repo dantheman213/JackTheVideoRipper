@@ -6,9 +6,14 @@ namespace JackTheVideoRipper;
 
 public static class Web
 {
-    public static async Task<HttpStatusCode> GetResourceStatus(string url)
+    public static async Task<HttpResponseMessage> GetResourceStatus(string url)
     {
-        return (await FileSystem.SimpleWebQueryAsync(url, completionOption:HttpCompletionOption.ResponseHeadersRead)).StatusCode;
+        return await FileSystem.SimpleWebQueryAsync(url, completionOption:HttpCompletionOption.ResponseHeadersRead);
+    }
+    
+    public static async Task<HttpStatusCode> GetResourceStatusCode(string url)
+    {
+        return (await GetResourceStatus(url)).StatusCode;
     }
     
     private static async Task<string> GetRedirect(string newUrl)
