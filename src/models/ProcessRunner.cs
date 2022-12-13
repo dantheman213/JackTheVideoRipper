@@ -1,15 +1,14 @@
 ﻿using System.Diagnostics;
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
-using JackTheVideoRipper.models;
 
-namespace JackTheVideoRipper;
+namespace JackTheVideoRipper.models;
 
 public abstract class ProcessRunner : IProcessRunner
 {
     #region Data Members
 
-    public Process Process { get; private set; } = null!;
+    public Process? Process { get; private set; }
 
     public ProcessStatus ProcessStatus { get; private set; } = ProcessStatus.Created;
 
@@ -23,22 +22,28 @@ public abstract class ProcessRunner : IProcessRunner
     
     public bool Completed { get; private set; }
     
+    public bool ProcessExited => Process?.HasExited ?? true;
+    
     public int ExitCode { get; private set; }
 
     #endregion
 
     #region Attributes
 
-    public bool Failed => ExitCode > 0;
+    public string FileName { get; private set; } = string.Empty;
+
+    public bool Failed => !Succeeded;
+
+    public bool Succeeded { get; private set; }
 
     public bool Started => ProcessStatus is not ProcessStatus.Created;
                 
-    public bool Finished => ProcessStatus is ProcessStatus.Completed or ProcessStatus.Error or 
-        ProcessStatus.Cancelled or ProcessStatus.Stopped;
+    public bool Finished => ProcessStatus is ProcessStatus.Completed
+        or ProcessStatus.Error
+        or ProcessStatus.Cancelled
+        or ProcessStatus.Stopped;
     
     public bool Paused => ProcessStatus is ProcessStatus.Paused;
-
-    // public bool Completed => Started && Process.HasExited;
 
     #endregion
 
@@ -54,23 +59,29 @@ public abstract class ProcessRunner : IProcessRunner
 
     #region Process States
 
-    public virtual void Update()
+    public virtual async Task<bool> Update()
     {
         // Don't run updates after we've completed
         if (Paused || Finished)
-            return;
+            return false;
         
         Buffer.Update();
+
+        return true;
     }
 
-    public virtual void Start()
+    public virtual async Task<bool> Start()
     {
         if (IsProcessStatus(ProcessStatus.Running))
-            return;
+            return false;
         
         InitializeProcess();
+
+        StartProcess();
         
         SetProcessStatus(ProcessStatus.Running);
+
+        return true;
     }
     
     public virtual void Stop()
@@ -89,8 +100,6 @@ public abstract class ProcessRunner : IProcessRunner
         SetProcessStatus(ProcessStatus.Created);
 
         Completed = false;
-            
-        InitializeProcess();
         
         Buffer.Clear();
     }
@@ -108,24 +117,27 @@ public abstract class ProcessRunner : IProcessRunner
         if (Completed || Finished)
             return;
 
-        ExitCode = Process.ExitCode;
-
-        // TODO: Give more information about exit
-        /*switch (ExitCode)
-        {
-            
-        }*/
-
         SetProcessStatus(Failed ? ProcessStatus.Error : ProcessStatus.Completed);
         
         Completed = true;
+    }
+
+    public virtual void Enqueue()
+    {
+        SetProcessStatus(ProcessStatus.Queued);
+    }
+
+    // Returns if the process succeeded
+    public virtual bool HandleExitCode(int exitCode)
+    {
+        return exitCode == 0;
     }
     
     public virtual void Pause()
     {
         if (!SetProcessStatus(ProcessStatus.Paused))
             return;
-        Process.Suspend();
+        Process?.Suspend();
     }
 
     public virtual void Resume()
@@ -133,12 +145,12 @@ public abstract class ProcessRunner : IProcessRunner
         if (!IsProcessStatus(ProcessStatus.Paused))
             return;
         SetProcessStatus(ProcessStatus.Running);
-        Process.Resume();
+        Process?.Resume();
     }
 
     public virtual void OnProcessExit(object? o, EventArgs eventArgs)
     {
-        Core.InvokeInMainContext(Complete);
+        Core.RunInMainThread(Complete);
         CloseProcess();
     }
     
@@ -159,24 +171,41 @@ public abstract class ProcessRunner : IProcessRunner
 
     #region Public Methods
 
+    public void Fail<T>(T exception) where T : Exception
+    {
+        Buffer.AddLog($"Process failed with exception of type {typeof(T)}: {exception}", ProcessLogType.Exception);
+        if (!Finished)
+            Stop();
+    }
+
     public void Kill()
     {
-        if (Process.HasExited)
+        if (ProcessExited)
             return;
         
-        FileSystem.TryKillProcessAndChildren(Process.Id);
+        FileSystem.TryKillProcessAndChildren(Process!.Id);
     }
     
     public void TryKillProcess()
     {
-        if (Process.HasExited)
+        if (ProcessExited)
             return;
         
-        try { Process.Kill(); }
+        try { Process!.Kill(); }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
+            Output.WriteLine(exception);
         }
+    }
+
+    public string GetError()
+    {
+        return Buffer.GetError();
+    }
+
+    public void SaveLogs()
+    {
+        Buffer.SaveLogs();
     }
 
     #endregion
@@ -194,21 +223,33 @@ public abstract class ProcessRunner : IProcessRunner
     private void InitializeProcess()
     {
         Process = CreateProcess();
-
+        
         Process.Exited += OnProcessExit;
-        Process.OutputDataReceived += (sender, args) => Buffer.AppendResult(args.Data);
-        Process.ErrorDataReceived += (sender, args) => Buffer.AppendError(args.Data);
         Process.EnableRaisingEvents = true;
 
+        FileName = Process.StartInfo.FileName;
+        
+        Buffer.Initialize(Process);
+    }
+
+    private void StartProcess()
+    {
+        if (Process is null)
+            return;
         Process.Start();
         Process.BeginOutputReadLine();
         Process.BeginErrorReadLine();
     }
     
-    private void CloseProcess()
+    private void CloseProcess(bool notifyCompletion = true)
     {
+        if (Process is null)
+            return;
+        ExitCode = Process.ExitCode;
+        Succeeded = HandleExitCode(ExitCode);
         Process.Close();
-        NotifyCompletion();
+        if (notifyCompletion)   
+            NotifyCompletion();
     }
 
     #endregion

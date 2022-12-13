@@ -1,26 +1,48 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.modules;
 
 namespace JackTheVideoRipper;
 
 public struct MediaParameters
 {
-    public string MediaSourceUrl;
-    public string FilenameFormatted;
-    public string Username;
-    public string Password;
-    public bool EncodeVideo;
-    public bool AddMetaData;
-    public bool IncludeAds;
-    public bool EmbedThumbnail;
-    public bool EmbedSubtitles;
-    public bool ExportVideo;
-    public bool ExportAudio;
-    public string AudioFormatId;
-    public string VideoFormatId;
-    public string VideoFormat;
-    public string AudioFormat;
+    public readonly string MediaSourceUrl;
+    
+    public string FilenameFormatted = string.Empty;
+    
+    public string Username = string.Empty;
+    
+    public string Password = string.Empty;
+    
+    public bool EncodeVideo = false;
+    
+    public bool AddMetaData = false;
+    
+    public bool IncludeAds = false;
+    
+    public bool EmbedThumbnail = false;
+    
+    public bool EmbedSubtitles = false;
+    
+    public bool ExportVideo = false;
+    
+    public bool ExportAudio = false;
+    
+    public string? AudioFormatId = null;
+    
+    public string? VideoFormatId = null;
+    
+    public string VideoFormat = string.Empty;
+    
+    public string AudioFormat = string.Empty;
+
+    public bool RunMultiThreaded = false;
 
     private bool AudioOnly => ExportAudio && !ExportVideo;
+
+    public MediaParameters(string url)
+    {
+        MediaSourceUrl = url;
+    }
 
     private YouTubeDL.YouTubeParameters Build()
     {
@@ -60,6 +82,9 @@ public struct MediaParameters
 
         if (IncludeAds)
             youTubeParameters.IncludeAds();
+
+        if (RunMultiThreaded)
+            youTubeParameters.ExternalDownloader(Aria2c.ExecutablePath, Aria2c.DEFAULT_ARGS);
 
         youTubeParameters.Output(FilenameFormatted);
         

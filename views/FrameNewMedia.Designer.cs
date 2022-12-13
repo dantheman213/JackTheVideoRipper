@@ -186,7 +186,6 @@
             this.cbVideoEncoder.Name = "cbVideoEncoder";
             this.cbVideoEncoder.Size = new System.Drawing.Size(591, 28);
             this.cbVideoEncoder.TabIndex = 14;
-            this.cbVideoEncoder.TextChanged += new System.EventHandler(this.CbVideoEncoder_TextChanged);
             // 
             // label7
             // 
@@ -208,8 +207,6 @@
             this.cbVideoFormat.Name = "cbVideoFormat";
             this.cbVideoFormat.Size = new System.Drawing.Size(591, 28);
             this.cbVideoFormat.TabIndex = 12;
-            this.cbVideoFormat.SelectedIndexChanged += new System.EventHandler(this.CbVideoFormat_SelectedIndexChanged);
-            this.cbVideoFormat.TextChanged += new System.EventHandler(this.CbVideoFormat_TextChanged);
             // 
             // label3
             // 
@@ -255,7 +252,6 @@
             this.cbAudioEncoder.Name = "cbAudioEncoder";
             this.cbAudioEncoder.Size = new System.Drawing.Size(591, 28);
             this.cbAudioEncoder.TabIndex = 16;
-            this.cbAudioEncoder.TextChanged += new System.EventHandler(this.CbAudioEncoder_TextChanged);
             // 
             // label8
             // 
@@ -277,8 +273,6 @@
             this.cbAudioFormat.Name = "cbAudioFormat";
             this.cbAudioFormat.Size = new System.Drawing.Size(591, 28);
             this.cbAudioFormat.TabIndex = 14;
-            this.cbAudioFormat.SelectedIndexChanged += new System.EventHandler(this.CbAudioFormat_SelectedIndexChanged);
-            this.cbAudioFormat.TextChanged += new System.EventHandler(this.CbAudioFormat_TextChanged);
             // 
             // label6
             // 
@@ -298,7 +292,6 @@
             this.buttonDownload.TabIndex = 8;
             this.buttonDownload.Text = "Download";
             this.buttonDownload.UseVisualStyleBackColor = true;
-            this.buttonDownload.Click += new System.EventHandler(this.ButtonDownload_Click);
             // 
             // chkBoxWriteMetadata
             // 
@@ -353,7 +346,6 @@
             this.chkBoxExportAudio.TabIndex = 15;
             this.chkBoxExportAudio.Text = "Export Audio";
             this.chkBoxExportAudio.UseVisualStyleBackColor = true;
-            this.chkBoxExportAudio.CheckedChanged += new System.EventHandler(this.ChkBoxExportAudio_CheckedChanged);
             // 
             // chkBoxExportVideo
             // 
@@ -367,7 +359,6 @@
             this.chkBoxExportVideo.TabIndex = 14;
             this.chkBoxExportVideo.Text = "Export Video";
             this.chkBoxExportVideo.UseVisualStyleBackColor = true;
-            this.chkBoxExportVideo.CheckedChanged += new System.EventHandler(this.ChkBoxExportVideo_CheckedChanged);
             // 
             // chkEmbedSubs
             // 
@@ -406,7 +397,6 @@
             this.buttonCancel.TabIndex = 13;
             this.buttonCancel.Text = "Cancel";
             this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.ButtonCancel_Click);
             // 
             // groupBox2
             // 
@@ -430,7 +420,6 @@
             this.buttonLocationBrowse.TabIndex = 1;
             this.buttonLocationBrowse.Text = "Browse";
             this.buttonLocationBrowse.UseVisualStyleBackColor = true;
-            this.buttonLocationBrowse.Click += new System.EventHandler(this.ButtonLocationBrowse_Click);
             // 
             // textLocation
             // 
@@ -500,7 +489,6 @@
             this.buttonGetCommand.TabIndex = 16;
             this.buttonGetCommand.Text = "Get Command";
             this.buttonGetCommand.UseVisualStyleBackColor = true;
-            this.buttonGetCommand.Click += new System.EventHandler(this.ButtonGetCommand_Click);
             // 
             // FrameNewMedia
             // 

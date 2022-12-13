@@ -1,5 +1,5 @@
-﻿using System.Diagnostics;
-using JackTheVideoRipper.extensions;
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
 using JackTheVideoRipper.modules;
 using Timer = System.Threading.Timer;
@@ -11,8 +11,16 @@ namespace JackTheVideoRipper
         #region Data Members
 
         private readonly MediaManager _mediaManager = new();
+        private readonly NotificationsManager _notificationsManager = new();
         
         private Timer? _listItemRowsUpdateTimer;
+        private Timer? _clearNotificationsTimer;
+        
+        private const int UPDATE_FREQUENCY = 800;
+        
+        private int _notificationClearTime = 5000; //< May want to be set by user later?
+        
+        private IAsyncResult? _rowUpdateTask;
 
         #endregion
 
@@ -27,8 +35,6 @@ namespace JackTheVideoRipper
         public bool NoneSelected => Selected.Count <= 0;
 
         public bool InItemBounds(MouseEventArgs e) => listItems.FocusedItem.Bounds.Contains(e.Location);
-        
-        private static bool IsRightClick(MouseEventArgs e) => e.Button == MouseButtons.Right;
 
         #endregion
 
@@ -54,14 +60,30 @@ namespace JackTheVideoRipper
 
         #region Public Methods
 
-        public void SetNotification(string notification)
+        public void SetNotificationBrief(Notification notification)
         {
-            notificationStatusLabel.Text = notification.TruncateEllipse(60);
+            string notificationMessage = notification.ShortenedMessage ?? notification.Message;
+            notificationStatusLabel.Text = $"[{notification.DatePosted:T}]: {notificationMessage.TruncateEllipse(60)}";
+            _clearNotificationsTimer?.Change(_notificationClearTime, _notificationClearTime);
         }
         
-        public void ClearNotifications()
+        public void ClearNotifications(object? sender = null)
         {
             notificationStatusLabel.Text = string.Empty;
+        }
+
+        private readonly List<IAsyncResult> _queuedActions = new();
+
+        public void QueueAction(Action updateModuleAction)
+        {
+            UpdateModule(updateModuleAction);
+        }
+        
+        public IAsyncResult QueueActionAsync(Func<Task> updateModuleAction)
+        {
+            IAsyncResult asyncResult = UpdateModuleAsync(updateModuleAction);
+            _queuedActions.Add(asyncResult);
+            return asyncResult;
         }
 
         #endregion
@@ -81,16 +103,24 @@ namespace JackTheVideoRipper
         {
             if (!Core.IsConnectedToInternet())
                 ConnectionLossHandler();
-            
-            UpdateModule(_mediaManager.UpdateListItemRows);
-        }
 
+            if (_rowUpdateTask is not null && !_rowUpdateTask.IsCompleted)
+                return;
+            
+            _rowUpdateTask = UpdateModuleAsync(_mediaManager.UpdateListItemRows);
+        }
+        
         private void UpdateModule(Action updateModuleAction)
         {
-            BeginInvoke(updateModuleAction, null);
+            Invoke(updateModuleAction, null);
+        }
+        
+        private IAsyncResult UpdateModuleAsync(Func<Task> updateModuleAction)
+        {
+            return BeginInvoke(updateModuleAction, null);
         }
 
-        private void ClearAllViewItems()
+        private void ClearAll()
         {
             ViewItems.Clear();
             _mediaManager.ClearAll();
@@ -99,8 +129,8 @@ namespace JackTheVideoRipper
         private void OpenContextMenu()
         {
             contextMenuListItems.Show(Cursor.Position);
-            SetContextVisibility("retryDownloadToolStripMenuItem", ProcessStatus.Error);
-            SetContextVisibility("stopDownloadToolStripMenuItem", ProcessStatus.Running);
+            SetContextVisibility("retryDownloadToolStripMenuItem",  ProcessStatus.Error);
+            SetContextVisibility("stopDownloadToolStripMenuItem",   ProcessStatus.Running);
             SetContextVisibility("deleteFromDiskToolStripMenuItem", ProcessStatus.Succeeded);
         }
 
@@ -113,11 +143,11 @@ namespace JackTheVideoRipper
         {
             return _mediaManager.SelectedHasStatus(processStatus);
         }
-        
+
         private void StartEventTimer(object sender, EventArgs e)
         {
             // Initiate the Update Loop
-            _listItemRowsUpdateTimer = new Timer(Update, null, 0, 800);
+            _listItemRowsUpdateTimer = new Timer(Update, null, 0, UPDATE_FREQUENCY);
             timerStatusBar.Enabled = true;
         }
 
@@ -129,13 +159,50 @@ namespace JackTheVideoRipper
             toolBarLabelNetwork.Text = MediaManager.ToolbarNetwork;
         }
 
+        private void OnSettingsUpdated()
+        {
+            openConsoleToolStripMenuItem.Visible = Settings.Data.EnableDeveloperMode;
+            openHistoryToolStripMenuItem.Visible = Settings.Data.StoreHistory;
+        }
+        
+        private async void KeyDownHandler(object? sender, KeyEventArgs args)
+        {
+            // Ctrl + V
+            if (args is {KeyCode: Keys.V, Control: true})
+            {
+                await PasteContent();
+                args.Handled = true;
+                return;
+            }
+                
+            switch (args.KeyCode)
+            {
+                case Keys.Oemtilde:
+                    Output.OpenMainConsoleWindow();
+                    args.Handled = true;
+                    break;
+            }
+        }
+
+        private async Task PasteContent()
+        {
+            string url = FileSystem.GetClipboardText();
+            
+            if (url.Invalid(FileSystem.IsValidUrl))
+                return;
+            
+            _mediaManager.QueueProcess(new MediaItemRow(url));
+        }
+
         #endregion
 
         #region Form Events
-        
+
         private void FrameMain_Load(object sender, EventArgs e)
         {
             Text = Core.ApplicationTitle;
+            _clearNotificationsTimer = new Timer(ClearNotifications, null, 0, _notificationClearTime);
+            OnSettingsUpdated(); //< Load initial values (for visibility)
             StartEventTimer(sender, e);
         }
 
@@ -144,22 +211,28 @@ namespace JackTheVideoRipper
             await Core.Startup();
         }
 
-        private void FrameMain_FormClosing(object sender, FormClosingEventArgs e)
+        private async void FrameMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             // Tells you if user cancelled
             if (_mediaManager.OnFormClosing())
                 e.Cancel = true;
+
+            if (_rowUpdateTask is not null)
+                EndInvoke(_rowUpdateTask);
+            
+            _queuedActions.Where(a => !a.IsCompleted).ForEach(a => EndInvoke(a));
+
+            await Core.Shutdown();
         }
 
-         private void FolderToolStripMenuItem_Click(object sender, EventArgs e)
+         private void FolderToolStripMenuItem_Click(object? sender, EventArgs e)
         {
              if (FileSystem.SelectFile() is not { } filepath)
                  return;
 
-             foreach (string file in Directory.GetFiles(filepath, $"*.{FFMPEG.VideoFormats.MP4}"))
-             {
-                 FFMPEG.Compress(file);
-             }
+             const string mp4SearchPattern = $"*.{FFMPEG.VideoFormats.MP4}";
+             
+             Directory.GetFiles(filepath, mp4SearchPattern).ForEach(FFMPEG.Compress);
         }
 
         #endregion
@@ -183,8 +256,10 @@ namespace JackTheVideoRipper
 
         private void SubscribeEvents()
         {
-            Core.NotificationEvent += SetNotification;
+            FrameSettings.SettingsUpdatedEvent += OnSettingsUpdated;
 
+            KeyDown += KeyDownHandler;
+            
             // Subscribe to Media Manager Events
             _mediaManager.QueueUpdated += () => TimerProcessLimit_Tick();
             _mediaManager.ProcessAdded += item => ViewItems.Add(item);
@@ -195,7 +270,7 @@ namespace JackTheVideoRipper
             retryAllToolStripMenuItem.Click += (_, _) => _mediaManager.RetryAll();
             stopAllToolStripMenuItem.Click += (_, _) => _mediaManager.StopAll();
             clearFailuresToolStripMenuItem.Click += (_, _) => _mediaManager.RemoveFailed();
-            clearAllToolStripMenuItem.Click += (_, _) => ClearAllViewItems();
+            clearAllToolStripMenuItem.Click += (_, _) => ClearAll();
             clearSuccessesToolStripMenuItem.Click += (_, _) => _mediaManager.RemoveCompleted();
             pauseAllToolStripMenuItem.Click += (_, _) => _mediaManager.PauseAll();
             resumeAllToolStripMenuItem.Click += (_, _) => _mediaManager.ResumeAll();
@@ -216,7 +291,7 @@ namespace JackTheVideoRipper
             statusBar.DoubleClick += (_, _) => FileSystem.OpenTaskManager();
             openTaskManagerToolStripMenuItem.Click += (_, _) => FileSystem.OpenTaskManager();
             settingsToolStripMenuItem.Click += (_, _) => Core.OpenSettings();
-            checkForUpdatesToolStripMenuItem.Click += (_, _) => Core.CheckForUpdates();
+            checkForUpdatesToolStripMenuItem.Click += async (_, _) => await Core.CheckForUpdates();
             
             // Dependencies
             openDependenciesFolderToolStripMenuItem.Click += (_, _) => Core.OpenInstallFolder();
@@ -233,58 +308,89 @@ namespace JackTheVideoRipper
             downloadVideoToolStripMenuItem.Click += (_, _) => _mediaManager.DownloadMediaDialog(MediaType.Video);
             downloadAudioToolStripMenuItem.Click += (_, _) => _mediaManager.DownloadMediaDialog(MediaType.Audio);
 
-            notificationStatusLabel.Click += (_, _) => ClearNotifications();
+            // Tools
+            validateVideoToolStripMenuItem.Click += (_, _) => MediaManager.VerifyIntegrity();
+            compressVideoToolStripMenuItem.Click += FolderToolStripMenuItem_Click;
+            openConsoleToolStripMenuItem.Click += (_, _) => Output.OpenMainConsoleWindow();
+            openHistoryToolStripMenuItem.Click += (_, _) => History.Data.OpenHistory();
 
+            // Notifications
+            NotificationsManager.SendNotificationEvent += SetNotificationBrief;
+            notificationStatusLabel.MouseDown += (_, e) =>
+            {
+                if (e.IsRightClick())
+                {
+                    ClearNotifications();
+                }
+                else
+                {
+                    _notificationsManager.OpenNotificationWindow();
+                }
+            };
+            
+            // Timer Events
+            timerStatusBar.Tick += (_, _) => UpdateStatusBar();
+
+            #region Item Context Menu
+            
             // Context Menu
             listItems.MouseClick += (_, e) =>
             {
-                if (IsRightClick(e) && InItemBounds(e))
+                if (e.IsRightClick() && InItemBounds(e))
                     OpenContextMenu();
             };
             
-            // Timer Events            
-            timerStatusBar.Tick += (_, _) => UpdateStatusBar();
-            
-            // Item Context Menu
             openMediaInPlayerToolStripMenuItem.Click += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.OpenMedia);
+                ContextHandler(ContextActions.OpenMedia);
             };
             
             openURLInBrowserToolStripMenuItem.Click += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.OpenUrl);
+                ContextHandler(ContextActions.OpenUrl);
+            };
+            
+            openProcessInConsoleToolStripMenuItem.Click += (_, _) =>
+            {
+                ContextHandler(ContextActions.OpenConsole);
             };
             
             copyUrlToolStripMenuItem.Click += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.Copy);
+                ContextHandler(ContextActions.Copy);
             };
             
             deleteRowToolStripMenuItem.Click += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.Delete);
+                ContextHandler(ContextActions.Delete);
             };
             
             stopDownloadToolStripMenuItem.Click += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.Stop);
+                ContextHandler(ContextActions.Stop);
             };
             
             retryDownloadToolStripMenuItem.Click += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.Retry);
+                ContextHandler(ContextActions.Retry);
             };
             
             deleteRowToolStripMenuItem.Click += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.Remove);
+                ContextHandler(ContextActions.Remove);
             };
             
             listItems.DoubleClick += (_, _) =>
             {
-                if (!NoneSelected) _mediaManager.PerformContextAction(ContextActions.OpenMedia);
+                ContextHandler(ContextActions.OpenMedia);
             };
+            
+            #endregion
+        }
+
+        private void ContextHandler(ContextActions contextAction)
+        {
+            if (!NoneSelected) _mediaManager.PerformContextAction(contextAction);
         }
 
       #endregion

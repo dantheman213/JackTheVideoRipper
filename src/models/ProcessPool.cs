@@ -1,4 +1,5 @@
-﻿using JackTheVideoRipper.extensions;
+﻿using System.Collections.Concurrent;
+using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models;
 
@@ -9,12 +10,14 @@ public class ProcessPool
     #region Data Members
 
     private readonly ProcessTable _processTable = new();
-    private readonly Queue<IProcessUpdateRow> _processQueue = new();
-    private readonly List<IProcessUpdateRow> _pausedProcessQueue = new();
+    private readonly ConcurrentQueue<IProcessUpdateRow> _processQueue = new();
+    private readonly IndexableQueue<IProcessUpdateRow> _pausedProcessQueue = new();
     private readonly ProcessTable _runningProcesses = new();
-    private readonly HashSet<IProcessUpdateRow> _finishedProcesses = new();
+    private readonly ConcurrentHashSet<IProcessUpdateRow> _finishedProcesses = new();
 
     public static readonly ErrorLogger ErrorLogger = new();
+    
+    private bool _updating;
 
     #endregion
 
@@ -30,13 +33,13 @@ public class ProcessPool
 
     public bool AnyActive => AnyRunning || AnyQueued || AnyPaused;
 
-    public bool AnyRunning => !_runningProcesses.Empty();
+    public bool AnyRunning => _runningProcesses.HasCached;
 
-    public bool AnyQueued => _processQueue.Count > 0;
+    public bool AnyQueued => !_processQueue.IsEmpty;
 
-    public bool AnyPaused => _pausedProcessQueue.Count > 0;
+    public bool AnyPaused => !_pausedProcessQueue.Empty();
     
-    public bool QueueEmpty => _processQueue.Count <= 0 && _pausedProcessQueue.Count <= 0;
+    public bool QueueEmpty => _processQueue.IsEmpty && _pausedProcessQueue.Empty();
     
     public string PoolStatus
     {
@@ -52,21 +55,26 @@ public class ProcessPool
         }
     }
 
-    private IProcessUpdateRow NextProcess
+    private IProcessUpdateRow? NextProcess
     {
         get
         {
-            if (!AnyPaused)
-                return _processQueue.Dequeue();
-            IProcessUpdateRow nextProcess = _pausedProcessQueue.First();
-            _pausedProcessQueue.RemoveAt(0);
-            return nextProcess;
+            if (QueueEmpty)
+                return null;
+            
+            if (AnyPaused)
+                return _pausedProcessQueue.Dequeue();
+
+            if (!_processQueue.IsEmpty && _processQueue.TryDequeue(out IProcessUpdateRow? result))
+                return result;
+
+            return null;
         }
     }
 
     private IEnumerable<IProcessUpdateRow> Processes => _processTable.Processes;
-
-    public IProcessUpdateRow? Selected => Processes.FirstOrDefault(p => p.ViewItem.Selected);
+        
+    public IProcessUpdateRow Selected => _processTable.Selected;
     
     public IEnumerable<IProcessUpdateRow> RunningProcesses => _runningProcesses.Processes;
     
@@ -78,13 +86,18 @@ public class ProcessPool
 
     #region Public Methods
 
-    public void Update()
+    public async Task Update()
     {
-        lock (_runningProcesses)
+        // Skip update if we have no running or we're currently updating
+        if (!_runningProcesses.HasCached || _updating)
+            return;
+        
+        PerformAtomicOperation(async () =>
         {
-            // TODO: Is it performant to make a copy every time? Maybe cache last?
-            RunningProcesses.ForEach(p => p.Update());
-        }
+            _updating = true;
+            await _runningProcesses.Cached.Update();
+            _updating = false;
+        });
     }
 
     public bool Exists(IProcessUpdateRow processUpdateRow)
@@ -96,16 +109,38 @@ public class ProcessPool
     {
         return _processTable.Contains(tag);
     }
-    
+
+    public IEnumerable<T> GetOfType<T>()
+    {
+        return GetWhere(row => row is T).Cast<T>();
+    }
+
+    public IEnumerable<IProcessUpdateRow> GetWhere(Func<IProcessUpdateRow, bool> predicate)
+    {
+        return _processTable.Processes.Where(predicate);
+    }
+
     public ListViewItem QueueDownloadProcess(IMediaItem mediaItem)
     {
-        return QueueProcess(new DownloadProcessUpdateRow(mediaItem, OnCompleteProcess));
+        DownloadProcessUpdateRow processUpdateRow = new(mediaItem, OnCompleteProcess);
+        if (mediaItem.Title.IsNullOrEmpty())
+        {
+            StartBackgroundTask(async () =>
+            {
+                processUpdateRow.Title = await YouTubeDL.GetTitle(processUpdateRow.Url);
+            });
+        }
+        return QueueProcess(processUpdateRow);
     }
+    
+    // TODO: Create overrides for different types of processes
+    // Processes: Conversion, Validate, Compress, Repair
     
     public ListViewItem QueueProcess(IProcessUpdateRow processUpdateRow)
     {
         _processTable.Add(processUpdateRow);
         _processQueue.Enqueue(processUpdateRow);
+        processUpdateRow.Enqueue();
         UpdateQueue();
         return processUpdateRow.ViewItem;
     }
@@ -120,19 +155,18 @@ public class ProcessPool
         UpdateQueue();
     }
 
-    public void RetryProcess(string tag)
+    public bool RetryProcess(string tag)
     {
-        if (Get(tag) is not { } processUpdateRow)
-            return;
-        
-        RetryProcess(processUpdateRow);
+        return Get(tag) is { } processUpdateRow && RetryProcess(processUpdateRow);
     }
     
-    public void RetryProcess(IProcessUpdateRow processUpdateRow)
+    public bool RetryProcess(IProcessUpdateRow processUpdateRow)
     {
-        _finishedProcesses.Remove(processUpdateRow);
+        if (!_finishedProcesses.Remove(processUpdateRow))
+            return false;
         _processQueue.Enqueue(processUpdateRow);
         processUpdateRow.Retry();
+        return true;
     }
     
     public void PauseProcess(string tag)
@@ -165,9 +199,17 @@ public class ProcessPool
         processUpdateRow.Resume();
     }
     
-    public void RetryAllProcesses()
+    public bool RetryAllProcesses()
     {
-        GetAll(ProcessStatus.Error).ForEach(RetryProcess);
+        bool result = true;
+        
+        Parallel.ForEach(GetAll(ProcessStatus.Error), process =>
+        {
+            if (!RetryProcess(process))
+                result = false;
+        });
+        
+        return result;
     }
 
     public IProcessUpdateRow? Get(string tag)
@@ -177,23 +219,27 @@ public class ProcessPool
 
     public void RemoveSelected()
     {
-        if (Selected is not null)
-            Remove(Selected);
+        Remove(Selected);
+    }
+
+    public IEnumerable<IProcessUpdateRow> Where(Func<IProcessUpdateRow, bool> predicate)
+    {
+        return Processes.Where(predicate);
     }
 
     public IEnumerable<IProcessUpdateRow> GetAll(ProcessStatus processStatus)
     {
-        return Processes.Where(p => p.ProcessStatus == processStatus);
+        return Where(p => p.ProcessStatus == processStatus);
     }
     
     public IEnumerable<IProcessUpdateRow> GetAll(params ProcessStatus[] statuses)
     {
-        return Processes.Where(p => statuses.Any(status => p.ProcessStatus == status));
+        return GetAll(statuses.Aggregate(0u, (i, status) => i | (uint) status));
     }
     
-    public IEnumerable<IProcessUpdateRow> GetAll(int status)
+    public IEnumerable<IProcessUpdateRow> GetAll(uint status)
     {
-        return Processes.Where(p => ((int)p.ProcessStatus & status) > 0);
+        return Where(p => ((uint)p.ProcessStatus & status) > 0);
     }
     
     public IEnumerable<IProcessUpdateRow> GetAllFinished(ProcessStatus processStatus)
@@ -226,62 +272,80 @@ public class ProcessPool
             case ProcessStatus.Error:
             case ProcessStatus.Stopped:
             case ProcessStatus.Cancelled:
-                _finishedProcesses.Remove(processUpdateRow);
+                RemoveFinished(processUpdateRow);
                 return;
             case ProcessStatus.Queued:
-                processUpdateRow.Cancel();
+                RemoveQueued(processUpdateRow);
                 return;
             case ProcessStatus.Paused:
-                _pausedProcessQueue.Remove(processUpdateRow);
+                RemovePaused(processUpdateRow);
                 return;
         }
     }
     
-    public void RemoveAll(ProcessStatus processStatus)
+    public IEnumerable<IProcessUpdateRow> RemoveAll(ProcessStatus processStatus)
     {
+        IEnumerable<IProcessUpdateRow> processes = Array.Empty<IProcessUpdateRow>();
+        
         switch (processStatus)
         {
             default:
             case ProcessStatus.Created:
-                return;
+                break;
             case ProcessStatus.Running:
-                lock (_runningProcesses)
-                {
-                    RunningProcesses.ForEach(p => _runningProcesses.Remove(p.Tag));
-                }
-                return;
+                processes = RunningProcesses.ToArray();
+                PerformAtomicOperationLoop(processes, RemoveRunning);
+                UpdateCachedRunning();
+                break;
             case ProcessStatus.Succeeded:
             case ProcessStatus.Completed:
             case ProcessStatus.Error:
             case ProcessStatus.Stopped:
             case ProcessStatus.Cancelled:
-                GetAllFinished(processStatus).ForEach(p => _finishedProcesses.Remove(p));
-                return;
+                processes = GetAllFinished(processStatus).ToArray();
+                Parallel.ForEach(processes, RemoveFinished);
+                break;
             case ProcessStatus.Queued: // TODO:
-                GetAll(ProcessStatus.Queued).ForEach(p => p.Cancel());
-                return;
             case ProcessStatus.Paused:
-                GetAll(ProcessStatus.Paused).ForEach(p => p.Cancel());
-                return;
+                processes = GetAll(processStatus).ToArray();
+                Parallel.ForEach(processes, RemovePaused);
+                break;
         }
+        
+        return processes;
     }
-    
-    public bool UpdateQueue()
+
+    private void RemoveRunning(IProcessUpdateRow processUpdateRow)
+    {
+        _runningProcesses.Remove(processUpdateRow);
+    }
+
+    private void RemoveFinished(IProcessUpdateRow processUpdateRow)
+    {
+        _finishedProcesses.Remove(processUpdateRow);
+    }
+
+    private void RemoveQueued(IProcessRunner processUpdateRow)
+    {
+        processUpdateRow.Cancel();
+    }
+
+    private void RemovePaused(IProcessUpdateRow processUpdateRow)
+    {
+        _pausedProcessQueue.Remove(processUpdateRow);
+        processUpdateRow.Cancel();
+    }
+
+    public void UpdateQueue()
     {
         if (QueueEmpty)
-            return false;
+            return;
 
-        bool dirtyFlag = false;
+        IEnumerable<IProcessUpdateRow?> processes = Enumerable
+            .Range(_runningProcesses.Count, Settings.Data.MaxConcurrentDownloads)
+            .Select(_ => NextProcess);
 
-        for (int i = _runningProcesses.Count; i < Settings.Data.MaxConcurrentDownloads; i++)
-        {
-            if (QueueEmpty)
-                break;
-            StartNextProcess();
-            dirtyFlag = true;
-        }
-
-        return dirtyFlag;
+        Parallel.ForEachAsync(processes, StartProcess);
     }
     
     public IEnumerable<string> GetAllFailedUrls()
@@ -295,74 +359,115 @@ public class ProcessPool
 
     private void RunProcess(IProcessUpdateRow processUpdateRow)
     {
-        lock (_runningProcesses)
-        {
-            _runningProcesses.Add(processUpdateRow);
-        }
+        PerformAtomicOperation(processUpdateRow, _runningProcesses.Add);
+        UpdateCachedRunning();
     }
 
-    private void StopProcess(IProcessUpdateRow processUpdateRow)
+    private bool StopProcess(IProcessUpdateRow processUpdateRow)
     {
-        lock (_runningProcesses)
+        if (!PerformAtomicOperation(processUpdateRow, _runningProcesses.Remove))
+            return false;
+        UpdateCachedRunning();
+        return true;
+    }
+    
+    private async ValueTask StartProcess(IProcessUpdateRow? processUpdateRow, CancellationToken cancellationToken)
+    {
+        if (processUpdateRow is null)
+            return;
+        
+        RunProcess(processUpdateRow);
+
+        if (await processUpdateRow.Start())
         {
-            _runningProcesses.Remove(processUpdateRow);
+            ProcessStarted();
+            return;
         }
+        
+        StopProcess(processUpdateRow);
     }
     
-    private void StartNextProcess()
+    // Modifies the running processes in a thread safe context
+    // Because we are updating the running processes asynchronously/outside the main thread, we need to lock this resource
+    // TODO: These are obsolete with thread safety in place...
+    private void PerformAtomicOperation<TSource>(TSource source, Action<TSource> action)
     {
-        IProcessUpdateRow nextProcess = NextProcess;
-        RunProcess(nextProcess);
-        nextProcess.Start();
-        ProcessStarted();
+        lock (_runningProcesses) { action(source); }
     }
     
+    private T PerformAtomicOperation<T,TSource>(TSource source, Func<TSource, T> action)
+    {
+        lock (_runningProcesses) { return action(source); }
+    }
+    
+    private void PerformAtomicOperation(Action action)
+    {
+        lock (_runningProcesses) { action(); }
+    }
+    
+    private void PerformAtomicOperationLoop<TSource>(IEnumerable<TSource> source, Action<TSource> body)
+    {
+        lock (_runningProcesses) { Parallel.ForEach(source, body); }
+    }
+    
+    private void UpdateCachedRunning()
+    {
+        _runningProcesses.UpdateCache();
+    }
+
+    private Task StartBackgroundTask(Action action)
+    {
+        return Task.Run(action);
+    }
+    
+    private Task StartBackgroundTask(Func<Task> action)
+    {
+        return Task.Run(action);
+    }
+
     #endregion
 
     #region Bulk Actions
 
     public void PauseAll()
     {
-        RunningProcesses.ForEach(p => p.Pause());
+        PerformAtomicOperation(RunningProcesses.Pause);
     }
 
     public void ResumeAll()
     {
-        RunningProcesses.ForEach(p => p.Resume());
+        PerformAtomicOperation(RunningProcesses.Resume);
     }
 
     public void KillAllRunning()
     {
         // kill all processes
-        RunningProcesses.ForEach(p => p.Kill());
+        PerformAtomicOperation(RunningProcesses.Kill);
     }
 
     public void StopAll()
     {
-        RunningProcesses.ForEach(p => p.Stop());
+        PerformAtomicOperation(RunningProcesses.Stop);
     }
     
     public void ClearAll()
     {
         StopAll();
+        PerformAtomicOperation(() => _runningProcesses.Clear());
         _finishedProcesses.Clear();
-        _runningProcesses.Clear();
+        _pausedProcessQueue.Clear();
         _processQueue.Clear();
         _processTable.Clear();
     }
     
     public IEnumerable<ListViewItem> RemoveCompleted()
     {
-        IEnumerable<ListViewItem> completedProcesses = CompletedProcesses.Select(p => p.ViewItem);
-        RemoveAll(ProcessStatus.Completed);
-        return completedProcesses;
+        return RemoveAll(ProcessStatus.Completed).SelectViewItems();
     }
     
     public IEnumerable<ListViewItem> RemoveFailed()
     {
-        IEnumerable<ListViewItem> failedProcesses = FailedProcesses.Select(p => p.ViewItem);
-        RemoveAll(ProcessStatus.Error);
-        return failedProcesses;
+        return RemoveAll(ProcessStatus.Error).SelectViewItems();
     }
 
     #endregion

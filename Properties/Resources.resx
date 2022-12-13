@@ -124,7 +124,7 @@
     <value>Components have been installed successfully!</value>
   </data>
   <data name="InstallationError" xml:space="preserve">
-    <value>Required components not installed! This app will NOT behave correctly because its critical dependencies are missing."</value>
+    <value>Required components not installed! This app will NOT behave correctly because its critical dependencies are missing.</value>
   </data>
   <data name="FfmpegMissing" xml:space="preserve">
     <value>Could not find FFmpeg on your system. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app.</value>
@@ -152,5 +152,23 @@
   </data>
   <data name="OverwriteFile" xml:space="preserve">
     <value>It looks like this file has already been downloaded, overwrite it?</value>
+  </data>
+  <data name="LinkNotSupported" xml:space="preserve">
+    <value>Link from domain {0} is not supported. Please see About page for a list of supported services.</value>
+  </data>
+  <data name="CouldNotStartProcess" xml:space="preserve">
+    <value>Could not start process: {0}</value>
+  </data>
+  <data name="ProcessAlreadyRunning" xml:space="preserve">
+    <value>WARNING: Process already running!</value>
+  </data>
+  <data name="CouldNotOpenFile" xml:space="preserve">
+    <value>Couldn't find file to open at {0}</value>
+  </data>
+  <data name="DirectoryDoesNotExist" xml:space="preserve">
+    <value>Directory {0} does not exist!</value>
+  </data>
+  <data name="FailedToDownload" xml:space="preserve">
+    <value>Failed to download {0}</value>
   </data>
 </root>

@@ -25,9 +25,19 @@ public readonly struct Command
         return FileSystem.RunCommand(_executablePath, parameters.ToString(), workingDirectory ?? _workingDirectory);
     }
     
+    public string RunCommand(Process process)
+    {
+        return FileSystem.RunProcess(process);
+    }
+    
     public string RunWebCommand(string url, string parameters, string? workingDirectory = null)
     {
         return FileSystem.RunCommand(_executablePath, $"{parameters} {url}", workingDirectory ?? _workingDirectory);
+    }
+    
+    public async Task<string> RunWebCommandAsync(string url, string parameters, string? workingDirectory = null)
+    {
+        return await FileSystem.RunCommandAsync(_executablePath, $"{parameters} {url}", workingDirectory ?? _workingDirectory);
     }
     
     public string RunWebCommand(string url, IProcessParameters parameters, string? workingDirectory = null)
@@ -45,23 +55,23 @@ public readonly struct Command
         return FileSystem.CreateProcess(_executablePath, parameters.ToString(), workingDirectory ?? _workingDirectory);
     }
     
-    public T? ReceiveJsonResponse<T>(string url, string parameterString)
+    public async Task<T?> ReceiveJsonResponse<T>(string url, string parameterString)
     {
-        return FileSystem.ReceiveJsonResponse<T>(_executablePath, url, parameterString);
+        return await FileSystem.ReceiveJsonResponseAsync<T>(_executablePath, url, parameterString);
     }
     
-    public T? ReceiveJsonResponse<T>(string url, IProcessParameters parameters)
+    public async Task<T?> ReceiveJsonResponse<T>(string url, IProcessParameters parameters)
     {
-        return FileSystem.ReceiveJsonResponse<T>(_executablePath, url, parameters.ToString());
+        return await FileSystem.ReceiveJsonResponseAsync<T>(_executablePath, url, parameters.ToString());
     }
         
-    public IEnumerable<T> ReceiveMultiJsonResponse<T>(string url, string parameterString)
+    public async Task<IEnumerable<T>> ReceiveMultiJsonResponse<T>(string url, string parameterString)
     {
-        return FileSystem.ReceiveMultiJsonResponse<T>(_executablePath, url, parameterString);
+        return await FileSystem.ReceiveMultiJsonResponseAsync<T>(_executablePath, url, parameterString);
     }
     
-    public IEnumerable<T> ReceiveMultiJsonResponse<T>(string url, IProcessParameters parameters)
+    public async Task<IEnumerable<T>> ReceiveMultiJsonResponse<T>(string url, IProcessParameters parameters)
     {
-        return FileSystem.ReceiveMultiJsonResponse<T>(_executablePath, url, parameters.ToString());
+        return await FileSystem.ReceiveMultiJsonResponseAsync<T>(_executablePath, url, parameters.ToString());
     }
 }

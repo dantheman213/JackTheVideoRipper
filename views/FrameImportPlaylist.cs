@@ -50,12 +50,12 @@ namespace JackTheVideoRipper
 
         #region Static Methods
 
-        public static IEnumerable<string>? GetMetadata()
+        public static async Task<IEnumerable<string>?> GetMetadata()
         {
             FrameImportPlaylist frameImportPlaylist = new();
             
             if (frameImportPlaylist.ShowDialog() != DialogResult.OK || 
-                YouTubeDL.GetPlaylistMetadata(frameImportPlaylist.Url) is not { } items)
+                await YouTubeDL.GetPlaylistMetadata(frameImportPlaylist.Url) is not { } items)
                 return null;
 
             return items.Select(item => YouTubeDL.GetYouTubeLink(item.Id!));

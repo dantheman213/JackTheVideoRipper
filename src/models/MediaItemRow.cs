@@ -9,19 +9,20 @@ public struct MediaItemRow : IMediaItem
 
     public string Url { get; }
     
-    public MediaParameters MediaParameters { get; } = new();
+    public MediaParameters MediaParameters { get; }
     
     public string Filepath { get; }
 
     public MediaType MediaType { get; }
 
-    public MediaItemRow(string title, string url, string filepath, MediaType mediaMediaType = MediaType.Video,
+    public MediaItemRow(string url, string title = "", string filepath = "",
+        MediaType mediaMediaType = MediaType.Video,
         MediaParameters? mediaParameters = null)
     {
         Title = title;
         Url = url;
         Filepath = filepath;
         MediaType = mediaMediaType;
-        MediaParameters = mediaParameters ?? new MediaParameters();
+        MediaParameters = mediaParameters ?? new MediaParameters(url);
     }
 }

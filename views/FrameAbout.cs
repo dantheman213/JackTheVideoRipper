@@ -27,7 +27,7 @@ namespace JackTheVideoRipper
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                FileSystem.LogException(ex);
                 textExtractors.Text = @"ERROR: Can't get list of supported services.";
             }
         }

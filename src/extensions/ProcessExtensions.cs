@@ -56,4 +56,20 @@ public static class ProcessExtensions
             }
         }
     }
+
+    public static string GetOutput(this Process process)
+    {
+        return process.StandardOutput.ReadToEnd().Trim();
+    }
+
+    public static string GetProcessInfo(this Process process)
+    {
+        return new []
+        {
+            $"Program: {Path.GetFileName(process.StartInfo.FileName).WrapQuotes()}",
+            $" > Path: {process.StartInfo.FileName.WrapQuotes()}",
+            $" > Arguments: {process.StartInfo.Arguments}",
+            $" > Working Directory: {process.StartInfo.WorkingDirectory.WrapQuotes()}",
+        }.MergeNewline();
+    }
 }

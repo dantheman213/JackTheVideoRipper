@@ -10,5 +10,7 @@ public enum ContextActions
     OpenUrl,
     Reveal,
     Resume,
-    Remove
+    Remove,
+    OpenConsole,
+    SaveLogs
 }

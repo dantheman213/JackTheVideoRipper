@@ -1,30 +1,41 @@
 ﻿using System.Diagnostics;
-using System.Text.RegularExpressions;
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.modules;
 using JackTheVideoRipper.Properties;
+using Nager.PublicSuffix;
 
 namespace JackTheVideoRipper
 {
     internal static class YouTubeDL
     {
+        #region Data Members
+
         private const string _EXECUTABLE_NAME = "yt-dlp.exe";
         public static readonly string ExecutablePath = FileSystem.ProgramPath(_EXECUTABLE_NAME);
         public const string UPDATE_URL = "https://github.com/yt-dlp/yt-dlp";
         private const string _DOWNLOAD_URL =  $"{UPDATE_URL}/releases/latest/download/yt-dlp.exe";
 
         public const string DEFAULT_FORMAT = "%(title)s.%(ext)s";
-
-        public static string DefaultFilename => Path.Combine(Settings.Data.DefaultDownloadPath, DEFAULT_FORMAT);
+        
+        public const StringComparison DEFAULT_COMPARISON = StringComparison.OrdinalIgnoreCase;
         
         private static readonly Command _Command = new(ExecutablePath);
+
+        #endregion
+
+        #region Attributes
+
+        public static string DefaultFilename => Path.Combine(Settings.Data.DefaultDownloadPath, DEFAULT_FORMAT);
 
         public static bool IsInstalled => File.Exists(ExecutablePath);
         
         public static bool UpToDate => PreviousVersion == CurrentVersion;
         
         public static string GetYouTubeLink(string id) => $"https://www.youtube.com/watch?v={id}";
+        
+        public static IEnumerable<string> GetSupportedServices() => GetExtractors().SplitNewline();
         
         private static string PreviousVersion
         {
@@ -48,6 +59,10 @@ namespace JackTheVideoRipper
             }
         }
 
+        #endregion
+
+        #region Public Methods
+
         public static async void CheckDownload()
         {
             if (!IsInstalled)
@@ -59,7 +74,7 @@ namespace JackTheVideoRipper
             if (IsInstalled)
                 return;
                 
-            await FileSystem.Install(_DOWNLOAD_URL, _EXECUTABLE_NAME);
+            await FileSystem.InstallProgram(_DOWNLOAD_URL, _EXECUTABLE_NAME);
         }
 
         public static void CheckForUpdates()
@@ -73,31 +88,22 @@ namespace JackTheVideoRipper
                 @"yt-dlp update");
         }
 
-        public static IEnumerable<PlaylistInfoItem> GetPlaylistMetadata(string url)
+        public static async Task<IEnumerable<PlaylistInfoItem>> GetPlaylistMetadata(string url)
         {
-            return _Command.ReceiveMultiJsonResponse<PlaylistInfoItem>(url, Params.PlaylistMetadata);
+            return await _Command.ReceiveMultiJsonResponse<PlaylistInfoItem>(url, Params.PlaylistMetadata);
         }
 
-        public static MediaInfoData? GetMediaData(string url)
+        public static async Task<MediaInfoData?> GetMediaData(string url)
         {
-            return _Command.ReceiveJsonResponse<MediaInfoData>(url, Params.MediaData);
+            return await _Command.ReceiveJsonResponse<MediaInfoData>(url, Params.MediaData);
         }
 
-        public static IEnumerable<string> GetSupportedServices() => GetExtractors().SplitNewline();
-
-        private static readonly Regex _GetTitlePattern =
-            new(@"\<title\b[^>]*\>\s*(?<Title>[\s\S]*?)\</title\>", RegexOptions.IgnoreCase);
-
-        public static string GetTitle(string url)
+        public static async Task<string> GetTitle(string url, bool useCommand = true)
         {
-            if (url.Valid(FileSystem.IsValidUrl) && url.Contains("youtube", StringComparison.OrdinalIgnoreCase))
-                return _Command.RunWebCommand(url, Params.Title);
-            
-            HttpResponseMessage response = FileSystem.SimpleWebQuery(url);
+            if (useCommand && url.Valid(FileSystem.IsValidUrl) && url.Contains("youtube", DEFAULT_COMPARISON))
+                return await GetTitleYouTubeDL(url);
 
-            return response.IsSuccessStatusCode ? 
-                _GetTitlePattern.Match(response.GetResponse()).Groups["Title"].Value.Remove("- YouTube") :
-                string.Empty;
+            return await GetTitleWebQuery(url);
         }
 
         public static Process CreateCommand(string parameters)
@@ -117,13 +123,23 @@ namespace JackTheVideoRipper
                 return DownloadStage.Transcoding;
             if (line.Contains(Tags.DOWNLOAD))
                 return DownloadStage.Downloading;
-            if (line.Contains(Text.ERROR, StringComparison.OrdinalIgnoreCase) || 
-                line[..21].Contains(Text.Usage, StringComparison.OrdinalIgnoreCase))
+            if (line.Contains(Text.ERROR, DEFAULT_COMPARISON) || 
+                line[..21].Contains(Text.Usage, DEFAULT_COMPARISON))
                 return DownloadStage.Error;
             if (line.Contains('%'))
                 return DownloadStage.Waiting;
             return DownloadStage.None;
         }
+
+        public static bool IsSupported(string url)
+        {
+            if (FileSystem.ParseUrl(url) is not { } domainInfo)
+                return false;
+
+            return GetExtractors().Contains(domainInfo.Domain, DEFAULT_COMPARISON);
+        }
+
+        #endregion
 
         #region Private Methods
 
@@ -142,10 +158,58 @@ namespace JackTheVideoRipper
         {
             return _Command.RunCommand(Params.Version);
         }
+        
+        private static async Task<string> GetTitleYouTubeDL(string url)
+        {
+            return await _Command.RunWebCommandAsync(url, Params.Title);
+        }
+
+        private static async Task<string> GetTitleWebQuery(string url)
+        {
+            HttpResponseMessage response = await FileSystem.SimpleWebQueryAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+                return string.Empty;
+
+            string title = Web.GetTitle(response.GetResponse());
+
+            DomainInfo? domainInfo = FileSystem.ParseUrl(url);
+
+            if (domainInfo is null)
+                return title;
+
+            string domain = $"{domainInfo.Domain}";
+            string domainExtended = $"{domainInfo.Domain}.{domainInfo.TLD}";
+
+            if (RemoveIfEndsWith(title, "-", domain) is { } domainWithDash)
+                return domainWithDash;
+            if (RemoveIfEndsWith(title, "|", domain) is { } domainWithPipe)
+                return domainWithPipe;
+            if (RemoveIfEndsWith(title, "-", domainExtended) is { } domainExtendedWithDash)
+                return domainExtendedWithDash;
+            if (RemoveIfEndsWith(title, "|", domainExtended) is { } domainExtendedWithPipe)
+                return domainExtendedWithPipe;
+            
+            return title;
+        }
+        
+        private static string? RemoveIfEndsWith(string title, string separator, string domainText)
+        {
+            string text = $" {separator} {domainText}";
+            return title.EndsWith(text, DEFAULT_COMPARISON) ?
+                title.Remove(text, DEFAULT_COMPARISON) : null;
+        }
 
         #endregion
 
         #region Embedded Types
+
+        public class LinkNotSupportedException : Exception
+        {
+            public LinkNotSupportedException(string message) : base(message)
+            {
+            }
+        }
         
         private static class Params
         {
@@ -161,175 +225,213 @@ namespace JackTheVideoRipper
             public static readonly YouTubeParameters MediaData = NoWarningsNoCache
                 .Simulate()
                 .PrintJson();
+            public static readonly YouTubeParameters Default = NoWarningsNoCache
+                .PreferFfmpeg()
+                .FfmpegLocation();
             public const string Extractors = "--list-extractors";
             public const string Version = "--version";
             public const string Title = "--get-title";
             public const string Update = "-U";
         }
 
-        public class YouTubeParameters : ProcessParameters
+        public class YouTubeParameters : ProcessParameters<YouTubeParameters>
         {
             public YouTubeParameters AddMetadata()
             {
-                return Add<YouTubeParameters>("--add-metadata");
+                return AddNoValue("add-metadata");
             }
             
             public YouTubeParameters IncludeAds()
             {
-                return Add<YouTubeParameters>("--include-ads");
+                return AddNoValue("include-ads");
             }
             
             public YouTubeParameters RestrictFilenames()
             {
-                return Add<YouTubeParameters>("--restrict-filenames");
+                return AddNoValue("restrict-filenames");
             }
             
             public YouTubeParameters PreferFfmpeg()
             {
-                return Add<YouTubeParameters>("--prefer-ffmpeg");
+                return AddNoValue("prefer-ffmpeg");
             }
             
             public YouTubeParameters NoCheckCertificate()
             {
-                return Add<YouTubeParameters>("--no-check-certificate");
+                return AddNoValue("no-check-certificate");
             }
             
             public YouTubeParameters Source(string url)
             {
-                return Add<YouTubeParameters>($"\"{url}\"");
+                return Append(url.WrapQuotes());
             }
             
             public YouTubeParameters Output(string? filename = null)
             {
                 // youtube-dl doesn't like it when you provide --audio-format and extension in -o together
-                return Add<YouTubeParameters>(filename is not null
-                    ? $" -o \"{(filename.Contains('.') ? filename.BeforeLast(".") : filename)}.%(ext)s\""
-                    : $" -o\"{DefaultFilename}\"");
+                string outputFilename = filename.HasValue() ? ReplaceExtension(filename!) : DefaultFilename;
+                return Add('o', outputFilename.WrapQuotes());
+            }
+
+            private static string ReplaceExtension(string filename)
+            {
+                return $"{(filename.Contains('.') ? filename.BeforeLast(".") : filename)}.%(ext)s";
             }
             
             public YouTubeParameters AudioQuality(string qualitySpecifier = "0")
             {
-                return Add<YouTubeParameters>($"--audio-quality {qualitySpecifier}");
+                return Add("audio-quality", qualitySpecifier);
             }
             
             public YouTubeParameters AudioFormat(string format)
             {
-                return Add<YouTubeParameters>($"--audio-format {format}");
+                return Add("audio-format", format);
             }
             
             public YouTubeParameters ExtractAudio()
             {
-                return Add<YouTubeParameters>("-x");
+                return AddNoValue('x');
             }
             
             public YouTubeParameters EmbedSubtitles()
             {
-                return Add<YouTubeParameters>("--embed-subs");
+                return AddNoValue("embed-subs");
             }
             
             public YouTubeParameters EmbedThumbnail()
             {
-                return Add<YouTubeParameters>("--embed-thumbnail");
+                return AddNoValue("embed-thumbnail");
             }
             
             public YouTubeParameters RecodeVideo(string videoFormat)
             {
-                return Add<YouTubeParameters>($"--recode-video {videoFormat}");
+                return Add("recode-video", videoFormat);
             }
-            
+
             public YouTubeParameters Format(string? videoFormat = null, string? audioFormat = null, bool useBest = false)
             {
-                string formatSpecifier;
+                string formatSpecifier = videoFormat switch
+                {
+                    not null when audioFormat is not null   => $"{videoFormat}+{audioFormat}",
+                    not null                                => videoFormat,
+                    null when audioFormat is not null       => audioFormat,
+                    _                                       => "best"
+                };
+
+                string bestSpecifier = useBest && formatSpecifier is not "best" ? "/best" : string.Empty;
                 
-                if (videoFormat is not null && audioFormat is not null)
-                {
-                    formatSpecifier = $"{videoFormat}+{audioFormat}";
-                }
-                else if (videoFormat is not null)
-                {
-                    formatSpecifier = videoFormat;
-                }
-                else if (audioFormat is not null)
-                {
-                    formatSpecifier = audioFormat;
-                }
-                else
-                {
-                    return this;
-                }
-                
-                return Add<YouTubeParameters>($"-f {formatSpecifier}{(useBest ? "/best" : string.Empty)}");
+                return Add('f', $"{formatSpecifier}{bestSpecifier}");
             }
             
             public YouTubeParameters Username(string username)
             {
-                return Add<YouTubeParameters>($"--username {username}");
+                return Add("username", username);
             }
             
             public YouTubeParameters Password(string password)
             {
-                return Add<YouTubeParameters>($"--password {password}");
+                return Add("password", password);
             }
             
             public YouTubeParameters YesPlaylist()
             {
-                return Add<YouTubeParameters>("--yes-playlist");
+                return AddNoValue("yes-playlist");
             }
             
             public YouTubeParameters FlatPlaylist()
             {
-                return Add<YouTubeParameters>("--flat-playlist");
+                return AddNoValue("flat-playlist");
             }
             
             public YouTubeParameters DumpJson()
             {
-                return Add<YouTubeParameters>("--dump-json");
+                return AddNoValue("dump-json");
             }
             
             public YouTubeParameters PrintJson()
             {
-                return Add<YouTubeParameters>("--print-json");
+                return AddNoValue("print-json");
             }
             
             public YouTubeParameters SkipDownload()
             {
-                return Add<YouTubeParameters>("--skip-download");
+                return AddNoValue("skip-download");
             }
             
             // Do not download or write to disk
             public YouTubeParameters Simulate()
             {
-                return Add<YouTubeParameters>("-s");
+                return AddNoValue('s');
             }
             
             public YouTubeParameters IgnoreErrors()
             {
-                return Add<YouTubeParameters>("-i");
+                return AddNoValue('i');
             }
             
             public YouTubeParameters NoWarnings()
             {
-                return Add<YouTubeParameters>("--no-warnings");
+                return AddNoValue("no-warnings");
             }
 
             public YouTubeParameters NoCache()
             {
-                return Add<YouTubeParameters>("--no-cache-dir");
+                return AddNoValue("no-cache-dir");
             }
             
             public YouTubeParameters ListExtractors()
             {
-                return Add<YouTubeParameters>(Params.Extractors);
+                return Append(Params.Extractors);
             }
             
             public YouTubeParameters GetTitle()
             {
-                return Add<YouTubeParameters>(Params.Title);
+                return Append(Params.Title);
             }
             
             public YouTubeParameters Version()
             {
-                return Add<YouTubeParameters>(Params.Version);
+                return Append(Params.Version);
+            }
+
+            public YouTubeParameters FfmpegLocation()
+            {
+                return Add("ffmpeg-location", FFMPEG.ExecutablePath);
+            }
+            
+            public YouTubeParameters AllSubtitles()
+            {
+                return AddNoValue("all-subs");
+            }
+
+            public YouTubeParameters MergeOutputFormat(string format)
+            {
+                return Add("merge-output-format", format);
+            }
+
+            public YouTubeParameters ExternalDownloader(string downloaderFilepath)
+            {
+                return Add("external-downloader", downloaderFilepath.WrapQuotes());
+            }
+            
+            public YouTubeParameters ExternalDownloader(string downloaderFilepath, string downloaderArgs)
+            {
+                return ExternalDownloader(downloaderFilepath).ExternalDownloaderArgs(downloaderArgs);
+            }
+            
+            public YouTubeParameters ExternalDownloaderArgs(string downloaderArgs)
+            {
+                return Add("external-downloader-args", downloaderArgs.WrapQuotes());
+            }
+
+            public YouTubeParameters DownloadArchive(string archivePath)
+            {
+                return Add("download-archive", archivePath.WrapQuotes());
+            }
+
+            public YouTubeParameters Links(string linksPath)
+            {
+                return Add('a', linksPath.WrapQuotes());
             }
         }
 

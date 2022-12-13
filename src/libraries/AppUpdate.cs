@@ -5,6 +5,8 @@ namespace JackTheVideoRipper
 {
     internal static class AppUpdate
     {
+        public static readonly Notification UpToDateNotification = new(Resources.UpToDate, typeof(AppUpdate));
+        
         public static async Task CheckForNewAppVersion(bool isStartup = true)
         {
             // if sender obj is bool then version being checked on startup passively and dont show dialog that it's up to date
@@ -15,7 +17,7 @@ namespace JackTheVideoRipper
                     FileSystem.GetWebResourceHandle(URLs.UPDATE);
                     break;
                 case false when isStartup:
-                    Core.SendNotification(Resources.UpToDate);
+                    NotificationsManager.SendNotification(UpToDateNotification);
                     break;
             }
         }

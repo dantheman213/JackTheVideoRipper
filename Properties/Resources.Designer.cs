@@ -69,11 +69,47 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Couldn&apos;t find file to open at {0}.
+        /// </summary>
+        internal static string CouldNotOpenFile {
+            get {
+                return ResourceManager.GetString("CouldNotOpenFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not start process: {0}.
+        /// </summary>
+        internal static string CouldNotStartProcess {
+            get {
+                return ResourceManager.GetString("CouldNotStartProcess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Directory {0} does not exist!.
+        /// </summary>
+        internal static string DirectoryDoesNotExist {
+            get {
+                return ResourceManager.GetString("DirectoryDoesNotExist", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to You have pending downloads, are you sure you want to exit?.
         /// </summary>
         internal static string ExitWarning {
             get {
                 return ResourceManager.GetString("ExitWarning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to download {0}.
+        /// </summary>
+        internal static string FailedToDownload {
+            get {
+                return ResourceManager.GetString("FailedToDownload", resourceCulture);
             }
         }
         
@@ -87,7 +123,7 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Required components not installed! This app will NOT behave correctly because its critical dependencies are missing.&quot;.
+        ///   Looks up a localized string similar to Required components not installed! This app will NOT behave correctly because its critical dependencies are missing..
         /// </summary>
         internal static string InstallationError {
             get {
@@ -132,6 +168,15 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Link from domain {0} is not supported. Please see About page for a list of supported services..
+        /// </summary>
+        internal static string LinkNotSupported {
+            get {
+                return ResourceManager.GetString("LinkNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to New Version JackTheVideoRipper {0} Available! View Download Page?.
         /// </summary>
         internal static string NewUpdate {
@@ -146,6 +191,15 @@ namespace JackTheVideoRipper.Properties {
         internal static string OverwriteFile {
             get {
                 return ResourceManager.GetString("OverwriteFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to WARNING: Process already running!.
+        /// </summary>
+        internal static string ProcessAlreadyRunning {
+            get {
+                return ResourceManager.GetString("ProcessAlreadyRunning", resourceCulture);
             }
         }
         

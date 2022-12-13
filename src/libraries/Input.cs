@@ -12,6 +12,16 @@ public static class Input
     private const int _TYPING_PING = 1800;
 
     #endregion
+
+    #region Attributes
+
+    private static IntPtr StandardOutputHandle => GetStdHandle(-11);
+
+    private static SafeFileHandle StandardOutputHandleSafe => new(StandardOutputHandle, false);
+
+    public static bool ConsoleAttached => AttachConsole(-1);
+
+    #endregion
     
     #region Imports
 
@@ -32,7 +42,7 @@ public static class Input
     public static bool OpenConsole()
     {
         // Check if Console exists, if not, attach it
-        return AttachConsole(-1) || AllocConsole();
+        return ConsoleAttached || AllocConsole();
     }
 
     public static StreamWriter GetConsoleWriter()
@@ -40,7 +50,7 @@ public static class Input
         return new StreamWriter(new FileStream(StandardOutputHandleSafe, FileAccess.Write));
     }
     
-    public static async void WaitForFinishTyping<T>(Func<T> valueGenerator) where T : IComparable
+    public static async Task WaitForFinishTyping<T>(Func<T> valueGenerator) where T : IComparable
     {
         async Task<bool> IsStillTyping()
         {
@@ -60,14 +70,6 @@ public static class Input
         // typing appears to have stopped, continue
         _TaskTypeQueue.Clear();
     }
-
-    #endregion
-
-    #region Private Methods
-
-    private static IntPtr StandardOutputHandle => GetStdHandle(-11);
-
-    private static SafeFileHandle StandardOutputHandleSafe => new(StandardOutputHandle, false);
 
     #endregion
 }

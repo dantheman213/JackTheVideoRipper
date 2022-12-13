@@ -1,23 +1,28 @@
-﻿using JackTheVideoRipper.Properties;
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.Properties;
 
 namespace JackTheVideoRipper;
 
 public static class Core
 {
     public static string ApplicationTitle => $@"JackTheVideoRipper {Common.GetAppVersion()}";
-    
-    public static event Action<string> NotificationEvent = delegate {  };
-    
+
     public static async Task Startup()
     {
         FileSystem.ValidateInstallDirectory();
-        CheckDependencies();
+        await Task.Run(CheckDependencies);
         await CheckForYouTubeDLUpdates();
     }
 
-    public static void SendNotification(string notification)
+    public static async Task LoadConfigurationFiles()
     {
-        NotificationEvent(notification);
+        await Task.Run(Settings.Load);
+        await Task.Run(History.Load);
+    }
+
+    public static async Task Shutdown()
+    {
+        await Task.Run(History.Save);
     }
     
     public static void CheckDependencies()
@@ -130,9 +135,14 @@ public static class Core
         
     public static FrameMain FrameMain => (MainForm as FrameMain)!;
 
-    public static void InvokeInMainContext(Action action)
+    public static void RunInMainThread(Action action)
     {
-        MainForm.Invoke(action);
+        FrameMain.QueueAction(action);
+    }
+    
+    public static IAsyncResult RunInMainThreadAsync(Func<Task> action)
+    {
+        return FrameMain.QueueActionAsync(action);
     }
     
     [System.Runtime.InteropServices.DllImport("wininet.dll")]
@@ -141,5 +151,52 @@ public static class Core
     public static bool IsConnectedToInternet()
     {
         return InternetGetConnectedState(out int _, 0);         
+    }
+    
+    private static void DownloadImages()
+    {
+        Settings.Load();
+            
+        string[] ids = { "JO-Q73f3yPi5rWjE-w",
+            "IO_B6Cemwqjtqz2f9g",
+            "J-XBvSSvyvrv-jiWqQ",
+            "J-zF73Tznq_s_zWU_w",
+            "JriSuHCvm66_-T6QrQ",
+            "Ju-UuST0zK_u_zmR-A",
+            "JOjAuCCunKzkrG2R_A",
+            "Je2Sv36lnPi6rDzBqQ",
+            "IrzCuXX1nq_pqjvCqg",
+            "J-iQu3f3m_zq_jjB_A",
+            "Jb7H7nChz6rpqziTrg",
+            "J-uXvCegnqi9rjWR_w",
+            "ILuW63Kjm_jl-zSf-w"
+        };
+            
+        string[] prefixes = {"main", "w320h240", "common"};
+
+        var counts = new Dictionary<string, int>
+        {
+            { prefixes[0], 1 },
+            { prefixes[1], 10 },
+            { prefixes[2], 3 }
+        };
+
+        foreach (string id in ids)
+        {
+            foreach (string prefix in prefixes)
+            {
+                for (int i = 0; i < counts[prefix]; i++)
+                {
+                    string filename = $"{id}_{prefix}_{i}.jpg";
+                        
+                    FileSystem.DownloadWebFile($"https://static-cache.k2s.cc/thumbnail/{id}/{prefix}/{i}.jpeg",
+                        Path.Combine(Settings.Data.DefaultDownloadPath, "Thumbnails", filename));
+                        
+                    Output.WriteLine($"Downloaded: {filename.WrapQuotes()} to disk!");
+                }
+            }
+        }
+            
+        Output.WriteLine("Downloads completed!");
     }
 }

@@ -5,27 +5,33 @@ namespace JackTheVideoRipper.interfaces;
 
 public interface IProcessRunner
 {
-    Process Process { get; }
+    Process? Process { get; }
     
-    bool Paused { get; }
-
     ProcessStatus ProcessStatus { get; }
-    
-    bool Started { get; }
-                
-    bool Finished { get; }
-
-    bool Completed { get; }
-    
-    bool Failed { get; }
     
     Guid Guid { get; }
     
     ProcessBuffer Buffer { get; }
 
-    void Update();
+    int ExitCode { get; }
 
-    void Start();
+    bool Completed { get; }
+    
+    string FileName { get; }
+    
+    bool Failed { get; }
+    
+    bool Succeeded { get; }
+    
+    bool Started { get; }
+                
+    bool Finished { get; }
+    
+    bool Paused { get; }
+
+    Task<bool> Update();
+
+    Task<bool> Start();
 
     void Stop();
 
@@ -36,6 +42,8 @@ public interface IProcessRunner
     void Pause();
 
     void Resume();
+
+    void Enqueue();
 
     void Kill();
     

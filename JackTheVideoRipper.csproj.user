@@ -7,7 +7,16 @@
     <Compile Update="views\FrameCheckMetadata.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="views\FrameConsole.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="views\FrameConvert.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="views\FrameHelp.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="views\FrameHistory.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="views\FrameImportPlaylist.cs">
@@ -16,10 +25,19 @@
     <Compile Update="views\FrameMain.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="views\FrameMediaManager.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="views\FrameNewMedia.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="views\FrameNewMediaBatch.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="views\FrameNewMediaSimple.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="views\FrameNotifications.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="views\FrameSettings.cs">

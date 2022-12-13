@@ -9,22 +9,22 @@ public static class StringExtensions
 
     public static string Before(this string str, string element)
     {
-        return str[..str.IndexOf(element, StringComparison.Ordinal)];
+        return str.Contains(element) ? str[..str.IndexOf(element, StringComparison.Ordinal)] : str;
     }
 
     public static string After(this string str, string element)
     {
-        return str[(str.IndexOf(element, StringComparison.Ordinal) + 1)..];
+        return str.Contains(element) ? str[(str.IndexOf(element, StringComparison.Ordinal) + element.Length)..] : str;
     }
     
     public static string BeforeLast(this string str, string element)
     {
-        return str[..str.LastIndexOf(element, StringComparison.Ordinal)];
+        return str.Contains(element) ? str[..str.LastIndexOf(element, StringComparison.Ordinal)] : str;
     }
 
     public static string AfterLast(this string str, string element)
     {
-        return str[(str.LastIndexOf(element, StringComparison.Ordinal) + 1)..];
+        return str.Contains(element) ? str[(str.LastIndexOf(element, StringComparison.Ordinal) + element.Length)..] : str;
     }
 
     public static bool HasValue(this string? str)
@@ -78,9 +78,10 @@ public static class StringExtensions
         return str.IsNullOrEmpty() || !isValidPredicate(str!);
     }
 
-    public static string Remove(this string str, string element)
+    public static string Remove(this string str, string element, StringComparison? stringComparison = null)
     {
-        return str.Replace(element, string.Empty);
+        return stringComparison is null ? str.Replace(element, string.Empty) :
+            str.Replace(element, string.Empty, (StringComparison) stringComparison);
     }
 
     public static string RemoveAll(this string str, params string[] elements)
@@ -117,5 +118,10 @@ public static class StringExtensions
     public static IEnumerable<string> SplitReturn(this string str, StringSplitOptions options = StringSplitOptions.None)
     {
         return str.Split("\r\n", options);
+    }
+
+    public static string WrapQuotes(this string str)
+    {
+        return $"\"{str}\"";
     }
 }

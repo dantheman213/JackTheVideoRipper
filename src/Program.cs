@@ -5,26 +5,21 @@ namespace JackTheVideoRipper
     internal static class Program
     {
         [STAThread]
-        private static async Task Main(string[] args)
+        private static async Task Main()
         {
-            using (new Mutex(true, FileSystem.PROGRAM_NAME, out bool firstRun))
-            {
-                if (firstRun)
-                {
-                    // fixes blurry text on some screens
-                    if (Environment.OSVersion.Version.Major >= 6)
-                        SetProcessDPIAware();
+            using Mutex singleInstanceMutex = new(true, FileSystem.PROGRAM_NAME, out bool isOnlyInstance);
 
-                    await StartBackgroundTasks();
-                    Application.EnableVisualStyles();
-                    Application.SetCompatibleTextRenderingDefault(false);
-                    Application.Run(new FrameMain());
-                }
-                else
-                {
-                    Modals.Notification(@"Application already running!");
-                }
+            if (!isOnlyInstance)
+            {
+                Modals.Notification(@"Application already running!");
+                return;
             }
+            
+            await StartBackgroundTasks();
+            ConfigureExceptionHandling();
+            ConfigureGraphics();
+            Application.Run(new FrameMain());
+            Application.Exit();
         }
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -35,57 +30,28 @@ namespace JackTheVideoRipper
             // Allows us to read out the console values
             if (Debugger.IsAttached)
                 Input.OpenConsole();
-            
-            await Task.Run(Settings.Load);
-            await Task.Run(Statistics.InitializeCounters);
-            await Core.CheckForUpdates();
+            await Task.WhenAll(Core.LoadConfigurationFiles(), Statistics.InitializeCounters(), Core.CheckForUpdates());
         }
 
-        private static void DownloadImages()
+        private static void ConfigureGraphics()
         {
-            Settings.Load();
-            
-            string[] ids = { "JO-Q73f3yPi5rWjE-w",
-                "IO_B6Cemwqjtqz2f9g",
-                "J-XBvSSvyvrv-jiWqQ",
-                "J-zF73Tznq_s_zWU_w",
-                "JriSuHCvm66_-T6QrQ",
-                "Ju-UuST0zK_u_zmR-A",
-                "JOjAuCCunKzkrG2R_A",
-                "Je2Sv36lnPi6rDzBqQ",
-                "IrzCuXX1nq_pqjvCqg",
-                "J-iQu3f3m_zq_jjB_A",
-                "Jb7H7nChz6rpqziTrg",
-                "J-uXvCegnqi9rjWR_w",
-                "ILuW63Kjm_jl-zSf-w"
-            };
-            
-            string[] prefixes = {"main", "w320h240", "common"};
+            // fixes blurry text on some screens
+            if (Environment.OSVersion.Version.Major >= 6)
+                SetProcessDPIAware();
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+        }
 
-            var counts = new Dictionary<string, int>
-            {
-                { prefixes[0], 1 },
-                { prefixes[1], 10 },
-                { prefixes[2], 3 }
-            };
+        private static void ConfigureExceptionHandling()
+        {
+            // Add the event handler for handling UI thread exceptions to the event.
+            //Application.ThreadException += new ThreadExceptionEventHandler(ErrorHandlerForm.Form1_UIThreadException);
 
-            foreach (string id in ids)
-            {
-                foreach (string prefix in prefixes)
-                {
-                    for (int i = 0; i < counts[prefix]; i++)
-                    {
-                        string filename = $"{id}_{prefix}_{i}.jpg";
-                        
-                        FileSystem.DownloadWebFile($"https://static-cache.k2s.cc/thumbnail/{id}/{prefix}/{i}.jpeg",
-                            Path.Combine(Settings.Data.DefaultDownloadPath, "Thumbnails", filename));
-                        
-                        Console.WriteLine($"Downloaded: \"{filename}\" to disk!");
-                    }
-                }
-            }
-            
-            Console.WriteLine("Downloads completed!");
+            // Set the unhandled exception mode to force all Windows Forms errors to go through our handler.
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+
+            // Add the event handler for handling non-UI thread exceptions to the event.
+            //AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
         }
     }
 }

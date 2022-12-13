@@ -2,6 +2,18 @@
 {
     public partial class FrameSettings : Form
     {
+        #region Data Members
+
+        public static event Action SettingsUpdatedEvent = delegate {};
+
+        #endregion
+        
+        #region Attributes
+
+        private static SettingsModel CurrentSettings => Settings.Data;
+
+        #endregion
+        
         #region Form View Accessors
 
         public int MaxConcurrentDownloads
@@ -16,6 +28,30 @@
             set => textLocation.Text = value;
         }
 
+        public bool SkipMetadata
+        {
+            get => skipMetadata.Checked;
+            set => skipMetadata.Checked = value;
+        }
+        
+        public bool StoreHistory
+        {
+            get => storeHistory.Checked;
+            set => storeHistory.Checked = value;
+        }
+
+        public bool EnableDeveloperMode
+        {
+            get => enableDeveloperMode.Checked;
+            set => enableDeveloperMode.Checked = value;
+        }
+
+        public bool EnableMultithreadedDownloads
+        {
+            get => enableMultithreadedDownloads.Checked;
+            set => enableMultithreadedDownloads.Checked = value;
+        }
+
         #endregion
 
         #region Constructor
@@ -23,22 +59,33 @@
         public FrameSettings()
         {
             InitializeComponent();
+            SubscribeEvents();
         }
 
         #endregion
 
         #region Private Methods
 
-        private void GetSettings()
+        private void LoadSettings()
         {
-            MaxConcurrentDownloads = Settings.Data.MaxConcurrentDownloads;
-            DefaultDownloadPath = Settings.Data.DefaultDownloadPath;
+            MaxConcurrentDownloads = CurrentSettings.MaxConcurrentDownloads;
+            DefaultDownloadPath = CurrentSettings.DefaultDownloadPath;
+            SkipMetadata = CurrentSettings.SkipMetadata;
+            StoreHistory = CurrentSettings.StoreHistory;
+            EnableDeveloperMode = CurrentSettings.EnableDeveloperMode;
+            EnableMultithreadedDownloads = CurrentSettings.EnableMultiThreadedDownloads;
         }
 
         private void SetSettings()
         {
-            Settings.Data.MaxConcurrentDownloads = MaxConcurrentDownloads;
-            Settings.Data.DefaultDownloadPath = DefaultDownloadPath;
+            CurrentSettings.MaxConcurrentDownloads = MaxConcurrentDownloads;
+            CurrentSettings.DefaultDownloadPath = DefaultDownloadPath;
+            CurrentSettings.SkipMetadata = SkipMetadata;
+            CurrentSettings.StoreHistory = StoreHistory;
+            CurrentSettings.EnableDeveloperMode = EnableDeveloperMode;
+            CurrentSettings.EnableMultiThreadedDownloads = EnableMultithreadedDownloads;
+            
+            SettingsUpdatedEvent();
         }
         
         private static void Save()
@@ -50,22 +97,25 @@
 
         #region Form Events
 
-        private void buttonLocationBrowse_Click(object sender, EventArgs e)
-        {
-            if (FileSystem.SelectFile(textLocation.Text.Trim()) is { } selectedPath)
-                textLocation.Text = selectedPath;
-        }
-
         private void FrameSettings_Load(object sender, EventArgs e)
         {
-            GetSettings();
+            LoadSettings();
         }
-
-        private void buttonSave_Click(object sender, EventArgs e)
+        
+        private void SubscribeEvents()
         {
-            SetSettings();
-            Save();
-            Close();
+            buttonLocationBrowse.Click += (_, _) =>
+            {
+                if (FileSystem.SelectFile(textLocation.Text.Trim()) is { } selectedPath)
+                    textLocation.Text = selectedPath;
+            };
+            
+            buttonSave.Click += (_, _) =>
+            {
+                SetSettings();
+                Save();
+                Close();
+            };
         }
 
         #endregion

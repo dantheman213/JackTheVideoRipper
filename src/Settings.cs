@@ -1,34 +1,20 @@
-﻿using static JackTheVideoRipper.SettingsModel;
-using static JackTheVideoRipper.FileSystem;
+﻿namespace JackTheVideoRipper;
 
-namespace JackTheVideoRipper
+internal static class Settings
 {
-    internal static class Settings
+    public static SettingsModel Data { get; private set; } = new();
+
+    public static void Save()
     {
-        public static SettingsModel Data { get; private set; } = new();
+        Data.WriteToDisk();
+    }
 
-        public static void Save()
-        {
-            lock (Data)
-            {
-                if (!Exists())
-                    return;
-                WriteJsonToFile(Filepath, Data);
-            }
-        }
+    public static void Load()
+    {
+        // If it returns null, it does not exist on disk
+        if (Data.CreateOrLoadFromDisk<SettingsModel>() is not { } loadedData)
+            return;
 
-        public static void Load()
-        {
-            lock (Data)
-            {
-                if (!Exists())
-                {
-                    CreateFolder(SettingsModel.Directory);
-                    WriteJsonToFile(Filepath, GenerateDefaultSettings());
-                }
-
-                Data = GetObjectFromJsonFile<SettingsModel>(Filepath) ?? GenerateDefaultSettings();
-            }
-        }
+        Data = loadedData;
     }
 }

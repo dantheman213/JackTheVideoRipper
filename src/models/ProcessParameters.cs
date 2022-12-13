@@ -3,7 +3,7 @@ using JackTheVideoRipper.interfaces;
 
 namespace JackTheVideoRipper.models;
 
-public class ProcessParameters : IProcessParameters
+public class ProcessParameters<T> : IProcessParameters where T : IProcessParameters
 {
     private readonly StringBuilder _buffer = new();
 
@@ -15,31 +15,55 @@ public class ProcessParameters : IProcessParameters
 
     public ProcessParameters(string initialParameters)
     {
-        Add<ProcessParameters>(initialParameters);
+        Append(initialParameters);
     }
 
     #endregion
 
     #region Public Methods
 
-    public T Append<T>(T parameters) where T : ProcessParameters
+    public T Append(IProcessParameters parameters)
     {
-        return Add<T>(parameters.ToString());
+        return Append(parameters.ToString());
+    }
+    
+    public T Append(string parameter)
+    {
+        _buffer.Append($" {parameter}");
+        return (T)(IProcessParameters) this;
     }
 
-    public T Prepend<T>(T parameters) where T : ProcessParameters
+    public T Prepend(ProcessParameters<T> parameters)
     {
-        return parameters.Add<T>(ToString());
+        return parameters.Append(ToString());
     }
 
     #endregion
     
     #region Protected Methods
-
-    protected T Add<T>(string parameter) where T : ProcessParameters
+    
+    protected T AddNoValue(string parameter)
     {
-        _buffer.Append($" {parameter}");
-        return (this as T)!;
+        _buffer.Append($" {(parameter.Length == 1 ? "-" : "--")}{parameter}");
+        return (T)(IProcessParameters) this;
+    }
+    
+    protected T AddNoValue(char parameter)
+    {
+        _buffer.Append($" -{parameter}");
+        return (T)(IProcessParameters) this;
+    }
+    
+    protected T Add(string paramName, object paramValue)
+    {
+        _buffer.Append($" {(paramName.Length == 1 ? "-" : "--")}{paramName} {paramValue}");
+        return (T)(IProcessParameters) this;
+    }
+    
+    protected T Add(char paramChar, object paramValue)
+    {
+        _buffer.Append($" -{paramChar} {paramValue}");
+        return (T)(IProcessParameters) this;
     }
 
     #endregion

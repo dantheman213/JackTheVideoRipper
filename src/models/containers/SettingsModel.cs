@@ -2,10 +2,13 @@
 
 namespace JackTheVideoRipper
 {
-    public class SettingsModel
+    [Serializable]
+    public class SettingsModel : ConfigModel
     {
-        public static readonly string Directory = Path.Combine(FileSystem.Paths.Settings, "settings");
-        public static readonly string Filepath = Path.Combine(Directory, "settings.json");
+        [JsonIgnore]
+        public static readonly string SettingsFilepath = Path.Combine(ConfigDirectory, "settings.json");
+
+        public override string Filepath => SettingsFilepath;
 
         [JsonProperty("default_download_path")]
         public string DefaultDownloadPath { get; set; } = FileSystem.Paths.Download;
@@ -15,20 +18,17 @@ namespace JackTheVideoRipper
 
         [JsonProperty("last_version_youtube-dl")]
         public string LastVersionYouTubeDL { get; set; } = string.Empty;
+        
+        [JsonProperty("skip_metadata")]
+        public bool SkipMetadata { get; set; }
 
-        public static bool Exists()
-        {
-            return File.Exists(Filepath);
-        }
+        [JsonProperty("store_history")]
+        public bool StoreHistory { get; set; }
 
-        public static SettingsModel GenerateDefaultSettings()
-        {
-            return new SettingsModel
-            {
-                DefaultDownloadPath = FileSystem.Paths.Download,
-                MaxConcurrentDownloads = 5,
-                LastVersionYouTubeDL = string.Empty
-            };
-        }
+        [JsonProperty("enable_developer_mode")]
+        public bool EnableDeveloperMode { get; set; }
+        
+        [JsonProperty("enable_multi_threaded_downloads")]
+        public bool EnableMultiThreadedDownloads { get; set; }
     }
 }

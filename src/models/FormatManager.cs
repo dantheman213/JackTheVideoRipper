@@ -1,8 +1,9 @@
 ﻿using System.Text.RegularExpressions;
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.Properties;
 
-namespace JackTheVideoRipper;
+namespace JackTheVideoRipper.models;
 
 public class FormatManager
 {
@@ -10,6 +11,9 @@ public class FormatManager
     private readonly Dictionary<string, string> _availableAudioFormats = new();
     private readonly List<string> _videoFormatList = new();
     private readonly List<string> _audioFormatList = new();
+    
+    private readonly string[] AudioFormatRows = {"Bitrate / Sample Rate / Format / Codec"};
+    private readonly string[] VideoFormatRows = {"Resolution / Bitrate / Format / Type / Additional Info"};
     
     public void ResetAvailableFormats()
     {
@@ -27,6 +31,9 @@ public class FormatManager
             case MediaType.Audio when !_availableAudioFormats.ContainsKey(key):
                 _availableAudioFormats.Add(key, formatId);
                 break;
+            case MediaType.Image:
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mediaType), mediaType, null);
         }
     }
 
@@ -59,15 +66,13 @@ public class FormatManager
 
     private bool NoRecommended(MediaType mediaType)
     {
-        switch (mediaType)
+        return mediaType switch
         {
-            case MediaType.Video:
-                return RecommendedVideoFormat.IsNullOrEmpty();
-            case MediaType.Audio:
-                return RecommendedAudioFormat.IsNullOrEmpty();
-            default:
-                throw new NotImplementedException();
-        }
+            MediaType.Video => RecommendedVideoFormat.IsNullOrEmpty(),
+            MediaType.Audio => RecommendedAudioFormat.IsNullOrEmpty(),
+            MediaType.Image => throw new NotImplementedException(),
+            _ => throw new NotImplementedException()
+        };
     }
 
     public void UpdateAvailableFormats(MediaInfoData mediaInfoData)
@@ -78,69 +83,58 @@ public class FormatManager
 
         foreach (MediaFormatItem format in mediaInfoData.AvailableFormats)
         {
-            if (format.HasVideo && format.VideoString() is { } videoFormat && IsValidFormat(videoFormat))
-            {
-                if (NoRecommended(MediaType.Video) && hasRequestedFormats)
-                {
-                    videoFormat = $"{videoFormat} {Tags.RECOMMENDED}";
-                    RecommendedVideoFormat = videoFormat;
-                }
-                else
-                {
-                    _videoFormatList.Add(videoFormat);
-                }
+            if (format.HasVideo && format.VideoString() is { } videoFormat)
+                UpdateFormats(format, MediaType.Video, videoFormat, hasRequestedFormats);
 
-                AddFormat(MediaType.Video, videoFormat, format.FormatId!);
-            }
-
-            if (format.HasAudio && format.AudioString() is { } audioFormat && IsValidFormat(audioFormat))
-            {
-                if (NoRecommended(MediaType.Audio) && hasRequestedFormats)
-                {
-                    audioFormat = $"{audioFormat} {Tags.RECOMMENDED}";
-                    RecommendedAudioFormat = audioFormat;
-                }
-                else
-                {
-                    _audioFormatList.Add(audioFormat);
-                }
-
-                AddFormat(MediaType.Audio, audioFormat, format.FormatId!);
-            }
+            if (format.HasAudio && format.AudioString() is { } audioFormat)
+                UpdateFormats(format, MediaType.Audio, audioFormat, hasRequestedFormats);
         }
+    }
+
+    private void UpdateFormats(MediaFormatItem format, MediaType mediaType, string mediaFormat, bool hasRequestedFormats)
+    {
+        if (mediaFormat.Invalid(IsValidFormat))
+            return;
+        
+        if (NoRecommended(mediaType) && hasRequestedFormats)
+        {
+            mediaFormat = $"{mediaFormat} {Tags.RECOMMENDED}";
+            RecommendedVideoFormat = mediaFormat;
+        }
+        else switch (mediaType)
+        {
+            case MediaType.Video:
+                _videoFormatList.Add(mediaFormat);
+                break;
+            case MediaType.Audio:
+                _audioFormatList.Add(mediaFormat);
+                break;
+        }
+
+        AddFormat(mediaType, mediaFormat, format.FormatId!);
     }
 
     private static bool IsValidFormat(string str)
     {
         return !(str.Contains(Text.UNRECOGNIZED_CODEC) || str.Contains(Text.NONE));
     }
-    
+
     public IEnumerable<string> GetAudioFormatRows()
     {
-        var audioFormatRows = new List<string>
-        {
-            "Bitrate / Sample Rate / Format / Codec"
-        };
+        var audioFormatRows = AudioFormatRows.ToList();
 
         if (HasRecommendedAudioFormat)
-        {
             audioFormatRows.Add(RecommendedAudioFormat);
-        }
 
         return audioFormatRows.Concat(SortedAudioFormats);
     }
 
     public IEnumerable<string> GetVideoFormatRows()
     {
-        var videoFormatRows = new List<string>
-        {
-            "Resolution / Bitrate / Format / Type / Additional Info"
-        };
+        var videoFormatRows = VideoFormatRows.ToList();
 
         if (HasRecommendedVideoFormat)
-        {
             videoFormatRows.Add(RecommendedVideoFormat);
-        }
 
         return videoFormatRows.Concat(GetReversedVideoFormats); // TODO: optimize this out
     }

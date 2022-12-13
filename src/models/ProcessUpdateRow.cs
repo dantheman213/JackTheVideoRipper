@@ -1,15 +1,20 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
+using JackTheVideoRipper.views;
 
-namespace JackTheVideoRipper;
+namespace JackTheVideoRipper.models;
 
-public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow
+public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDynamicRow
 {
     #region Data Members
 
     public ListViewItem ViewItem { get; }
 
     public string Tag { get; } = Common.CreateTag();
+    
+    private FrameConsole? _frameConsole;
+    
+    private bool _consoleOpened;
 
     #endregion
 
@@ -83,20 +88,82 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow
         base(mediaItem.MediaParameters.ToString(), completionCallback)
     {
         ViewItem = CreateListViewItem(mediaItem);
+        History.Data.AddHistoryItem(Tag, mediaItem);
+        Buffer.AddLog($"Process initialized at: {DateTime.Now:G}", ProcessLogType.Info);
     }
         
+    #endregion
+
+    #region Public Methods
+
+    private string GetFileName(string filepath) => System.IO.Path.GetFileName(filepath);
+
+    public void OpenInConsole()
+    {
+        if (_consoleOpened)
+            return;
+
+        string processName = GetFileName(FileName);
+        string filename = GetFileName(Path);
+
+        string instanceName = processName.HasValue() && filename.HasValue() ?
+            $"{processName} | {filename}" : string.Empty;
+        _frameConsole = Output.OpenConsoleWindow(instanceName, OnCloseConsole);
+        //_frameConsole.ConsoleControl.InternalRichTextBox.Text = Buffer.GetLogMessages().MergeReturn();
+        Buffer.WriteLogsToConsole(_frameConsole.ConsoleControl);
+        Buffer.LogAdded += OnLogAdded;
+
+        _consoleOpened = true;
+    }
+
+    private void OnLogAdded(ProcessLogNode logNode)
+    {
+        Core.RunInMainThread(() => { _frameConsole?.ConsoleControl.WriteLog(logNode); });
+    }
+    
+    public void OnCloseConsole(object? sender, FormClosedEventArgs args)
+    {
+        // Disconnect output handler?
+        _frameConsole = null;
+        _consoleOpened = false;
+    }
+
     #endregion
     
     #region Overrides
 
-    public override void Update()
+    public override async Task<bool> Update()
     {
-        base.Update();
+        if (!await base.Update())
+            return false;
 
         if (GetStatus() is not { } status || status.IsNullOrEmpty())
-            return;
+            return false;
         
-        UpdateStatus(status);
+        Core.RunInMainThread(() =>
+        {
+            UpdateStatus(status);
+        });
+
+        return true;
+    }
+
+    public override async Task<bool> Start()
+    {
+        if (!await base.Start())
+            return false;
+
+        History.Data.MarkStarted(Tag);
+
+        return true;
+    }
+
+    protected override void Complete()
+    {
+        base.Complete();
+        
+        History.Data.MarkCompleted(Tag, result:ProcessStatus);
+        Buffer.AddLog($"Process completed at: {DateTime.Now:G}", ProcessLogType.Info);
     }
 
     protected override bool SetProcessStatus(ProcessStatus processStatus)
@@ -104,8 +171,12 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow
         if (!base.SetProcessStatus(processStatus))
             return false;
 
-        UpdateRowColors(processStatus);
-        SetDefaultMessages(processStatus);
+        Core.RunInMainThread(() =>
+        {
+            UpdateRowColors(processStatus);
+            SetDefaultMessages(processStatus);
+        });
+        
         return true;
     }
 
@@ -116,7 +187,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow
     protected void UpdateStatus(string statusMessage)
     {
         Status = statusMessage;
-        
+
         if (Buffer.TokenizedProcessLine is not { Length: >= 8 } tokens)
             return;
             
@@ -143,6 +214,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow
     {
         Color = processStatus switch
         {
+            ProcessStatus.Queued    => Color.Bisque,
             ProcessStatus.Running   => Color.Turquoise,
             ProcessStatus.Cancelled => Color.LightYellow,
             ProcessStatus.Completed => Color.LightGreen,
@@ -175,8 +247,12 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow
         {
             default:
             case ProcessStatus.Succeeded:
-            case ProcessStatus.Queued:
+                break;
             case ProcessStatus.Running:
+                SetValues(Statuses.STARTING);
+                break;
+            case ProcessStatus.Queued:
+                SetValues(Statuses.QUEUED);
                 break;
             case ProcessStatus.Created:
                 SetValues(Statuses.WAITING,

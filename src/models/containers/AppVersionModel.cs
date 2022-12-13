@@ -26,7 +26,7 @@ namespace JackTheVideoRipper.models
         {
             return new AppVersionModel
             {
-                VersionString = (await GetVersionFromServer())?.Remove("\n") ?? string.Empty
+                VersionString = (await GetVersionFromServer())?.Remove("\n").ValueOrDefault()!
             };
         }
         
@@ -35,11 +35,9 @@ namespace JackTheVideoRipper.models
             HttpResponseMessage response = await FileSystem.SimpleWebQueryAsync(_ASSEMBLY_INFO_FILE_URL);
 
             if (response.IsSuccessStatusCode)
-            {
                 return response.GetResponse();
-            }
             
-            Console.WriteLine(@$"Failed to download {response.ResponseCode()})");
+            Output.WriteLine(@$"Failed to download {response.ResponseCode()})");
             return null;
         }
     }

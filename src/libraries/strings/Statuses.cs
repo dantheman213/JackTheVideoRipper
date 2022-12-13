@@ -10,4 +10,6 @@ public static class Statuses
     public const string CANCELLED = "Cancelled";
     public const string IDLE = "Idle";
     public const string PAUSED = "Paused";
+    public const string QUEUED = "Queued";
+    public const string STARTING = "Starting";
 }

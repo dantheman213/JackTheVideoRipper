@@ -1,11 +1,7 @@
 ﻿namespace JackTheVideoRipper.interfaces;
 
-public interface IProcessUpdateRow : IProcessRunner
+public interface IProcessUpdateRow : IProcessRunner, IListViewItemRow
 {
-    public ListViewItem ViewItem { get; }
-
-    public string Tag { get; }
-
     public string Title
     {
         get => ViewItem.SubItems[0].Text;
@@ -65,4 +61,8 @@ public interface IProcessUpdateRow : IProcessRunner
         get => ViewItem.BackColor;
         set => ViewItem.BackColor = value;
     }
+
+    void OpenInConsole();
+
+    void SaveLogs();
 }

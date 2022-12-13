@@ -1,9 +1,10 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
-using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.modules;
+using JackTheVideoRipper.views;
 
-namespace JackTheVideoRipper;
+namespace JackTheVideoRipper.models;
 
 public class MediaManager
 {
@@ -17,7 +18,7 @@ public class MediaManager
 
     public IProcessUpdateRow? GetRow(string tag) => _processPool.Get(tag);
 
-    public IProcessUpdateRow? Selected => _processPool.Selected;
+    public IProcessUpdateRow Selected => _processPool.Selected;
 
     public string ToolbarStatus => $"{GetProgramStatus(),-20}"; // 20 chars
 
@@ -67,9 +68,9 @@ public class MediaManager
         _processPool.RetryAllProcesses();
     }
 
-    public void UpdateListItemRows()
+    public async Task UpdateListItemRows()
     {
-        _processPool.Update();
+        await _processPool.Update();
     }
 
     public void PauseAll()
@@ -93,17 +94,17 @@ public class MediaManager
 
     public void RemoveCompleted()
     {
-        _processPool.RemoveCompleted().ForEach(ProcessRemoved);
+        Parallel.ForEach(_processPool.RemoveCompleted(), ProcessRemoved);
     }
 
     public void RemoveFailed()
     {
-        _processPool.RemoveFailed().ForEach(ProcessRemoved);
+        Parallel.ForEach(_processPool.RemoveFailed(), ProcessRemoved);
     }
 
     public void QueueProcess(IMediaItem row)
     {
-        ProcessAdded(_processPool.QueueDownloadProcess(row));
+        Core.RunInMainThread(() => ProcessAdded(_processPool.QueueDownloadProcess(row)));
     }
 
     public void QueueBatchDownloads()
@@ -116,21 +117,27 @@ public class MediaManager
         if (FrameNewMediaBatch.GetMedia(urls) is not { } items)
             return;
 
-        items.ForEach(QueueProcess);
+        HashSet<string> existingUrls = _processPool
+            .GetOfType<DownloadProcessUpdateRow>()
+            .Select(r => r.Url)
+            .ToHashSet();
+
+        // TODO: Async?
+        Parallel.ForEach(items.Where(i => !existingUrls.Contains(i.Url)), QueueProcess);
         QueueBatchDownloads();
     }
 
     public void BatchDocument()
     {
-        if (FileSystem.GetFileUsingDialog() is not { } fileContent)
+        if (FileSystem.ReadFileUsingDialog() is not { } fileContent)
             return;
 
         DownloadBatch(Import.GetAllUrlsFromPayload(fileContent).MergeReturn());
     }
 
-    public void BatchPlaylist()
+    public async void BatchPlaylist()
     {
-        if (FrameImportPlaylist.GetMetadata() is not { } youTubeLinks)
+        if (await FrameImportPlaylist.GetMetadata() is not { } youTubeLinks)
             return;
 
         DownloadBatch(youTubeLinks.MergeReturn());
@@ -138,9 +145,29 @@ public class MediaManager
 
     public void DownloadMediaDialog(MediaType type)
     {
+        if (Settings.Data.SkipMetadata)
+        {
+            GetNewMediaSimple(type);
+        }
+        else
+        {
+            GetNewMedia(type);
+        }
+    }
+
+    private void GetNewMedia(MediaType type)
+    {
         if (FrameNewMedia.GetMedia(type) is not { } mediaItemRow)
             return;
+            
+        QueueProcess(mediaItemRow);
+    }
 
+    private void GetNewMediaSimple(MediaType type)
+    {
+        if (FrameNewMediaSimple.GetMedia(type) is not { } mediaItemRow)
+            return;
+            
         QueueProcess(mediaItemRow);
     }
 
@@ -180,19 +207,16 @@ public class MediaManager
 
     public bool SelectedHasStatus(ProcessStatus processStatus)
     {
-        return Selected?.ProcessStatus == processStatus;
+        return Selected.ProcessStatus == processStatus;
     }
 
     public void PerformContextAction(ContextActions contextAction)
     {
-        if (Selected is null)
-            return;
-
-        // TODO: These will throw when the Selected doesn't meet criteria...
         switch (contextAction)
         {
-            case ContextActions.OpenMedia when Selected.Completed:
-                Common.OpenFileInMediaPlayer(Selected.Path);
+            case ContextActions.OpenMedia:
+                if (Selected.Completed)
+                    Common.OpenFileInMediaPlayer(Selected.Path);
                 break;
             case ContextActions.Copy:
                 Core.CopyToClipboard(Selected.Url);
@@ -200,11 +224,13 @@ public class MediaManager
             case ContextActions.Delete:
                 RemoveProcess(Selected.Tag);
                 break;
-            case ContextActions.Stop when !Selected.Completed:
-                StopSelectedProcess();
+            case ContextActions.Stop:
+                if (!Selected.Completed)
+                    StopSelectedProcess();
                 break;
-            case ContextActions.Retry when Selected.Failed:
-                RetryProcess(Selected.Tag);
+            case ContextActions.Retry:
+                if (Selected.Failed)
+                    RetryProcess(Selected.Tag);
                 break;
             case ContextActions.OpenUrl:
                 Common.OpenInBrowser(Selected.Url);
@@ -212,11 +238,19 @@ public class MediaManager
             case ContextActions.Reveal:
                 FileSystem.OpenFolder(Selected.Path);
                 break;
-            case ContextActions.Resume when Selected.Paused:
-                ResumeProcess(Selected.Tag);
+            case ContextActions.Resume:
+                if (Selected.Paused)
+                    ResumeProcess(Selected.Tag);
                 break;
-            case ContextActions.Remove when Selected.Finished:
-                FileSystem.DeleteIfExists(Selected.Path);
+            case ContextActions.Remove:
+                if (Selected.Finished)
+                    FileSystem.DeleteFileIfExists(Selected.Path);
+                break;
+            case ContextActions.OpenConsole:
+                Selected.OpenInConsole();
+                break;
+            case ContextActions.SaveLogs:
+                Selected.SaveLogs();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(contextAction), contextAction, null);
@@ -239,7 +273,6 @@ public class MediaManager
 
     private void ProcessCompletionCallback(IProcessUpdateRow processUpdateRow)
     {
-        Core.SendNotification($"\"{processUpdateRow.Title.TruncateEllipse(35)}\" finished downloading!");
         UpdateProcessQueue();
     }
 
@@ -268,14 +301,18 @@ public class MediaManager
         _processPool.Get(tag)?.Stop();
     }
 
-    public void StopProcess(IProcessUpdateRow? processUpdateRow)
-    {
-        processUpdateRow?.Stop();
-    }
-
     public void StopSelectedProcess()
     {
-        Selected?.Stop();
+        Selected.Stop();
+    }
+
+    public static void VerifyIntegrity()
+    {
+        if (FileSystem.GetFilePathUsingDialog() is not { } filepath)
+            return;
+        
+        Output.WriteLine($"Verifying file: {filepath.WrapQuotes()}");
+        Output.WriteLine(FFMPEG.VerifyIntegrity(filepath), sendAsNotification:true);
     }
 
     #endregion

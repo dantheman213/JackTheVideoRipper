@@ -74,7 +74,8 @@ namespace JackTheVideoRipper
 
         public static string CreateTag()
         {
-            return $"{RandomString(5)}{DateTime.UtcNow.Ticks}";
+            //return $"{RandomString(5)}{DateTime.UtcNow.Ticks}";
+            return Guid.NewGuid().ToString();
         }
 
         #endregion

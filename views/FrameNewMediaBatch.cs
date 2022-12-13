@@ -1,4 +1,5 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
 using JackTheVideoRipper.modules;
 
@@ -90,7 +91,7 @@ namespace JackTheVideoRipper
                 return;
             
             // make sure any copy pasting from other sources still has proper windows newlines
-            Urls = urls.Remove("\r").Replace("\n", "\r\n");
+            Urls = ReformatUrls(urls);
         }
 
         #endregion
@@ -113,7 +114,7 @@ namespace JackTheVideoRipper
             if (Urls.IsNullOrEmpty())
                 return;
             
-            Urls.SplitReturn(StringSplitOptions.RemoveEmptyEntries).ForEach(ProcessUrl);
+            Urls.SplitReturn(StringSplitOptions.RemoveEmptyEntries).Distinct().ForEach(ProcessUrl);
 
             DialogResult = DialogResult.OK;
             Close();
@@ -202,24 +203,29 @@ namespace JackTheVideoRipper
         {
             Items.Add(new DownloadMediaItem
             {
-                Title = YouTubeDL.GetTitle(mediaParameters.MediaSourceUrl),
+                Title = string.Empty,
                 Filepath = string.Empty,
                 MediaParameters = mediaParameters,
                 Url = mediaParameters.MediaSourceUrl,
                 MediaType = Type
             });
         }
+
+        private Notification InvalidUrlNotification(string url)
+        {
+            return new Notification($"Invalid URL detected, skipping: {url.WrapQuotes()}", this);
+        }
         
         private void ProcessUrl(string url)
         {
             if (url.Invalid(FileSystem.IsValidUrl))
             {
-                Core.SendNotification($"Invalid URL detected, skipping: {url}"); //< Push to notification bar
+                NotificationsManager.SendNotification(InvalidUrlNotification(url)); //< Push to notification bar
                 //Modals.Warning($@"Invalid URL detected, skipping: {url}", @"Invalid URL");
                 return;
             }
 
-            AddItem(new MediaParameters
+            AddItem(new MediaParameters(url)
             {
                 ExportAudio = ExportAudio,
                 ExportVideo = ExportVideo,
@@ -231,7 +237,7 @@ namespace JackTheVideoRipper
                 EmbedThumbnail = EmbedThumbnail,
                 EmbedSubtitles = EmbedSubtitles,
                 FilenameFormatted = FilePathTemplate,
-                MediaSourceUrl = url
+                RunMultiThreaded = Settings.Data.EnableMultiThreadedDownloads
             });
         }
 
@@ -248,6 +254,11 @@ namespace JackTheVideoRipper
                 return null;
 
             return items;
+        }
+        
+        private static string ReformatUrls(string urls)
+        {
+            return urls.Remove("\r").Replace("\n", "\r\n");
         }
 
         #endregion
