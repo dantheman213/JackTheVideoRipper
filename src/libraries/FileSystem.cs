@@ -577,7 +577,7 @@ public static class FileSystem
     
     public static long GetFileSize(string filepath)
     {
-        return filepath.Valid(File.Exists) ? new FileInfo(filepath).Length : -1; //< in Bytes
+        return filepath.Valid(File.Exists) ? new FileInfo(filepath).Length : 0; //< in Bytes
     }
     
     public static string GetFileSizeFormatted(string filepath)
