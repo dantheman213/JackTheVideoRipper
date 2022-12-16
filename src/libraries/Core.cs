@@ -221,21 +221,6 @@ public static class Core
 
     #region Task Scheduling
     
-    public static void RunInMainThread(Action action)
-    {
-        FrameMain.QueueAction(action);
-    }
-    
-    public static void RunInMainThread<T>(Action<T> action)
-    {
-        FrameMain.QueueAction(action);
-    }
-
-    public static IAsyncResult RunInMainThreadAsync(Func<Task> action)
-    {
-        return FrameMain.QueueActionAsync(action);
-    }
-    
     // https://stackoverflow.com/questions/15428604/how-to-run-a-task-on-a-custom-taskscheduler-using-await
 
     public static Task RunTaskInMainThread(Func<Task> func)

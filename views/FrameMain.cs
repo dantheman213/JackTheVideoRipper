@@ -72,25 +72,6 @@ namespace JackTheVideoRipper
             notificationStatusLabel.Text = string.Empty;
         }
 
-        private readonly List<IAsyncResult> _queuedActions = new();
-
-        public void QueueAction(Action updateModuleAction)
-        {
-            UpdateModule(updateModuleAction);
-        }
-        
-        public void QueueAction<T>(Action<T> updateModuleAction)
-        {
-            UpdateModule(updateModuleAction);
-        }
-        
-        public IAsyncResult QueueActionAsync(Func<Task> updateModuleAction)
-        {
-            IAsyncResult asyncResult = UpdateModuleAsync(updateModuleAction);
-            _queuedActions.Add(asyncResult);
-            return asyncResult;
-        }
-
         #endregion
 
         #region Private Methods
@@ -113,16 +94,6 @@ namespace JackTheVideoRipper
                 return;
             
             _rowUpdateTask = UpdateModuleAsync(_mediaManager.UpdateListItemRows);
-        }
-        
-        private void UpdateModule(Action updateModuleAction)
-        {
-            Invoke(updateModuleAction, null);
-        }
-        
-        private void UpdateModule<T>(Action<T> updateModuleAction)
-        {
-            Invoke(updateModuleAction, null);
         }
         
         private IAsyncResult UpdateModuleAsync(Func<Task> updateModuleAction)
@@ -237,8 +208,6 @@ namespace JackTheVideoRipper
 
             if (_rowUpdateTask is not null)
                 EndInvoke(_rowUpdateTask);
-            
-            _queuedActions.Where(a => !a.IsCompleted).ForEach(a => EndInvoke(a));
 
             await Core.Shutdown();
         }
