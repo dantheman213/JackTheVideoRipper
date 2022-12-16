@@ -1,6 +1,5 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
-using JackTheVideoRipper.views;
 
 namespace JackTheVideoRipper.models;
 
@@ -12,9 +11,13 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
 
     public string Tag { get; } = Common.CreateTag();
     
-    private FrameConsole? _frameConsole;
-    
-    private bool _consoleOpened;
+    private readonly Console _console = new();
+
+    #endregion
+
+    #region Attributes
+
+    private static string GetFileName(string filepath) => System.IO.Path.GetFileName(filepath);
 
     #endregion
 
@@ -89,45 +92,16 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     {
         ViewItem = CreateListViewItem(mediaItem);
         History.Data.AddHistoryItem(Tag, mediaItem);
-        Buffer.AddLog("Process initialized", ProcessLogType.Info);
+        InitializeBuffer();
     }
     
     #endregion
 
     #region Public Methods
 
-    private string GetFileName(string filepath) => System.IO.Path.GetFileName(filepath);
-
-    public void OpenInConsole()
+    public async Task OpenInConsole()
     {
-        if (_consoleOpened && (_frameConsole?.Visible ?? false))
-        {
-            _frameConsole.Activate();
-            return;
-        }
-        
-        string processName = GetFileName(FileName);
-        string filename = GetFileName(Path);
-
-        string instanceName = processName.HasValue() && filename.HasValue() ?
-            $"{processName} | {filename}" : string.Empty;
-        _frameConsole = Output.OpenConsoleWindow(instanceName, OnCloseConsole);
-        Buffer.WriteLogsToConsole(_frameConsole.ConsoleControl);
-        Buffer.LogAdded += OnLogAdded;
-
-        _consoleOpened = true;
-    }
-
-    private void OnLogAdded(ProcessLogNode logNode)
-    {
-        Core.RunInMainThread(() => { _frameConsole?.ConsoleControl.WriteLog(logNode); });
-    }
-    
-    public void OnCloseConsole(object? sender, FormClosedEventArgs args)
-    {
-        // Disconnect output handler?
-        _frameConsole = null;
-        _consoleOpened = false;
+        await Task.Run(() => _console.Open(GetInstanceName()));
     }
 
     #endregion
@@ -142,10 +116,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
         if (GetStatus() is not { } status || status.IsNullOrEmpty())
             return false;
         
-        Core.RunInMainThread(() =>
-        {
-            UpdateStatus(status);
-        });
+        await Core.RunTaskInMainThread(() => UpdateStatus(status));
 
         return true;
     }
@@ -175,7 +146,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
         if (!base.SetProcessStatus(processStatus))
             return false;
 
-        Core.RunInMainThread(() =>
+        Core.RunTaskInMainThread(() =>
         {
             UpdateRowColors(processStatus);
             SetDefaultMessages(processStatus);
@@ -213,6 +184,24 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     #endregion
 
     #region Private Methods
+    
+    private void InitializeBuffer()
+    {
+        Buffer.LogAdded += OnLogAdded;
+        Buffer.AddLog("Process initialized", ProcessLogType.Info);
+    }
+
+    private string GetInstanceName()
+    {
+        string processName = GetFileName(FileName);
+        string filename = GetFileName(Path);
+        return processName.HasValue() && filename.HasValue() ? $"{processName} | {filename}" : string.Empty;
+    }
+
+    private void OnLogAdded(ProcessLogNode logNode)
+    {
+        _console.QueueLog(logNode);
+    }
 
     private void UpdateRowColors(ProcessStatus processStatus)
     {

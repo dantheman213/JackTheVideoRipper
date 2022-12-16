@@ -116,8 +116,7 @@ namespace JackTheVideoRipper
             
             Urls.SplitReturn(StringSplitOptions.RemoveEmptyEntries).Distinct().ForEach(ProcessUrl);
 
-            DialogResult = DialogResult.OK;
-            Close();
+            this.Close(DialogResult.OK);
         }
 
         private void ButtonLocationBrowse_Click(object sender, EventArgs e)
@@ -249,7 +248,7 @@ namespace JackTheVideoRipper
         {
             FrameNewMediaBatch frameNewMediaBatch = new(urls);
 
-            if (frameNewMediaBatch.ShowDialog() != DialogResult.OK ||
+            if (!frameNewMediaBatch.Confirm() ||
                 frameNewMediaBatch.Items is not {Count: > 0} items)
                 return null;
 

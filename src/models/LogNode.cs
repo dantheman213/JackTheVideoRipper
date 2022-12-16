@@ -1,6 +1,8 @@
-﻿namespace JackTheVideoRipper.models;
+﻿using JackTheVideoRipper.interfaces;
 
-public readonly struct LogNode
+namespace JackTheVideoRipper.models;
+
+public readonly struct LogNode : ILogNode
 {
     public readonly DateTime DateTime;
     public readonly string Message;
@@ -11,5 +13,13 @@ public readonly struct LogNode
         DateTime = dateTime;
         Message = message;
         Color = color;
+    }
+
+    public IReadOnlyList<ConsoleLine> Serialize()
+    {
+        return new[]
+        {
+            new ConsoleLine($"[{DateTime:G}]: {Message}") { Color = Color }   
+        };
     }
 }

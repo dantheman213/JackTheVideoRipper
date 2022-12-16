@@ -42,8 +42,7 @@ namespace JackTheVideoRipper
         private void buttonImport_Click(object sender, EventArgs e)
         {
             Url = TextUrl;
-            DialogResult = DialogResult.OK;
-            Close();
+            this.Close(DialogResult.OK);
         }
 
         #endregion
@@ -54,7 +53,7 @@ namespace JackTheVideoRipper
         {
             FrameImportPlaylist frameImportPlaylist = new();
             
-            if (frameImportPlaylist.ShowDialog() != DialogResult.OK || 
+            if (!frameImportPlaylist.Confirm() || 
                 await YouTubeDL.GetPlaylistMetadata(frameImportPlaylist.Url) is not { } items)
                 return null;
 

@@ -42,7 +42,7 @@ public static class FileSystem
     public static readonly string TempPath = Path.GetTempPath();
 
     public static readonly string PathSeparator = Path.DirectorySeparatorChar.ToString();
-    
+
     public static class Paths
     {
         public static readonly string AppPath = Path.GetDirectoryName(MainModule?.FileName).ValueOrDefault();
@@ -60,6 +60,8 @@ public static class FileSystem
     #region Attributes
 
     public static string TempFile => Path.GetTempFileName();
+    
+    public static Version OSVersion => Environment.OSVersion.Version;
 
     public static FileVersionInfo FileVersionInfo => FileVersionInfo.GetVersionInfo(ExecutingAssembly.Location);
 
@@ -111,16 +113,16 @@ public static class FileSystem
         CreateFolder(MergePaths(pathHierarchy));
     }
 
-    public static void OpenDownloads()
+    public static async Task OpenDownloads()
     {
-        OpenFolder(Settings.Data.DefaultDownloadPath);
+        await OpenFolder(Settings.Data.DefaultDownloadPath);
     }
     
-    public static void OpenFolder(string? folderPath)
+    public static async Task OpenFolder(string? folderPath)
     {
         if (folderPath.HasValue() && Directory.Exists(folderPath))
         {
-            OpenFileExplorer(folderPath);
+            await OpenFileExplorer(folderPath);
         }
         else
         {
@@ -230,11 +232,20 @@ public static class FileSystem
     
     public static async Task<int> RunProcessAsync(string filepath, string args)
     {
-        using Process process = CreateProcess(filepath, args, enableRaisingEvents: true);
-        return await RunProcessAsync(process).ConfigureAwait(false);
+        return await RunProcessAsync(CreateProcess(filepath, args, enableRaisingEvents: true));
     }
     
-    private static Task<int> RunProcessAsync(Process process, bool startProcess = false, bool logOutput = false, 
+    public static async Task<int> RunProcessAsync(ProcessStartInfo processStartInfo)
+    {
+        return await RunProcessAsync(CreateProcess(processStartInfo, enableRaisingEvents: true));
+    }
+    
+    public static async Task<int> RunProcessAsync(Process process)
+    {
+        return await CreateProcessAsync(process, true).ConfigureAwait(false);
+    }
+    
+    private static Task<int> CreateProcessAsync(Process process, bool startProcess = false, bool logOutput = false, 
         bool throwExceptions = true)
     {
         TaskCompletionSource<int> taskCompletionSource = new();
@@ -277,6 +288,23 @@ public static class FileSystem
         LogExceptions(() => { if (!process.Start()) { Log(Resources.ProcessAlreadyRunning); } });
         return process;
     }
+    
+    public static async Task<Process> TryStartProcessAsync(ProcessStartInfo processStartInfo)
+    {
+        return await TryStartProcessAsync(CreateProcess(processStartInfo));
+    }
+
+    public static async Task<Process> TryStartProcessAsync(Process process)
+    {
+        await LogExceptionsAsync(async () =>
+        {
+            if (await CreateProcessAsync(process, true) == 0)
+            {
+                Log(Resources.ProcessAlreadyRunning);
+            }
+        });
+        return process;
+    }
 
     #endregion
 
@@ -291,7 +319,7 @@ public static class FileSystem
         bool runAsAdmin = false)
     {
         Process process = CreateProcess(binPath, paramString, workingDir, runAsAdmin);
-        await RunProcessAsync(process, true).ConfigureAwait(false);
+        await CreateProcessAsync(process, true).ConfigureAwait(false);
         return process.GetOutput();
     }
 
@@ -361,18 +389,18 @@ public static class FileSystem
 
     #region Program Methods
 
-    public static Process? OpenFileExplorer(string directory)
+    public static async Task OpenFileExplorer(string directory)
     {
-        return Process.Start(new ProcessStartInfo
+        await RunProcessAsync(new ProcessStartInfo
         {
             Arguments = directory,
             FileName = _EXPLORER_EXECUTABLE
         });
     }
 
-    public static Process? OpenTaskManager()
+    public static async Task OpenTaskManager()
     {
-        return TryStartProcess(new ProcessStartInfo
+        await TryStartProcessAsync(new ProcessStartInfo
         {
             CreateNoWindow = false,
             UseShellExecute = true,
@@ -381,15 +409,15 @@ public static class FileSystem
         });
     }
     
-    public static void OpenFileExplorerWithFileSelected(string filePath)
+    public static async Task OpenFileExplorerWithFileSelected(string filePath)
     {
-        Process.Start(_EXPLORER_EXECUTABLE, $"/select, {filePath.WrapQuotes()}");
+        await OpenFileExplorer($"/select, {filePath.WrapQuotes()}");
     }
     
     public static async Task<bool> InstallProgram(string downloadUrl, string filename)
     {
-        string downloadPath = Path.Join(Paths.Install, filename);
-        return downloadUrl.Valid(IsValidUrl) && (await DownloadWebFileAsync(downloadUrl, downloadPath)).HasValue();
+        return downloadUrl.Valid(IsValidUrl) && 
+               (await DownloadWebFileAsync(downloadUrl, Path.Join(Paths.Install, filename))).HasValue();
     }
 
     #endregion
@@ -478,9 +506,15 @@ public static class FileSystem
 
     #region File Methods
 
+    public static Mutex CreateSingleInstanceLock(out bool isOnlyInstance)
+    {
+       return new Mutex(true, PROGRAM_NAME, out isOnlyInstance);
+    }
+
     public static bool WarnIfFileExists(string filepath)
     {
-        return !File.Exists(filepath) || Modals.Confirmation(Resources.OverwriteFile, Properties.Captions.FileAlreadyExists);
+        return !File.Exists(filepath) ||
+               Modals.Confirmation(Resources.OverwriteFile, Properties.Captions.FileAlreadyExists);
     }
     
     public static void SaveToFile(string filepath, string content)
@@ -488,27 +522,24 @@ public static class FileSystem
         File.WriteAllText(filepath, content);
     }
 
-    public static string GetTempFilename(string ext)
+    public static string GetTempFilename(string extension, string? prefix = null)
     {
-        return MergePaths(TempPath, $"{_PROGRAM_PREFIX}_thumbnail_{TimeStampDate}.{ext}");
+        return MergePaths(TempPath, 
+            $"{_PROGRAM_PREFIX}_{(prefix is null ? $"{prefix}_" : string.Empty)}{TimeStampDate}.{extension}");
     }
     
-    public static void OpenFile(string filepath, bool openDownloadsIfNull)
+    public static async Task OpenFile(string filepath, bool openDownloadsIfNull)
     {
         if (filepath.HasValue() && File.Exists(filepath))
         {
-            OpenFileExplorerWithFileSelected(filepath);
-        }
-        else if (filepath.HasValue() && File.Exists($"{filepath}.part"))
-        {
-            OpenFileExplorerWithFileSelected($"{filepath}.part");
+            await OpenFileExplorerWithFileSelected(filepath);
         }
         else
         {
             // couldn't find folder, rolling back to just the folder with no select
             Log(string.Format(Resources.CouldNotOpenFile, filepath.WrapQuotes()));
             if (openDownloadsIfNull)
-                OpenDownloads();
+                await OpenDownloads();
         }
     }
     
@@ -518,10 +549,10 @@ public static class FileSystem
         {
             InitialDirectory = GetDirectory(filepath),  
             FileName = GetFilename(filepath),
-            Filter = GetFileFilterWithAll(GetExtension(filepath))
+            Filter = GetFileFilter(GetExtension(filepath), includeAll:true)
         };
 
-        return saveFileDialog.ShowDialog() == DialogResult.OK ? saveFileDialog.FileName : null;
+        return saveFileDialog.Confirm() ? saveFileDialog.FileName : null;
     }
 
     public static string GetFilename(string filepath)
@@ -549,14 +580,9 @@ public static class FileSystem
         return path.Contains(Path.DirectorySeparatorChar) ? path.BeforeLast(PathSeparator) : path;
     }
 
-    public static string GetFileFilter(string extension)
+    public static string GetFileFilter(string extension, bool includeAll = false)
     {
-        return $@"{extension} file|*.{extension}";
-    }
-
-    public static string GetFileFilterWithAll(string extension)
-    {
-        return $@"{extension} file|*.{extension}|{Filters.AllFiles}";
+        return $@"{extension} file|*.{extension}{(includeAll ? $"|{Filters.AllFiles}" : string.Empty)}";
     }
     
     public static string ValidateFilename(string filepath)
@@ -573,6 +599,11 @@ public static class FileSystem
     {
         if (File.Exists(filepath))
             File.Delete(filepath);
+    }
+
+    public static string CreateDownloadPath(string filename, params string[] folderHierarchy)
+    {
+        return Path.Combine(folderHierarchy.Prepend(Settings.Data.DefaultDownloadPath).Append(filename).ToArray());
     }
     
     public static long GetFileSize(string filepath)
@@ -649,7 +680,12 @@ public static class FileSystem
 
     public static void SetClipboardText(string content)
     {
-        Clipboard.SetText(content);
+        void SetContent()
+        {
+            Clipboard.SetText(content);
+        }
+        
+        RunSTA(SetContent);
     }
 
     #endregion
@@ -695,7 +731,7 @@ public static class FileSystem
 
         void DialogHandler()
         {
-            if (fileDialog.ShowDialog() == DialogResult.Cancel)
+            if (!fileDialog.Confirm())
                 return;
             selectedPath = fileDialog.FileName;
         }
@@ -717,9 +753,7 @@ public static class FileSystem
         if (initialPath.HasValue())
             folderBrowserDialog.InitialDirectory = initialPath;
         
-        return folderBrowserDialog.ShowDialog() == DialogResult.OK ?
-            folderBrowserDialog.SelectedPath :
-            null;
+        return folderBrowserDialog.Confirm() ? folderBrowserDialog.SelectedPath : null;
     }
 
     #endregion
@@ -767,6 +801,20 @@ public static class FileSystem
     #endregion
 
     #region Logging
+
+    private static async Task<bool> LogExceptionsAsync(Func<Task> func)
+    {
+        try
+        {
+            await func();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogException(ex);
+            return false;
+        }
+    }
 
     private static bool LogExceptions(Action action)
     {

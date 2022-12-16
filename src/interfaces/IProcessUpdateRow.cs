@@ -62,7 +62,7 @@ public interface IProcessUpdateRow : IProcessRunner, IListViewItemRow
         set => ViewItem.BackColor = value;
     }
 
-    void OpenInConsole();
+    Task OpenInConsole();
 
     void SaveLogs();
 }

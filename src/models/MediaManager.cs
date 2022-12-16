@@ -16,7 +16,7 @@ public class MediaManager
 
     #region Attributes
 
-    public IProcessUpdateRow? GetRow(string tag) => _processPool.Get(tag);
+    public IProcessUpdateRow? GetRow(string tag) => _processPool.GetProcess(tag);
 
     public IProcessUpdateRow Selected => _processPool.Selected;
 
@@ -92,19 +92,39 @@ public class MediaManager
         return _processPool.PoolStatus;
     }
 
+    public void OnProcessRemoved(ListViewItem processViewItem)
+    {
+        ProcessRemoved(processViewItem);
+    }
+
+    public void OnProcessAdded(ListViewItem processViewItem)
+    {
+        ProcessAdded(processViewItem);
+    }
+
     public void RemoveCompleted()
     {
-        Parallel.ForEach(_processPool.RemoveCompleted(), ProcessRemoved);
+        Parallel.ForEach(_processPool.RemoveCompleted(), OnProcessRemoved);
     }
 
     public void RemoveFailed()
     {
-        Parallel.ForEach(_processPool.RemoveFailed(), ProcessRemoved);
+        Parallel.ForEach(_processPool.RemoveFailed(), OnProcessRemoved);
     }
 
-    public void QueueProcess(IMediaItem row)
+    public void AddRow(IMediaItem row)
     {
-        Core.RunInMainThread(() => ProcessAdded(_processPool.QueueDownloadProcess(row)));
+        OnProcessAdded(_processPool.QueueDownloadProcess(row));
+    }
+
+    public async Task QueueProcess(IMediaItem row)
+    {
+        await Core.RunTaskInMainThread(() => AddRow(row));
+    }
+    
+    public async ValueTask QueueProcessAsync(IMediaItem row, CancellationToken cancellationToken)
+    {
+        await Core.RunTaskInMainThread(() => AddRow(row));
     }
 
     public void QueueBatchDownloads()
@@ -112,9 +132,9 @@ public class MediaManager
         Common.RepeatInvoke(UpdateProcessQueue, Settings.Data.MaxConcurrentDownloads);
     }
 
-    public void DownloadBatch(string urls = "")
+    public async Task DownloadBatch(IEnumerable<string>? urls = null)
     {
-        if (FrameNewMediaBatch.GetMedia(urls) is not { } items)
+        if (FrameNewMediaBatch.GetMedia(urls?.MergeReturn() ?? string.Empty) is not { } items)
             return;
 
         HashSet<string> existingUrls = _processPool
@@ -122,53 +142,53 @@ public class MediaManager
             .Select(r => r.Url)
             .ToHashSet();
 
-        // TODO: Async?
-        Parallel.ForEach(items.Where(i => !existingUrls.Contains(i.Url)), QueueProcess);
+        IEnumerable<DownloadMediaItem> uniqueUrls = items.Where(i => !existingUrls.Contains(i.Url));
+        await Parallel.ForEachAsync(uniqueUrls, QueueProcessAsync);
         QueueBatchDownloads();
     }
 
-    public void BatchDocument()
+    public async Task BatchDocument()
     {
         if (FileSystem.ReadFileUsingDialog() is not { } fileContent)
             return;
 
-        DownloadBatch(Import.GetAllUrlsFromPayload(fileContent).MergeReturn());
+        await DownloadBatch(Import.GetAllUrlsFromPayload(fileContent));
     }
 
-    public async void BatchPlaylist()
+    public async Task BatchPlaylist()
     {
-        if (await FrameImportPlaylist.GetMetadata() is not { } youTubeLinks)
+        if (await FrameImportPlaylist.GetMetadata() is not { } links)
             return;
 
-        DownloadBatch(youTubeLinks.MergeReturn());
+        await DownloadBatch(links);
     }
 
-    public void DownloadMediaDialog(MediaType type)
+    public async Task DownloadMediaDialog(MediaType type)
     {
         if (Settings.Data.SkipMetadata)
         {
-            GetNewMediaSimple(type);
+            await GetNewMediaSimple(type);
         }
         else
         {
-            GetNewMedia(type);
+            await GetNewMedia(type);
         }
     }
 
-    private void GetNewMedia(MediaType type)
+    private async Task GetNewMedia(MediaType type)
     {
         if (FrameNewMedia.GetMedia(type) is not { } mediaItemRow)
             return;
             
-        QueueProcess(mediaItemRow);
+        await QueueProcess(mediaItemRow);
     }
 
-    private void GetNewMediaSimple(MediaType type)
+    private async Task GetNewMediaSimple(MediaType type)
     {
         if (FrameNewMediaSimple.GetMedia(type) is not { } mediaItemRow)
             return;
             
-        QueueProcess(mediaItemRow);
+        await QueueProcess(mediaItemRow);
     }
 
     public void RetryProcess(string tag)
@@ -187,7 +207,7 @@ public class MediaManager
 
     public void ResumeProcess(string tag)
     {
-        if (_processPool.Get(tag) is not { } result)
+        if (_processPool.GetProcess(tag) is not { } result)
             return;
 
         result.Resume();
@@ -210,13 +230,13 @@ public class MediaManager
         return Selected.ProcessStatus == processStatus;
     }
 
-    public void PerformContextAction(ContextActions contextAction)
+    public async Task PerformContextAction(ContextActions contextAction)
     {
         switch (contextAction)
         {
             case ContextActions.OpenMedia:
                 if (Selected.Completed)
-                    Common.OpenFileInMediaPlayer(Selected.Path);
+                    await Task.Run(() => Common.OpenFileInMediaPlayer(Selected.Path));
                 break;
             case ContextActions.Copy:
                 Core.CopyToClipboard(Selected.Url);
@@ -236,7 +256,7 @@ public class MediaManager
                 Common.OpenInBrowser(Selected.Url);
                 break;
             case ContextActions.Reveal:
-                FileSystem.OpenFolder(Selected.Path);
+                await FileSystem.OpenFolder(Selected.Path);
                 break;
             case ContextActions.Resume:
                 if (Selected.Paused)
@@ -247,7 +267,7 @@ public class MediaManager
                     FileSystem.DeleteFileIfExists(Selected.Path);
                 break;
             case ContextActions.OpenConsole:
-                Selected.OpenInConsole();
+                await Selected.OpenInConsole();
                 break;
             case ContextActions.SaveLogs:
                 Selected.SaveLogs();
@@ -298,7 +318,7 @@ public class MediaManager
 
     public void StopProcess(string tag)
     {
-        _processPool.Get(tag)?.Stop();
+        _processPool.GetProcess(tag)?.Stop();
     }
 
     public void StopSelectedProcess()

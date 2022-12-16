@@ -314,8 +314,7 @@ namespace JackTheVideoRipper
                     return;
 
                 GenerateDownloadCommand();
-                DialogResult = DialogResult.OK;
-                Close();
+                this.Close(DialogResult.OK);
             }
             else
             {
@@ -404,8 +403,7 @@ namespace JackTheVideoRipper
         
         private void Cancel()
         {
-            DialogResult = DialogResult.Cancel;
-            Close();
+            this.Close(DialogResult.Cancel);
         }
         
         #endregion
@@ -415,11 +413,7 @@ namespace JackTheVideoRipper
         public static MediaItemRow? GetMedia(MediaType type)
         {
             FrameNewMedia frameNewMedia = new(type);
-
-            if (frameNewMedia.ShowDialog() != DialogResult.OK)
-                return null;
-
-            return frameNewMedia.MediaItemRow;
+            return frameNewMedia.Confirm() ? frameNewMedia.MediaItemRow : null;
         }
 
         #endregion
@@ -474,13 +468,14 @@ namespace JackTheVideoRipper
 
         private async void TextUrl_TextChanged(object sender, EventArgs e)
         {
-            await Input.WaitForFinishTyping(() => Url);
+            await Input.WaitForFinishTyping(() => Url).ContinueWith(async _ =>
+            {
+                if (!ValidateUrl(Url))
+                    return;
 
-            if (!ValidateUrl(Url))
-                return;
-
-            if (!Settings.Data.SkipMetadata)
-                RetrieveMetadata();
+                if (!Settings.Data.SkipMetadata)
+                    await RetrieveMetadata();
+            });
         }
 
         #endregion

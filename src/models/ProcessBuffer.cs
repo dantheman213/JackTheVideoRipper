@@ -91,16 +91,6 @@ public class ProcessBuffer
         return GetResultWhere(r => r.Contains(str));
     }
 
-    public void WriteLogsToConsole(ConsoleControl.ConsoleControl consoleControl)
-    {
-        Core.RunInMainThreadAsync(async () =>
-        {
-            await Tasks.WaitUntil(() => consoleControl.Visible);
-            Log.Logs.ForEach(consoleControl.WriteLog);
-            consoleControl.Refresh();
-        });
-    }
-
     #endregion
 
     #region Private Methods

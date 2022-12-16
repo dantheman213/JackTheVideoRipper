@@ -25,13 +25,13 @@ public struct MetaData
         if (thumbnailUrl.Invalid(FileSystem.IsValidUrl))
             return string.Empty;
             
-        string urlExt = FileSystem.GetExtension(thumbnailUrl);
+        string urlExtension = FileSystem.GetExtension(thumbnailUrl);
             
         // allow jpg and png but don't allow webp since we'll convert that below
-        if (urlExt == _WEBP_EXTENSION)
-            urlExt = "jpg";
+        if (urlExtension == _WEBP_EXTENSION)
+            urlExtension = "jpg";
             
-        string tmpFilePath = FileSystem.GetTempFilename(urlExt);
+        string tmpFilePath = FileSystem.GetTempFilename(urlExtension, "thumbnail");
                 
         // popular format for saving thumbnails these days but PictureBox in WinForms can't handle it :( so we'll convert to jpg
         if (thumbnailUrl.EndsWith(_WEBP_EXTENSION))

@@ -13,6 +13,9 @@
     <Compile Update="views\FrameConvert.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="views\FrameErrorHandler.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="views\FrameHelp.cs">
       <SubType>Form</SubType>
     </Compile>

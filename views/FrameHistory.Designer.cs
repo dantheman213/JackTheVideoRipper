@@ -150,7 +150,7 @@
         private ColumnHeader Parameters;
         private ColumnHeader Filepath;
         private ColumnHeader MediaType;
-        private ColumnHeader Tag;
+        private new ColumnHeader Tag;
         private ColumnHeader DateStarted;
         private ColumnHeader DateFinished;
         private ColumnHeader Duration;

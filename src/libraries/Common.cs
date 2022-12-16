@@ -43,18 +43,14 @@ namespace JackTheVideoRipper
 
         public static void OpenInBrowser(string url)
         {
-            if (url.HasValue())
-            {
+            if (url.Valid(FileSystem.IsValidUrl))
                 FileSystem.GetWebResourceHandle(url);
-            }
         }
 
         public static void OpenFileInMediaPlayer(string filepath)
         {
             if (filepath.Valid(File.Exists))
-            {
                 FileSystem.GetWebResourceHandle(filepath);
-            }
         }
         
         public static void RepeatInvoke(Action action, int n, int sleepTime = 300)

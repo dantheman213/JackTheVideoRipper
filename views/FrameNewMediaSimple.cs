@@ -105,8 +105,7 @@ namespace JackTheVideoRipper.views
                     return;
 
                 GenerateDownloadCommand();
-                DialogResult = DialogResult.OK;
-                Close();
+                this.Close(DialogResult.OK);
             }
             else
             {
@@ -144,11 +143,7 @@ namespace JackTheVideoRipper.views
         public static MediaItemRow? GetMedia(MediaType type)
         {
             FrameNewMediaSimple frameNewMedia = new(type);
-
-            if (frameNewMedia.ShowDialog() != DialogResult.OK)
-                return null;
-
-            return frameNewMedia.MediaItemRow;
+            return frameNewMedia.Confirm() ? frameNewMedia.MediaItemRow : null;
         }
 
         #endregion
@@ -162,15 +157,14 @@ namespace JackTheVideoRipper.views
             
             buttonCancel.Click += (_, _) =>
             {
-                DialogResult = DialogResult.Cancel;
-                Close();
+                this.Close(DialogResult.Cancel);
             };
 
             buttonGetCommand.Click += (_, _) => GetCommand();
 
-            textUrl.TextChanged += (_, _) =>
+            textUrl.TextChanged += async (_, _) =>
             {
-                Input.WaitForFinishTyping(() => Url);
+                await Input.WaitForFinishTyping(() => Url);
                 ValidateUrl(Url);
             };
         }

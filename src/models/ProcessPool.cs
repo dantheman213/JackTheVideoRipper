@@ -78,9 +78,9 @@ public class ProcessPool
     
     public IEnumerable<IProcessUpdateRow> RunningProcesses => _runningProcesses.Processes;
     
-    public IEnumerable<IProcessUpdateRow> CompletedProcesses => GetAll(ProcessStatus.Completed);
+    public IEnumerable<IProcessUpdateRow> CompletedProcesses => GetWhereStatus(ProcessStatus.Completed);
     
-    public IEnumerable<IProcessUpdateRow> FailedProcesses => GetAll(ProcessStatus.Error);
+    public IEnumerable<IProcessUpdateRow> FailedProcesses => GetWhereStatus(ProcessStatus.Error);
 
     #endregion
 
@@ -92,12 +92,9 @@ public class ProcessPool
         if (!_runningProcesses.HasCached || _updating)
             return;
         
-        PerformAtomicOperation(async () =>
-        {
-            _updating = true;
-            await _runningProcesses.Cached.Update();
-            _updating = false;
-        });
+        _updating = true;
+        await _runningProcesses.Cached.Update();
+        _updating = false;
     }
 
     public bool Exists(IProcessUpdateRow processUpdateRow)
@@ -157,7 +154,7 @@ public class ProcessPool
 
     public bool RetryProcess(string tag)
     {
-        return Get(tag) is { } processUpdateRow && RetryProcess(processUpdateRow);
+        return GetProcess(tag) is { } processUpdateRow && RetryProcess(processUpdateRow);
     }
     
     public bool RetryProcess(IProcessUpdateRow processUpdateRow)
@@ -171,7 +168,7 @@ public class ProcessPool
     
     public void PauseProcess(string tag)
     {
-        if (Get(tag) is not { } processUpdateRow)
+        if (GetProcess(tag) is not { } processUpdateRow)
             return;
         
         PauseProcess(processUpdateRow);
@@ -186,7 +183,7 @@ public class ProcessPool
     
     public void ResumeProcess(string tag)
     {
-        if (Get(tag) is not { } processUpdateRow)
+        if (GetProcess(tag) is not { } processUpdateRow)
             return;
         
         ResumeProcess(processUpdateRow);
@@ -203,7 +200,7 @@ public class ProcessPool
     {
         bool result = true;
         
-        Parallel.ForEach(GetAll(ProcessStatus.Error), process =>
+        Parallel.ForEach(GetWhereStatus(ProcessStatus.Error), process =>
         {
             if (!RetryProcess(process))
                 result = false;
@@ -212,7 +209,7 @@ public class ProcessPool
         return result;
     }
 
-    public IProcessUpdateRow? Get(string tag)
+    public IProcessUpdateRow? GetProcess(string tag)
     {
         return Exists(tag) ? _processTable[tag] : null;
     }
@@ -222,34 +219,29 @@ public class ProcessPool
         Remove(Selected);
     }
 
-    public IEnumerable<IProcessUpdateRow> Where(Func<IProcessUpdateRow, bool> predicate)
+    public IEnumerable<IProcessUpdateRow> GetWhereStatus(ProcessStatus processStatus)
     {
-        return Processes.Where(predicate);
-    }
-
-    public IEnumerable<IProcessUpdateRow> GetAll(ProcessStatus processStatus)
-    {
-        return Where(p => p.ProcessStatus == processStatus);
+        return GetWhere(p => p.ProcessStatus == processStatus);
     }
     
-    public IEnumerable<IProcessUpdateRow> GetAll(params ProcessStatus[] statuses)
+    public IEnumerable<IProcessUpdateRow> GetWhereStatus(params ProcessStatus[] statuses)
     {
-        return GetAll(statuses.Aggregate(0u, (i, status) => i | (uint) status));
+        return GetWhereStatus(statuses.Aggregate(0u, (i, status) => i | (uint) status));
     }
     
-    public IEnumerable<IProcessUpdateRow> GetAll(uint status)
+    public IEnumerable<IProcessUpdateRow> GetWhereStatus(uint status)
     {
-        return Where(p => ((uint)p.ProcessStatus & status) > 0);
+        return GetWhere(p => ((uint)p.ProcessStatus & status) > 0);
     }
     
-    public IEnumerable<IProcessUpdateRow> GetAllFinished(ProcessStatus processStatus)
+    public IEnumerable<IProcessUpdateRow> GetFinished(ProcessStatus processStatus)
     {
         return _finishedProcesses.Where(p => p.ProcessStatus == processStatus);
     }
 
     public ListViewItem? Remove(string tag)
     {
-        if (Get(tag) is not { } processUpdateRow)
+        if (GetProcess(tag) is not { } processUpdateRow)
             return null;
 
         Remove(processUpdateRow);
@@ -294,7 +286,7 @@ public class ProcessPool
                 break;
             case ProcessStatus.Running:
                 processes = RunningProcesses.ToArray();
-                PerformAtomicOperationLoop(processes, RemoveRunning);
+                Parallel.ForEach(processes, RemoveRunning);
                 UpdateCachedRunning();
                 break;
             case ProcessStatus.Succeeded:
@@ -302,12 +294,12 @@ public class ProcessPool
             case ProcessStatus.Error:
             case ProcessStatus.Stopped:
             case ProcessStatus.Cancelled:
-                processes = GetAllFinished(processStatus).ToArray();
+                processes = GetFinished(processStatus).ToArray();
                 Parallel.ForEach(processes, RemoveFinished);
                 break;
             case ProcessStatus.Queued: // TODO:
             case ProcessStatus.Paused:
-                processes = GetAll(processStatus).ToArray();
+                processes = GetWhereStatus(processStatus).ToArray();
                 Parallel.ForEach(processes, RemovePaused);
                 break;
         }
@@ -325,7 +317,7 @@ public class ProcessPool
         _finishedProcesses.Remove(processUpdateRow);
     }
 
-    private void RemoveQueued(IProcessRunner processUpdateRow)
+    private static void RemoveQueued(IProcessRunner processUpdateRow)
     {
         processUpdateRow.Cancel();
     }
@@ -359,13 +351,13 @@ public class ProcessPool
 
     private void RunProcess(IProcessUpdateRow processUpdateRow)
     {
-        PerformAtomicOperation(processUpdateRow, _runningProcesses.Add);
+        _runningProcesses.Add(processUpdateRow);
         UpdateCachedRunning();
     }
 
     private bool StopProcess(IProcessUpdateRow processUpdateRow)
     {
-        if (!PerformAtomicOperation(processUpdateRow, _runningProcesses.Remove))
+        if (!_runningProcesses.Remove(processUpdateRow))
             return false;
         UpdateCachedRunning();
         return true;
@@ -387,40 +379,17 @@ public class ProcessPool
         StopProcess(processUpdateRow);
     }
     
-    // Modifies the running processes in a thread safe context
-    // Because we are updating the running processes asynchronously/outside the main thread, we need to lock this resource
-    // TODO: These are obsolete with thread safety in place...
-    private void PerformAtomicOperation<TSource>(TSource source, Action<TSource> action)
-    {
-        lock (_runningProcesses) { action(source); }
-    }
-    
-    private T PerformAtomicOperation<T,TSource>(TSource source, Func<TSource, T> action)
-    {
-        lock (_runningProcesses) { return action(source); }
-    }
-    
-    private void PerformAtomicOperation(Action action)
-    {
-        lock (_runningProcesses) { action(); }
-    }
-    
-    private void PerformAtomicOperationLoop<TSource>(IEnumerable<TSource> source, Action<TSource> body)
-    {
-        lock (_runningProcesses) { Parallel.ForEach(source, body); }
-    }
-    
     private void UpdateCachedRunning()
     {
         _runningProcesses.UpdateCache();
     }
 
-    private Task StartBackgroundTask(Action action)
+    private static Task StartBackgroundTask(Action action)
     {
         return Task.Run(action);
     }
     
-    private Task StartBackgroundTask(Func<Task> action)
+    private static Task StartBackgroundTask(Func<Task> action)
     {
         return Task.Run(action);
     }
@@ -431,29 +400,30 @@ public class ProcessPool
 
     public void PauseAll()
     {
-        PerformAtomicOperation(RunningProcesses.Pause);
+        RunningProcesses.Pause();
     }
 
     public void ResumeAll()
     {
-        PerformAtomicOperation(RunningProcesses.Resume);
+        _pausedProcessQueue.Resume();
     }
 
     public void KillAllRunning()
     {
         // kill all processes
-        PerformAtomicOperation(RunningProcesses.Kill);
+        RunningProcesses.Kill();
     }
 
     public void StopAll()
     {
-        PerformAtomicOperation(RunningProcesses.Stop);
+        RunningProcesses.Stop();
+        _processQueue.Stop();
     }
     
     public void ClearAll()
     {
         StopAll();
-        PerformAtomicOperation(() => _runningProcesses.Clear());
+        _runningProcesses.Clear();
         _finishedProcesses.Clear();
         _pausedProcessQueue.Clear();
         _processQueue.Clear();

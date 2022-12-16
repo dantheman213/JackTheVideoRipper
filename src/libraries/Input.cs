@@ -14,10 +14,14 @@ public static class Input
     #endregion
 
     #region Attributes
+    
+    public static IntPtr StandardInputHandle => GetStdHandle(-10);
 
-    private static IntPtr StandardOutputHandle => GetStdHandle(-11);
+    public static IntPtr StandardOutputHandle => GetStdHandle(-11);
+    
+    public static IntPtr StandardErrorHandle => GetStdHandle(-12);
 
-    private static SafeFileHandle StandardOutputHandleSafe => new(StandardOutputHandle, false);
+    public static SafeFileHandle StandardOutputHandleSafe => new(StandardOutputHandle, false);
 
     public static bool ConsoleAttached => AttachConsole(-1);
 
@@ -50,6 +54,7 @@ public static class Input
         return new StreamWriter(new FileStream(StandardOutputHandleSafe, FileAccess.Write));
     }
     
+    // https://stackoverflow.com/questions/33776387/dont-raise-textchanged-while-continuous-typing
     public static async Task WaitForFinishTyping<T>(Func<T> valueGenerator) where T : IComparable
     {
         async Task<bool> IsStillTyping()

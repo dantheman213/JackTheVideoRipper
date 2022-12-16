@@ -1,4 +1,5 @@
-﻿using JackTheVideoRipper.models;
+﻿using JackTheVideoRipper.interfaces;
+using JackTheVideoRipper.models;
 
 namespace JackTheVideoRipper.extensions;
 
@@ -8,36 +9,37 @@ public static class ConsoleControlExtensions
 
     public static void Write(this ConsoleControl.ConsoleControl consoleControl, string line)
     {
+        if (!consoleControl.Visible)
+            return;
         consoleControl.WriteOutput(line, DEFAULT_COLOR);
     }
     
     public static void WriteLine(this ConsoleControl.ConsoleControl consoleControl, string line = "")
     {
+        if (!consoleControl.Visible)
+            return;
         consoleControl.WriteOutput($"{line}\r\n", DEFAULT_COLOR);
     }
     
-    public static void WriteLog(this ConsoleControl.ConsoleControl consoleControl, ProcessLogNode logNode)
+    public static void WriteLog(this ConsoleControl.ConsoleControl consoleControl, ILogNode logNode)
     {
-        consoleControl.Write("[");
-        consoleControl.WriteOutput($"{logNode.Date:G}", Color.Aquamarine);
-        if (logNode.LogType != ProcessLogType.Log)
+        if (!consoleControl.Visible)
+            return;
+        foreach (ConsoleLine consoleLine in logNode.Serialize())
         {
-            consoleControl.Write(" | ");
-            
-            Color color = logNode.LogType switch
-            {
-                ProcessLogType.Info      => Color.Aqua,
-                ProcessLogType.Warning   => Color.LightCoral,
-                ProcessLogType.Error     => Color.LightPink,
-                ProcessLogType.Exception => Color.IndianRed,
-                ProcessLogType.Crash     => Color.DarkRed,
-                _                        => Color.White
-            };
-            
-            consoleControl.WriteOutput(logNode.LogType.ToString().ToUpper(), color);
+            consoleControl.WriteOutput(consoleLine.Linebreak ? consoleLine.Message : $"{consoleLine.Message}\r\n",
+                consoleLine.Color ?? DEFAULT_COLOR);
         }
-        consoleControl.Write("]: ");
-        consoleControl.Write(logNode.Message);
-        consoleControl.WriteLine();
+    }
+
+    public static void WriteLog(this ConsoleControl.ConsoleControl consoleControl, IEnumerable<ConsoleLine> consoleLines)
+    {
+        if (!consoleControl.Visible)
+            return;
+        foreach (ConsoleLine consoleLine in consoleLines)
+        {
+            consoleControl.WriteOutput(consoleLine.Linebreak ? consoleLine.Message : $"{consoleLine.Message}\r\n",
+                consoleLine.Color ?? DEFAULT_COLOR);
+        }
     }
 }

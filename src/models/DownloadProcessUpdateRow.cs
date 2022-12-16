@@ -105,7 +105,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
         base.OnProcessExit(o, eventArgs);
         
         // Editing the GUI elements must be in the main thread context to avoid errors
-        Core.RunInMainThreadAsync(PostDownloadTasks);
+        Core.RunTaskInMainThread(PostDownloadTasks);
     }
 
     #endregion
@@ -176,7 +176,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
     {
         string redirectedUrl = await Web.GetRedirectedUrl($"https://xhamster.com/embed/{id}");
         string redirectedId = new Uri(redirectedUrl).Segments.Last();
-        return $"https://xhamster.com/videos/{redirectedId}";
+        return $"https://xhamster.com/videos?id={redirectedId}";
     }
 
     private static async Task<string> GetPornkaiRedirect(string url)

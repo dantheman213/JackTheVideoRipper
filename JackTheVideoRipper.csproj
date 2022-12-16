@@ -21,7 +21,6 @@
 
   <ItemGroup>
     <PackageReference Include="Nager.PublicSuffix" Version="2.4.0" />
-    <PackageReference Include="ConsoleControl" Version="1.3.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />
     <PackageReference Include="System.Management" Version="6.0.0" />

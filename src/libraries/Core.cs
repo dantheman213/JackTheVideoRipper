@@ -1,11 +1,16 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.Properties;
+using JackTheVideoRipper.views;
 
 namespace JackTheVideoRipper;
 
 public static class Core
 {
     public static string ApplicationTitle => $@"JackTheVideoRipper {Common.GetAppVersion()}";
+
+    public static TaskScheduler Scheduler { get; private set; } = null!;
+    
+    private static TaskFactory TaskFactory { get; set; } = null!;
 
     public static async Task Startup()
     {
@@ -16,13 +21,19 @@ public static class Core
 
     public static async Task LoadConfigurationFiles()
     {
-        await Task.Run(Settings.Load);
-        await Task.Run(History.Load);
+        await Config.Load();
     }
 
     public static async Task Shutdown()
     {
-        await Task.Run(History.Save);
+        await Config.Save();
+    }
+
+    public static void InitializeScheduler()
+    {
+        Scheduler = TaskScheduler.FromCurrentSynchronizationContext();
+        TaskFactory = new TaskFactory(CancellationToken.None, TaskCreationOptions.DenyChildAttach,
+            TaskContinuationOptions.None, Scheduler);
     }
     
     public static void CheckDependencies()
@@ -79,9 +90,9 @@ public static class Core
         FileSystem.SetClipboardText(url);
     }
 
-    public static void OpenInstallFolder()
+    public static async Task OpenInstallFolder()
     {
-        FileSystem.OpenFileExplorer(FileSystem.Paths.Install);
+        await FileSystem.OpenFileExplorer(FileSystem.Paths.Install);
     }
     
     public static void DownloadDependency(Dependencies dependency)
@@ -135,19 +146,6 @@ public static class Core
         
     public static FrameMain FrameMain => (MainForm as FrameMain)!;
 
-    public static void RunInMainThread(Action action)
-    {
-        FrameMain.QueueAction(action);
-    }
-    
-    public static IAsyncResult RunInMainThreadAsync(Func<Task> action)
-    {
-        return FrameMain.QueueActionAsync(action);
-    }
-    
-    [System.Runtime.InteropServices.DllImport("wininet.dll")]
-    private static extern bool InternetGetConnectedState(out int description, int reservedValue);
-
     public static bool IsConnectedToInternet()
     {
         return InternetGetConnectedState(out int _, 0);         
@@ -157,7 +155,9 @@ public static class Core
     {
         Settings.Load();
             
-        string[] ids = { "JO-Q73f3yPi5rWjE-w",
+        string[] ids = 
+        {   
+            "JO-Q73f3yPi5rWjE-w",
             "IO_B6Cemwqjtqz2f9g",
             "J-XBvSSvyvrv-jiWqQ",
             "J-zF73Tznq_s_zWU_w",
@@ -172,7 +172,7 @@ public static class Core
             "ILuW63Kjm_jl-zSf-w"
         };
             
-        string[] prefixes = {"main", "w320h240", "common"};
+        string[] prefixes = { "main", "w320h240", "common" };
 
         var counts = new Dictionary<string, int>
         {
@@ -180,23 +180,90 @@ public static class Core
             { prefixes[1], 10 },
             { prefixes[2], 3 }
         };
-
-        foreach (string id in ids)
+        
+        counts.Zip(ids)
+            .Select(t => (t.Second, t.First.Key, t.First.Value))
+            .ForEach<(string id,string prefix,int i)>(link =>
         {
-            foreach (string prefix in prefixes)
-            {
-                for (int i = 0; i < counts[prefix]; i++)
-                {
-                    string filename = $"{id}_{prefix}_{i}.jpg";
+            string filename = $"{link.id}_{link.prefix}_{link.i}.jpg";
+
+            string resourceUrl = $"https://static-cache.k2s.cc/thumbnail/{link.id}/{link.prefix}/{link.i}.jpeg";
+
+            FileSystem.DownloadWebFile(resourceUrl, FileSystem.CreateDownloadPath(filename, "Thumbnails"));
                         
-                    FileSystem.DownloadWebFile($"https://static-cache.k2s.cc/thumbnail/{id}/{prefix}/{i}.jpeg",
-                        Path.Combine(Settings.Data.DefaultDownloadPath, "Thumbnails", filename));
-                        
-                    Output.WriteLine($"Downloaded: {filename.WrapQuotes()} to disk!");
-                }
-            }
-        }
+            Output.WriteLine($"Downloaded: {filename.WrapQuotes()} to disk!");
+        });
             
         Output.WriteLine("Downloads completed!");
     }
+
+    #region Exception Handling
+
+    public static void OpenExceptionHandler(object? sender, ThreadExceptionEventArgs args)
+    {
+        OpenExceptionHandler(args.Exception);
+    }
+    
+    public static void OpenExceptionHandler(object? sender, UnhandledExceptionEventArgs args)
+    {
+        if (args.ExceptionObject is not Exception exception)
+            return;
+        OpenExceptionHandler(exception);
+    }
+
+    public static void OpenExceptionHandler(Exception exception)
+    {
+        if (new FrameErrorHandler(exception).ShowDialog() == DialogResult.Abort)
+            Application.Exit();
+    }
+
+    #endregion
+
+    #region Task Scheduling
+    
+    public static void RunInMainThread(Action action)
+    {
+        FrameMain.QueueAction(action);
+    }
+    
+    public static void RunInMainThread<T>(Action<T> action)
+    {
+        FrameMain.QueueAction(action);
+    }
+
+    public static IAsyncResult RunInMainThreadAsync(Func<Task> action)
+    {
+        return FrameMain.QueueActionAsync(action);
+    }
+    
+    // https://stackoverflow.com/questions/15428604/how-to-run-a-task-on-a-custom-taskscheduler-using-await
+
+    public static Task RunTaskInMainThread(Func<Task> func)
+    {
+        return TaskFactory.StartNew(func).Unwrap();
+    }
+    
+    public static Task<T> RunTaskInMainThread<T>(Func<Task<T>> func)
+    {
+        return TaskFactory.StartNew(func).Unwrap();
+    }
+    
+    public static Task RunTaskInMainThread(Action func)
+    {
+        return TaskFactory.StartNew(func);
+    }
+    
+    public static Task<T> RunTaskInMainThread<T>(Func<T> func)
+    {
+        return TaskFactory.StartNew(func);
+    }
+
+    #endregion
+
+    #region Imports
+
+    [System.Runtime.InteropServices.DllImport("wininet.dll")]
+    private static extern bool InternetGetConnectedState(out int description, int reservedValue);
+
+    #endregion
 }

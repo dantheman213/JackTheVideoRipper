@@ -16,7 +16,7 @@ namespace JackTheVideoRipper
         private Timer? _listItemRowsUpdateTimer;
         private Timer? _clearNotificationsTimer;
         
-        private const int UPDATE_FREQUENCY = 800;
+        private const int _UPDATE_FREQUENCY = 800;
         
         private int _notificationClearTime = 5000; //< May want to be set by user later?
         
@@ -63,7 +63,7 @@ namespace JackTheVideoRipper
         public void SetNotificationBrief(Notification notification)
         {
             string notificationMessage = notification.ShortenedMessage ?? notification.Message;
-            notificationStatusLabel.Text = $"[{notification.DatePosted:T}]: {notificationMessage.TruncateEllipse(60)}";
+            notificationStatusLabel.Text = $@"[{notification.DatePosted:T}]: {notificationMessage.TruncateEllipse(60)}";
             _clearNotificationsTimer?.Change(_notificationClearTime, _notificationClearTime);
         }
         
@@ -75,6 +75,11 @@ namespace JackTheVideoRipper
         private readonly List<IAsyncResult> _queuedActions = new();
 
         public void QueueAction(Action updateModuleAction)
+        {
+            UpdateModule(updateModuleAction);
+        }
+        
+        public void QueueAction<T>(Action<T> updateModuleAction)
         {
             UpdateModule(updateModuleAction);
         }
@@ -91,18 +96,18 @@ namespace JackTheVideoRipper
         #region Private Methods
 
         // TODO: Should it just not wait and notify user of reconnection?
-        private void ConnectionLossHandler()
+        private async Task ConnectionLossHandler()
         {
             Modals.Notification("Client has lost connection to internet!");
             _mediaManager.PauseAll();
-            Tasks.WaitUntil(Core.IsConnectedToInternet).Wait(); //< Delay processes until connected
+            await Tasks.WaitUntil(Core.IsConnectedToInternet); //< Delay processes until connected
             _mediaManager.ResumeAll();
         }
 
-        private void Update(object? state)
+        private async void Update(object? state)
         {
             if (!Core.IsConnectedToInternet())
-                ConnectionLossHandler();
+                await ConnectionLossHandler();
 
             if (_rowUpdateTask is not null && !_rowUpdateTask.IsCompleted)
                 return;
@@ -111,6 +116,11 @@ namespace JackTheVideoRipper
         }
         
         private void UpdateModule(Action updateModuleAction)
+        {
+            Invoke(updateModuleAction, null);
+        }
+        
+        private void UpdateModule<T>(Action<T> updateModuleAction)
         {
             Invoke(updateModuleAction, null);
         }
@@ -144,10 +154,10 @@ namespace JackTheVideoRipper
             return _mediaManager.SelectedHasStatus(processStatus);
         }
 
-        private void StartEventTimer(object sender, EventArgs e)
+        private void StartEventTimer()
         {
             // Initiate the Update Loop
-            _listItemRowsUpdateTimer = new Timer(Update, null, 0, UPDATE_FREQUENCY);
+            _listItemRowsUpdateTimer = new Timer(Update, null, 0, _UPDATE_FREQUENCY);
             timerStatusBar.Enabled = true;
         }
 
@@ -166,17 +176,14 @@ namespace JackTheVideoRipper
         }
         
         private async void KeyDownHandler(object? sender, KeyEventArgs args)
-        {
-            // Ctrl + V
-            if (args is {KeyCode: Keys.V, Control: true})
-            {
-                await PasteContent();
-                args.Handled = true;
-                return;
-            }
-                
+        { 
             switch (args.KeyCode)
             {
+                // Ctrl + V
+                case Keys.V when args is {Control: true}:
+                    await PasteContent();
+                    args.Handled = true;
+                    return;
                 case Keys.Oemtilde:
                     Output.OpenMainConsoleWindow();
                     args.Handled = true;
@@ -191,7 +198,17 @@ namespace JackTheVideoRipper
             if (url.Invalid(FileSystem.IsValidUrl))
                 return;
             
-            _mediaManager.QueueProcess(new MediaItemRow(url));
+            await _mediaManager.QueueProcess(new MediaItemRow(url));
+        }
+        
+        private void AddItem(ListViewItem item)
+        {
+            Core.RunTaskInMainThread(() => ViewItems.Add(item));
+        }
+        
+        private void RemoveItem(ListViewItem item)
+        {
+            Core.RunTaskInMainThread(() => ViewItems.Remove(item));
         }
 
         #endregion
@@ -203,7 +220,8 @@ namespace JackTheVideoRipper
             Text = Core.ApplicationTitle;
             _clearNotificationsTimer = new Timer(ClearNotifications, null, 0, _notificationClearTime);
             OnSettingsUpdated(); //< Load initial values (for visibility)
-            StartEventTimer(sender, e);
+            Core.InitializeScheduler();
+            StartEventTimer();
         }
 
         private async void FrameMain_Shown(object sender, EventArgs e)
@@ -225,7 +243,7 @@ namespace JackTheVideoRipper
             await Core.Shutdown();
         }
 
-         private void FolderToolStripMenuItem_Click(object? sender, EventArgs e)
+        private void FolderToolStripMenuItem_Click(object? sender, EventArgs e)
         {
              if (FileSystem.SelectFile() is not { } filepath)
                  return;
@@ -262,8 +280,8 @@ namespace JackTheVideoRipper
             
             // Subscribe to Media Manager Events
             _mediaManager.QueueUpdated += () => TimerProcessLimit_Tick();
-            _mediaManager.ProcessAdded += item => ViewItems.Add(item);
-            _mediaManager.ProcessRemoved += item => ViewItems.Remove(item);
+            _mediaManager.ProcessAdded += AddItem;
+            _mediaManager.ProcessRemoved += RemoveItem;
             
             // Edit Menu
             copyFailedUrlsToClipboardToolStripMenuItem.Click += (_, _) => _mediaManager.CopyFailedUrls();
@@ -276,25 +294,25 @@ namespace JackTheVideoRipper
             resumeAllToolStripMenuItem.Click += (_, _) => _mediaManager.ResumeAll();
 
             // Download Batch
-            downloadBatchYouTubePlaylistlToolStripMenuItem.Click += (_, _) => _mediaManager.BatchPlaylist();
-            downloadBatchDocumentToolStripMenuItem.Click += (_, _) => _mediaManager.BatchDocument();
-            downloadBatchManualToolStripMenuItem.Click += (_, _) => _mediaManager.DownloadBatch();
+            downloadBatchYouTubePlaylistlToolStripMenuItem.Click += async (_, _) => await _mediaManager.BatchPlaylist();
+            downloadBatchDocumentToolStripMenuItem.Click += async (_, _) => await _mediaManager.BatchDocument();
+            downloadBatchManualToolStripMenuItem.Click += async (_, _) => await _mediaManager.DownloadBatch();
             
             // Subpages
             aboutToolStripMenuItem.Click += (_, _) => Core.OpenAbout();
             convertMediaToolStripMenuItem.Click += (_, _) => Core.OpenConvert();
             
             // Core Buttons
-            openDownloadFolderToolStripMenuItem.Click += (_, _) => FileSystem.OpenDownloads();
-            openFolderToolStripMenuItem.Click += (_, _) => _mediaManager.PerformContextAction(ContextActions.Reveal);
+            openDownloadFolderToolStripMenuItem.Click += async (_, _) => await FileSystem.OpenDownloads();
+            openFolderToolStripMenuItem.Click += async (_, _) => await ContextHandler(ContextActions.Reveal);
             exitToolStripMenuItem.Click += (_, _) => Close();
-            statusBar.DoubleClick += (_, _) => FileSystem.OpenTaskManager();
-            openTaskManagerToolStripMenuItem.Click += (_, _) => FileSystem.OpenTaskManager();
+            statusBar.DoubleClick += async (_, _) => await FileSystem.OpenTaskManager();
+            openTaskManagerToolStripMenuItem.Click += async (_, _) => await FileSystem.OpenTaskManager();
             settingsToolStripMenuItem.Click += (_, _) => Core.OpenSettings();
             checkForUpdatesToolStripMenuItem.Click += async (_, _) => await Core.CheckForUpdates();
             
             // Dependencies
-            openDependenciesFolderToolStripMenuItem.Click += (_, _) => Core.OpenInstallFolder();
+            openDependenciesFolderToolStripMenuItem.Click += async (_, _) => await Core.OpenInstallFolder();
             ytdlpToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.YouTubeDL);
             vS2010RedistributableToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.Redistributables);
             atomicParsleyToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.AtomicParsley);
@@ -303,10 +321,10 @@ namespace JackTheVideoRipper
             fFmpegToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.FFMPEG);
             
             // Media Downloads
-            toolStripButtonDownloadVideo.Click += (_, _) => _mediaManager.DownloadMediaDialog(MediaType.Video);
-            toolStripButtonDownloadAudio.Click += (_, _) => _mediaManager.DownloadMediaDialog(MediaType.Audio);
-            downloadVideoToolStripMenuItem.Click += (_, _) => _mediaManager.DownloadMediaDialog(MediaType.Video);
-            downloadAudioToolStripMenuItem.Click += (_, _) => _mediaManager.DownloadMediaDialog(MediaType.Audio);
+            toolStripButtonDownloadVideo.Click += async (_, _) => await DownloadMediaDialog(MediaType.Video);
+            toolStripButtonDownloadAudio.Click += async (_, _) => await DownloadMediaDialog(MediaType.Audio);
+            downloadVideoToolStripMenuItem.Click += async (_, _) => await DownloadMediaDialog(MediaType.Video);
+            downloadAudioToolStripMenuItem.Click += async (_, _) => await DownloadMediaDialog(MediaType.Audio);
 
             // Tools
             validateVideoToolStripMenuItem.Click += (_, _) => MediaManager.VerifyIntegrity();
@@ -340,57 +358,62 @@ namespace JackTheVideoRipper
                     OpenContextMenu();
             };
             
-            openMediaInPlayerToolStripMenuItem.Click += (_, _) =>
+            openMediaInPlayerToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.OpenMedia);
+                await ContextHandler(ContextActions.OpenMedia);
             };
             
-            openURLInBrowserToolStripMenuItem.Click += (_, _) =>
+            openURLInBrowserToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.OpenUrl);
+                await ContextHandler(ContextActions.OpenUrl);
             };
             
-            openProcessInConsoleToolStripMenuItem.Click += (_, _) =>
+            openProcessInConsoleToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.OpenConsole);
+                await ContextHandler(ContextActions.OpenConsole);
             };
             
-            copyUrlToolStripMenuItem.Click += (_, _) =>
+            copyUrlToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.Copy);
+                await ContextHandler(ContextActions.Copy);
             };
             
-            deleteRowToolStripMenuItem.Click += (_, _) =>
+            deleteRowToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.Delete);
+                await ContextHandler(ContextActions.Delete);
             };
             
-            stopDownloadToolStripMenuItem.Click += (_, _) =>
+            stopDownloadToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.Stop);
+                await ContextHandler(ContextActions.Stop);
             };
             
-            retryDownloadToolStripMenuItem.Click += (_, _) =>
+            retryDownloadToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.Retry);
+                await ContextHandler(ContextActions.Retry);
             };
             
-            deleteRowToolStripMenuItem.Click += (_, _) =>
+            deleteRowToolStripMenuItem.Click += async (_, _) =>
             {
-                ContextHandler(ContextActions.Remove);
+                await ContextHandler(ContextActions.Remove);
             };
             
-            listItems.DoubleClick += (_, _) =>
+            listItems.DoubleClick += async (_, _) =>
             {
-                ContextHandler(ContextActions.OpenMedia);
+                await ContextHandler(ContextActions.OpenMedia);
             };
             
             #endregion
         }
 
-        private void ContextHandler(ContextActions contextAction)
+        private async Task ContextHandler(ContextActions contextAction)
         {
-            if (!NoneSelected) _mediaManager.PerformContextAction(contextAction);
+            if (!NoneSelected) await _mediaManager.PerformContextAction(contextAction);
+        }
+
+        private async Task DownloadMediaDialog(MediaType mediaType)
+        {
+            await _mediaManager.DownloadMediaDialog(mediaType);
         }
 
       #endregion

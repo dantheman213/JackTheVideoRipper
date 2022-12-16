@@ -4,10 +4,20 @@ namespace JackTheVideoRipper.views
 {
    public partial class FrameConsole : Form
    {
-      public bool InItemBounds(MouseEventArgs e) => ConsoleControl.Bounds.Contains(e.Location);
+      #region Data Members
 
       private readonly string _instanceName;
-      
+
+      #endregion
+
+      #region Attributes
+
+      public bool InItemBounds(MouseEventArgs e) => ConsoleControl.Bounds.Contains(e.Location);
+
+      #endregion
+
+      #region Constructor
+
       public FrameConsole(string instanceName, FormClosedEventHandler? consoleCloseHandler = null)
       {
          _instanceName = instanceName;
@@ -18,10 +28,27 @@ namespace JackTheVideoRipper.views
             FormClosed += consoleCloseHandler;
       }
 
-      public void OpenConsole()
+      #endregion
+
+      #region Public Methods
+
+      public async Task OpenConsole()
       {
-         Task.Run(ShowDialog);
+         await Task.Run(ShowDialog);
       }
+
+      #endregion
+
+      #region Private Methods
+
+      private void ShowContextMenu()
+      {
+         consoleContextMenu.Show(Cursor.Position);
+      }
+
+      #endregion
+
+      #region Event Handlers
 
       private void SubscribeEvents()
       {
@@ -57,32 +84,24 @@ namespace JackTheVideoRipper.views
 
       private void OnKeyPress(object? sender, KeyEventArgs args)
       {
-         // Ctrl + A
-         if (args is {KeyCode: Keys.A, Control: true})
+         switch (args.KeyCode)
          {
-            ConsoleControl.InternalRichTextBox.SelectAll();
-            args.Handled = true;
-            return;
-         }
-
-         if (args is {KeyCode: Keys.Delete})
-         {
-            ConsoleControl.ClearOutput();
-            args.Handled = true;
-            return;
-         }
-
-         if (args.KeyCode == Keys.Oemtilde)
-         {
-            Close();
-            args.Handled = true;
-            return;
+            // Ctrl + A
+            case Keys.A when args is { Control: true }:
+               ConsoleControl.InternalRichTextBox.SelectAll();
+               args.Handled = true;
+               return;
+            case Keys.Delete:
+               ConsoleControl.ClearOutput();
+               args.Handled = true;
+               return;
+            case Keys.Oemtilde:
+               Close();
+               args.Handled = true;
+               return;
          }
       }
 
-      private void ShowContextMenu()
-      {
-         consoleContextMenu.Show(Cursor.Position);
-      }
+      #endregion
    }
 }

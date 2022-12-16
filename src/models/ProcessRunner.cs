@@ -21,20 +21,20 @@ public abstract class ProcessRunner : IProcessRunner
     public ProcessBuffer Buffer { get; } = new();
     
     public bool Completed { get; private set; }
-    
-    public bool ProcessExited => Process?.HasExited ?? true;
-    
+
     public int ExitCode { get; private set; }
+    
+    public bool Succeeded { get; private set; }
+    
+    public string FileName { get; private set; } = string.Empty;
 
     #endregion
 
     #region Attributes
 
-    public string FileName { get; private set; } = string.Empty;
+    public bool ProcessExited => Process?.HasExited ?? true;
 
     public bool Failed => !Succeeded;
-
-    public bool Succeeded { get; private set; }
 
     public bool Started => ProcessStatus is not ProcessStatus.Created;
                 
@@ -44,6 +44,14 @@ public abstract class ProcessRunner : IProcessRunner
         or ProcessStatus.Stopped;
     
     public bool Paused => ProcessStatus is ProcessStatus.Paused;
+
+    public bool Errored => ProcessStatus is ProcessStatus.Cancelled
+        or ProcessStatus.Error
+        or ProcessStatus.Stopped;
+    
+    private static Task<bool> TrueTask => Task.FromResult(true);
+    
+    private static Task<bool> FalseTask => Task.FromResult(false);
 
     #endregion
 
@@ -59,21 +67,21 @@ public abstract class ProcessRunner : IProcessRunner
 
     #region Process States
 
-    public virtual async Task<bool> Update()
+    public virtual Task<bool> Update()
     {
         // Don't run updates after we've completed
         if (Paused || Finished)
-            return false;
+            return FalseTask;
         
         Buffer.Update();
 
-        return true;
+        return TrueTask;
     }
 
-    public virtual async Task<bool> Start()
+    public virtual Task<bool> Start()
     {
-        if (IsProcessStatus(ProcessStatus.Running))
-            return false;
+        if (ProcessStatus is ProcessStatus.Running)
+            return FalseTask;
         
         InitializeProcess();
 
@@ -81,20 +89,20 @@ public abstract class ProcessRunner : IProcessRunner
         
         SetProcessStatus(ProcessStatus.Running);
 
-        return true;
+        return TrueTask;
     }
     
     public virtual void Stop()
     {
         if (!SetProcessStatus(ProcessStatus.Stopped))
             return;
-
-        CloseProcess();
+        
+        Process?.Kill();
     }
     
     public virtual void Retry()
     {
-        if (!IsProcessStatus(ProcessStatus.Error, ProcessStatus.Stopped, ProcessStatus.Cancelled))
+        if (!Errored)
             return;
         
         SetProcessStatus(ProcessStatus.Created);
@@ -135,14 +143,14 @@ public abstract class ProcessRunner : IProcessRunner
     
     public virtual void Pause()
     {
-        if (!SetProcessStatus(ProcessStatus.Paused))
+        if (ProcessStatus is not ProcessStatus.Running)
             return;
         Process?.Suspend();
     }
 
     public virtual void Resume()
     {
-        if (!IsProcessStatus(ProcessStatus.Paused))
+        if (ProcessStatus is not ProcessStatus.Paused)
             return;
         SetProcessStatus(ProcessStatus.Running);
         Process?.Resume();
@@ -151,7 +159,7 @@ public abstract class ProcessRunner : IProcessRunner
     public virtual void OnProcessExit(object? o, EventArgs eventArgs)
     {
         CloseProcess();
-        Core.RunInMainThread(Complete);
+        Core.RunTaskInMainThread(Complete);
     }
     
     protected virtual bool SetProcessStatus(ProcessStatus processStatus)

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using Newtonsoft.Json;
 
 namespace JackTheVideoRipper.models;
@@ -37,7 +38,7 @@ public class ProcessLog
 }
 
 [Serializable]
-public readonly struct ProcessLogNode
+public readonly struct ProcessLogNode : ILogNode
 {
     public readonly ProcessLogType LogType;
     public readonly string Message;
@@ -56,6 +57,37 @@ public readonly struct ProcessLogNode
         return LogType == ProcessLogType.Log ?
             $"[{Date:G}]: {Message}" :
             $"[{Date:G} | {LogType.ToString().ToUpper()}]: {Message}";
+    }
+
+    public IReadOnlyList<ConsoleLine> Serialize()
+    {
+        List<ConsoleLine> list = new()
+        {
+            new ConsoleLine("["),
+            new ConsoleLine($"{Date:G}") { Color = Color.Aquamarine }
+        };
+
+        if (LogType != ProcessLogType.Log)
+        {
+            list.Add(new ConsoleLine(" | "));
+            
+            Color color = LogType switch
+            {
+                ProcessLogType.Info      => Color.Aqua,
+                ProcessLogType.Warning   => Color.LightCoral,
+                ProcessLogType.Error     => Color.LightPink,
+                ProcessLogType.Exception => Color.IndianRed,
+                ProcessLogType.Crash     => Color.DarkRed,
+                _                        => Color.White
+            };
+            
+            list.Add(new ConsoleLine(LogType.ToString().ToUpper()){Color = color });
+        }
+        
+        list.Add(new ConsoleLine("]: "));
+        list.Add(new ConsoleLine(Message, true));
+
+        return list;
     }
 }
 
