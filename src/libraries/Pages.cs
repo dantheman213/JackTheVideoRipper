@@ -11,7 +11,7 @@ public static class Pages
     public static T OpenPageBackground<T>() where T : Form, new()
     {
         T form = new();
-        Task.Run(() => form.ShowDialog());
+        form.Show();
         return form;
     }
     

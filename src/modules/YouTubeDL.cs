@@ -35,7 +35,11 @@ namespace JackTheVideoRipper
         
         public static string GetYouTubeLink(string id) => $"https://www.youtube.com/watch?v={id}";
         
-        public static IEnumerable<string> GetSupportedServices() => GetExtractors().SplitNewline();
+        public static IEnumerable<string> SupportedServices => _supportedServices ?? Array.Empty<string>();
+
+        private static string _supportedServicesString = string.Empty;
+
+        private static string[]? _supportedServices;
         
         private static string PreviousVersion
         {
@@ -62,6 +66,12 @@ namespace JackTheVideoRipper
         #endregion
 
         #region Public Methods
+
+        public static async Task StartupTasks()
+        {
+            _supportedServicesString = await GetExtractors();
+            _supportedServices = _supportedServicesString.SplitNewline().ToArray();
+        }
 
         public static async void CheckDownload()
         {
@@ -136,7 +146,7 @@ namespace JackTheVideoRipper
             if (FileSystem.ParseUrl(url) is not { } domainInfo)
                 return false;
 
-            return GetExtractors().Contains(domainInfo.Domain, DEFAULT_COMPARISON);
+            return _supportedServicesString.Contains(domainInfo.Domain, DEFAULT_COMPARISON);
         }
 
         #endregion
@@ -149,9 +159,9 @@ namespace JackTheVideoRipper
             PreviousVersion = CurrentVersion;
         }
         
-        private static string GetExtractors()
+        private static async Task<string> GetExtractors()
         {
-            return _Command.RunCommand(Params.Extractors);
+            return await _Command.RunCommandAync(Params.Extractors);
         }
 
         private static string GetVersion()

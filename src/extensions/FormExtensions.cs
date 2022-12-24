@@ -17,4 +17,16 @@ public static class FormExtensions
         form.DialogResult = result;
         form.Close();
     }
+
+    public static bool AtScrollBottom(this Form form, int scrollValue)
+    {
+        VScrollProperties vs = form.VerticalScroll;
+        return scrollValue == vs.Maximum - vs.LargeChange + 1;
+    }
+    
+    public static bool AtScrollBottom(this UserControl control, int scrollValue)
+    {
+        VScrollProperties vs = control.VerticalScroll;
+        return scrollValue == vs.Maximum - vs.LargeChange + 1;
+    }
 }

@@ -7,39 +7,36 @@ public static class ConsoleControlExtensions
 {
     private static readonly Color DEFAULT_COLOR = Color.White;
 
-    public static void Write(this ConsoleControl.ConsoleControl consoleControl, string line)
+    public static void Write(this ConsoleControl.ConsoleControl consoleControl, string line, Color? color = null)
     {
         if (!consoleControl.Visible)
             return;
-        consoleControl.WriteOutput(line, DEFAULT_COLOR);
+        consoleControl.WriteOutput(line, color ?? DEFAULT_COLOR);
     }
     
-    public static void WriteLine(this ConsoleControl.ConsoleControl consoleControl, string line = "")
+    public static void WriteLine(this ConsoleControl.ConsoleControl consoleControl, string line = "", Color? color = null)
     {
         if (!consoleControl.Visible)
             return;
-        consoleControl.WriteOutput($"{line}\r\n", DEFAULT_COLOR);
+        consoleControl.WriteOutput($"{line}\r\n", color ?? DEFAULT_COLOR);
     }
     
     public static void WriteLog(this ConsoleControl.ConsoleControl consoleControl, ILogNode logNode)
     {
         if (!consoleControl.Visible)
             return;
-        foreach (ConsoleLine consoleLine in logNode.Serialize())
-        {
-            consoleControl.WriteOutput(consoleLine.Linebreak ? consoleLine.Message : $"{consoleLine.Message}\r\n",
-                consoleLine.Color ?? DEFAULT_COLOR);
-        }
+        logNode.Serialize().WriteToConsole(consoleControl);
+    }
+
+    public static void WriteToConsole(this IEnumerable<ConsoleLine> consoleLines, ConsoleControl.ConsoleControl consoleControl)
+    {
+        consoleLines.ForEach(consoleLine => consoleLine.WriteToConsole(consoleControl));
     }
 
     public static void WriteLog(this ConsoleControl.ConsoleControl consoleControl, IEnumerable<ConsoleLine> consoleLines)
     {
         if (!consoleControl.Visible)
             return;
-        foreach (ConsoleLine consoleLine in consoleLines)
-        {
-            consoleControl.WriteOutput(consoleLine.Linebreak ? consoleLine.Message : $"{consoleLine.Message}\r\n",
-                consoleLine.Color ?? DEFAULT_COLOR);
-        }
+        consoleLines.ForEach(consoleLine => consoleLine.WriteToConsole(consoleControl));
     }
 }

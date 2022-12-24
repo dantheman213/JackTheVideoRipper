@@ -20,9 +20,19 @@ public readonly struct Command
         return FileSystem.RunCommand(_executablePath, parameters, workingDirectory ?? _workingDirectory);
     }
     
+    public async Task<string> RunCommandAync(string parameters, string? workingDirectory = null)
+    {
+        return (await FileSystem.RunCommandAsync(_executablePath, parameters, workingDirectory ?? _workingDirectory)).Output;
+    }
+    
     public string RunCommand(IProcessParameters parameters, string? workingDirectory = null)
     {
         return FileSystem.RunCommand(_executablePath, parameters.ToString(), workingDirectory ?? _workingDirectory);
+    }
+    
+    public async Task<string> RunCommandAync(IProcessParameters parameters, string? workingDirectory = null)
+    {
+        return (await FileSystem.RunCommandAsync(_executablePath, parameters.ToString(), workingDirectory ?? _workingDirectory)).Output;
     }
     
     public string RunCommand(Process process)
@@ -37,7 +47,7 @@ public readonly struct Command
     
     public async Task<string> RunWebCommandAsync(string url, string parameters, string? workingDirectory = null)
     {
-        return await FileSystem.RunCommandAsync(_executablePath, $"{parameters} {url}", workingDirectory ?? _workingDirectory);
+        return (await FileSystem.RunCommandAsync(_executablePath, $"{parameters} {url}", workingDirectory ?? _workingDirectory)).Output;
     }
     
     public string RunWebCommand(string url, IProcessParameters parameters, string? workingDirectory = null)

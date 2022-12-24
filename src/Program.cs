@@ -29,7 +29,8 @@ namespace JackTheVideoRipper
         {
             Core.LoadConfigurationFiles(),
             Statistics.InitializeCounters(),
-            Core.CheckForUpdates()
+            Core.CheckForUpdates(),
+            YouTubeDL.StartupTasks()
         };
 
         private static async Task StartBackgroundTasks()

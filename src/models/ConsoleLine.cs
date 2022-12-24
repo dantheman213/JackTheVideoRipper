@@ -1,4 +1,6 @@
-﻿namespace JackTheVideoRipper.models;
+﻿using JackTheVideoRipper.extensions;
+
+namespace JackTheVideoRipper.models;
 
 public struct ConsoleLine
 {
@@ -10,5 +12,17 @@ public struct ConsoleLine
     {
         Message = message;
         Linebreak = linebreak;
+    }
+
+    public void WriteToConsole(ConsoleControl.ConsoleControl consoleControl)
+    {
+        if (Linebreak)
+        {
+            consoleControl.WriteLine(Message, Color);
+        }
+        else
+        {
+            consoleControl.Write(Message, Color);
+        }
     }
 }

@@ -10,6 +10,7 @@ using JackTheVideoRipper.Properties;
 using Nager.PublicSuffix;
 using Newtonsoft.Json;
 using SpecialFolder = System.Environment.SpecialFolder;
+using ProcessResult = System.Threading.Tasks.Task<(int ExitCode, string Output)>;
 
 namespace JackTheVideoRipper;
 
@@ -211,7 +212,7 @@ public static class FileSystem
     
     public static string TryRunProcess(Process process)
     {
-        return TryStartProcess(process).StandardOutput.ReadToEnd().Trim();
+        return TryStartProcess(process).GetOutput();
     }
     
     public static string RunProcess(Process process)
@@ -230,33 +231,39 @@ public static class FileSystem
         return RunProcess(path, parameters.ToString());
     }
     
-    public static async Task<int> RunProcessAsync(string filepath, string args)
+    public static async ProcessResult RunProcessAsync(string filepath, string args)
     {
         return await RunProcessAsync(CreateProcess(filepath, args, enableRaisingEvents: true));
     }
     
-    public static async Task<int> RunProcessAsync(ProcessStartInfo processStartInfo)
+    public static async ProcessResult RunProcessAsync(ProcessStartInfo processStartInfo)
     {
         return await RunProcessAsync(CreateProcess(processStartInfo, enableRaisingEvents: true));
     }
     
-    public static async Task<int> RunProcessAsync(Process process)
+    public static async ProcessResult RunProcessAsync(Process process)
     {
-        return await CreateProcessAsync(process, true).ConfigureAwait(false);
+        return await CreateProcessAsync(process, true, Debugger.IsAttached);
     }
     
-    private static Task<int> CreateProcessAsync(Process process, bool startProcess = false, bool logOutput = false, 
-        bool throwExceptions = true)
+    private static ProcessResult CreateProcessAsync(Process process, bool startProcess = false,
+        bool logOutput = false, bool throwExceptions = true)
     {
-        TaskCompletionSource<int> taskCompletionSource = new();
+        TaskCompletionSource<(int, string)> taskCompletionSource = new();
 
-        process.Exited += (_, _) => taskCompletionSource.SetResult(process.ExitCode);
+        process.EnableRaisingEvents = true;
 
-        if (logOutput)
+        process.Exited += async (_, _) =>
+        {
+            string output = await process.GetOutputAsync();
+            taskCompletionSource.SetResult((process.ExitCode, output));
+        };
+
+        /*if (logOutput)
         {
             process.OutputDataReceived += (_, args) => Log(args.Data);
             process.ErrorDataReceived += (_, args) => LogException(args.Data);
-        }
+        }*/
 
         if (startProcess && !process.Start())
         {
@@ -268,12 +275,13 @@ public static class FileSystem
             if (logOutput)
                 LogException(exception);
         }
+        
+        process.BeginOutputReadLine();
 
-        if (logOutput)
+        /*if (logOutput)
         {
-            process.BeginOutputReadLine();
             process.BeginErrorReadLine();
-        }
+        }*/
 
         return taskCompletionSource.Task;
     }
@@ -298,7 +306,7 @@ public static class FileSystem
     {
         await LogExceptionsAsync(async () =>
         {
-            if (await CreateProcessAsync(process, true) == 0)
+            if ((await CreateProcessAsync(process, true, Debugger.IsAttached)).ExitCode == 0)
             {
                 Log(Resources.ProcessAlreadyRunning);
             }
@@ -315,12 +323,10 @@ public static class FileSystem
         return RunProcess(CreateProcess(binPath, paramString, workingDir, runAsAdmin));
     }
     
-    public static async Task<string> RunCommandAsync(string binPath, string paramString, string workingDir = "", 
+    public static async ProcessResult RunCommandAsync(string binPath, string paramString, string workingDir = "", 
         bool runAsAdmin = false)
     {
-        Process process = CreateProcess(binPath, paramString, workingDir, runAsAdmin);
-        await CreateProcessAsync(process, true).ConfigureAwait(false);
-        return process.GetOutput();
+        return await RunProcessAsync(CreateProcess(binPath, paramString, workingDir, runAsAdmin));
     }
 
     public static string RunWebCommand(string binPath, string url, string parameterString)
@@ -328,9 +334,9 @@ public static class FileSystem
         return url.Valid(IsValidUrl) ? RunCommand(binPath, $"{parameterString} {url}") : string.Empty;
     }
     
-    public static async Task<string> RunWebCommandAsync(string binPath, string url, string parameterString)
+    public static async ProcessResult RunWebCommandAsync(string binPath, string url, string parameterString)
     {
-        return url.Valid(IsValidUrl) ? await RunCommandAsync(binPath, $"{parameterString} {url}") : string.Empty;
+        return url.Valid(IsValidUrl) ? await RunCommandAsync(binPath, $"{parameterString} {url}") : (-1, string.Empty);
     }
 
     #endregion
@@ -361,10 +367,15 @@ public static class FileSystem
     {
         return url.Valid(IsValidUrl) ? Deserialize<T>(RunWebCommand(binPath, url, parameterString)) : default;
     }
+
+    public static async Task<string> GetJsonResponse(string binPath, string url, string parameterString)
+    {
+        return (await RunWebCommandAsync(binPath, url, parameterString)).Output;
+    }
     
     public static async Task<T?> ReceiveJsonResponseAsync<T>(string binPath, string url, string parameterString)
     {
-        return url.Valid(IsValidUrl) ? Deserialize<T>(await RunWebCommandAsync(binPath, url, parameterString)) : default;
+        return url.Valid(IsValidUrl) ? Deserialize<T>(await GetJsonResponse(binPath, url, parameterString)) : default;
     }
         
     // youtube-dl returns an individual json object per line
@@ -375,7 +386,7 @@ public static class FileSystem
     
     public static async Task<IEnumerable<T>> ReceiveMultiJsonResponseAsync<T>(string binPath, string url, string parameterString)
     {
-        return url.Valid(IsValidUrl) ? CreateJsonArray<T>(await RunWebCommandAsync(binPath, url, parameterString)) : Array.Empty<T>();
+        return url.Valid(IsValidUrl) ? CreateJsonArray<T>(await GetJsonResponse(binPath, url, parameterString)) : Array.Empty<T>();
     }
 
     private static IEnumerable<T> CreateJsonArray<T>(string jsonResponse)

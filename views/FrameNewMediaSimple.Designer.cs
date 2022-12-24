@@ -165,8 +165,10 @@
             // 
             // FrameNewMediaSimple
             // 
+            this.AcceptButton = this.buttonDownload;
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.CancelButton = this.buttonCancel;
             this.ClientSize = new System.Drawing.Size(358, 285);
             this.Controls.Add(this.buttonGetCommand);
             this.Controls.Add(this.buttonCancel);
@@ -176,6 +178,8 @@
             this.Controls.Add(this.textUrl);
             this.Controls.Add(this.label1);
             this.Name = "FrameNewMediaSimple";
+            this.ShowIcon = false;
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "New Media (Simple)";
             this.Load += new System.EventHandler(this.FrameNewMediaSimple_Load);
             this.groupBox2.ResumeLayout(false);

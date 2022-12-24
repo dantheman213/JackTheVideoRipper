@@ -101,7 +101,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
 
     public async Task OpenInConsole()
     {
-        await Task.Run(() => _console.Open(GetInstanceName()));
+        await _console.Open(GetInstanceName());
     }
 
     #endregion
@@ -200,7 +200,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
 
     private void OnLogAdded(ProcessLogNode logNode)
     {
-        _console.QueueLog(logNode);
+        _console.WriteOutput(logNode);
     }
 
     private void UpdateRowColors(ProcessStatus processStatus)

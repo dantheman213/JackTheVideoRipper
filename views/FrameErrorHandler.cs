@@ -1,4 +1,5 @@
-﻿using JackTheVideoRipper.extensions;
+﻿using System.Media;
+using JackTheVideoRipper.extensions;
 
 namespace JackTheVideoRipper.views
 {
@@ -24,6 +25,12 @@ namespace JackTheVideoRipper.views
         private void FrameErrorHandler_Load(object? sender, EventArgs e)
         {
             Text = $"Uncaught Exception | {_exception}";
+            SetExceptionInformation();
+            SystemSounds.Exclamation.Play();
+        }
+
+        private void SetExceptionInformation()
+        {
             tbMessage.Text = _exception.Message;
             tbSource.Text = _exception.Source;
             tbCaller.Text = nameof(_exception.TargetSite);

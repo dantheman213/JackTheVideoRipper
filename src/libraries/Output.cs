@@ -61,27 +61,12 @@ public static class Output
 
     #region Public Methods
 
-    public static void OpenMainConsoleWindow()
+    public static async Task OpenMainConsoleWindow()
     {
-        _Console.Open();
+        await _Console.Open();
 
         if (!ConsoleAttached)
             ConsoleAttached = Input.OpenConsole();
-    }
-    
-    public static async Task<FrameConsole> OpenConsoleWindow(string instanceName,
-        FormClosedEventHandler? consoleCloseHandler = null)
-    {
-        FrameConsole? frameConsole = null;
-
-        void SetConsole()
-        {
-            frameConsole = new FrameConsole(instanceName, consoleCloseHandler);
-        }
-
-        await Core.RunTaskInMainThread(SetConsole).ContinueWith(_ => frameConsole!.OpenConsole());
-        
-        return frameConsole!;
     }
     
     #endregion
@@ -90,9 +75,7 @@ public static class Output
 
     private static LogNode CreateLog(string message, Color? color = null)
     {
-        LogNode logNode = new(DateTime.Now, message, color ?? Color.White);
-        _Console.QueueLog(logNode);
-        return logNode;
+        return new LogNode(DateTime.Now, message, color ?? Color.White);
     }
 
     #endregion

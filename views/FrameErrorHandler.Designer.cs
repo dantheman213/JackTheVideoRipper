@@ -199,8 +199,11 @@
             // 
             // FrameErrorHandler
             // 
+            this.AcceptButton = this.bContinue;
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.CancelButton = this.bQuit;
             this.ClientSize = new System.Drawing.Size(593, 621);
             this.Controls.Add(this.bSaveDetails);
             this.Controls.Add(this.bContinue);
@@ -210,8 +213,13 @@
             this.Controls.Add(this.gbDetails);
             this.Controls.Add(this.StackTraceLabel);
             this.Controls.Add(this.rtbStackTrace);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
             this.Name = "FrameErrorHandler";
+            this.ShowIcon = false;
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "FrameErrorHandler";
+            this.TopMost = true;
             this.gbDetails.ResumeLayout(false);
             this.gbDetails.PerformLayout();
             this.gbMessage.ResumeLayout(false);

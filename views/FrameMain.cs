@@ -125,13 +125,6 @@ namespace JackTheVideoRipper
             return _mediaManager.SelectedHasStatus(processStatus);
         }
 
-        private void StartEventTimer()
-        {
-            // Initiate the Update Loop
-            _listItemRowsUpdateTimer = new Timer(Update, null, 0, _UPDATE_FREQUENCY);
-            timerStatusBar.Enabled = true;
-        }
-
         private void UpdateStatusBar()
         {
             ToolbarStatus = _mediaManager.ToolbarStatus;
@@ -156,7 +149,7 @@ namespace JackTheVideoRipper
                     args.Handled = true;
                     return;
                 case Keys.Oemtilde:
-                    Output.OpenMainConsoleWindow();
+                    await Output.OpenMainConsoleWindow();
                     args.Handled = true;
                     break;
             }
@@ -225,6 +218,13 @@ namespace JackTheVideoRipper
         #endregion
 
         #region Timer Events
+        
+        private void StartEventTimer()
+        {
+            // Initiate the Update Loop
+            _listItemRowsUpdateTimer = new Timer(Update, null, 0, _UPDATE_FREQUENCY);
+            timerStatusBar.Enabled = true;
+        }
 
         private async void TimerCheckForUpdates_Tick(object sender, EventArgs e)
         {
@@ -298,7 +298,7 @@ namespace JackTheVideoRipper
             // Tools
             validateVideoToolStripMenuItem.Click += (_, _) => MediaManager.VerifyIntegrity();
             compressVideoToolStripMenuItem.Click += FolderToolStripMenuItem_Click;
-            openConsoleToolStripMenuItem.Click += (_, _) => Output.OpenMainConsoleWindow();
+            openConsoleToolStripMenuItem.Click += async (_, _) => await Output.OpenMainConsoleWindow();
             openHistoryToolStripMenuItem.Click += (_, _) => History.Data.OpenHistory();
 
             // Notifications

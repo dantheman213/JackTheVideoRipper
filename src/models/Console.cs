@@ -16,11 +16,11 @@ public class Console
     
     public bool Opened { get; private set; }
     
+    public bool Paused { get; private set; }
+    
     private readonly List<ILogNode> _logHistory = new();
     
     private readonly Queue<ILogNode> _messageQueue = new();
-    
-    private bool _paused;
 
     #endregion
 
@@ -28,7 +28,7 @@ public class Console
 
     private bool Visible => _frameConsole?.Visible ?? false;
 
-    private bool Active => Opened && !_paused;
+    private bool Active => Opened && !Paused;
 
     #endregion
 
@@ -51,74 +51,73 @@ public class Console
     {
         if (_frameConsole is not null && Visible)
         {
-            await Core.RunTaskInMainThread(_frameConsole.Activate);
+            await _frameConsole.MoveToTop();
             return;
         }
 
-        await Core.RunTaskInMainThread(() => InitializeFrame(instanceName)).ContinueWith(async _ =>
+        await InitializeFrame(instanceName).ContinueWith(async _ =>
         {
-            await _frameConsole!.OpenConsole();
-            InitializeMessageQueue();
+            await InitializeMessageQueue();
         });
-    }
-
-    public void QueueLog(ILogNode logNode)
-    {
-        _logHistory.Add(logNode);
-        
-        if (!Active)
-        {
-            _messageQueue.Enqueue(logNode);
-        }
     }
 
     public void WriteOutput(ILogNode logNode)
     {
-        Core.RunTaskInMainThread(() => Control?.WriteLog(logNode));
+        QueueLog(logNode);
+        WriteFromQueue();
     }
 
     public async Task LockOutput(Task task)
     {
-        await Task.Run(PauseQueue);
+        Task.Run(PauseQueue).Start();
         await task;
         UnpauseQueue();
     }
 
-    public async Task PauseQueue()
+    public void PauseQueue()
     {
-        _paused = true;
-        await Tasks.WaitUntil(() => !_paused);
-        WriteFromQueue();
+        Paused = true;
     }
 
     public void UnpauseQueue()
     {
-        _paused = false;
+        Paused = false;
+        WriteFromQueue();
     }
 
     #endregion
 
     #region Private Methods
     
-    private void InitializeFrame(string? instanceName = null)
+    private void QueueLog(ILogNode logNode)
+    {
+        _logHistory.Add(logNode);
+        _messageQueue.Enqueue(logNode);
+    }
+    
+    private async Task InitializeFrame(string? instanceName = null)
     {
         _frameConsole = new FrameConsole(instanceName ?? InstanceName, OnCloseConsole);
-        Control = _frameConsole!.ConsoleControl;
+        _frameConsole.FreezeConsoleEvent += PauseQueue;
+        _frameConsole.UnfreezeConsoleEvent += UnpauseQueue;
+        Control = _frameConsole.ConsoleControl;
+        await _frameConsole.OpenConsole();
         Opened = true;
     }
 
-    private void InitializeMessageQueue()
+    private async Task InitializeMessageQueue()
     {
         _messageQueue.Clear();
         _messageQueue.Extend(_logHistory);
+        await Tasks.WaitUntil(() => Active);
         WriteFromQueue();
     }
 
     private void WriteFromQueue()
     {
-        while (Active && _messageQueue.Count > 0)
+        while (Active && !_messageQueue.Empty())
         {
-            WriteOutput(_messageQueue.Dequeue());
+            Control!.WriteLog(_messageQueue.Dequeue());
         }
     }
     

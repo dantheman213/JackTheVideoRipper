@@ -22,7 +22,7 @@ namespace JackTheVideoRipper
 
             try
             {
-                textExtractors.Text = YouTubeDL.GetSupportedServices().Select(s => $"* {s}").MergeReturn();
+                textExtractors.Text = YouTubeDL.SupportedServices.Select(s => $"* {s}").MergeReturn();
                 labelYouTubeDL.Text = $@"yt-dlp {YouTubeDL.CurrentVersion}";
             }
             catch (Exception ex)

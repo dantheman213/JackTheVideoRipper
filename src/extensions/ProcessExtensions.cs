@@ -61,6 +61,11 @@ public static class ProcessExtensions
     {
         return process.StandardOutput.ReadToEnd().Trim();
     }
+    
+    public static async Task<string> GetOutputAsync(this Process process)
+    {
+        return (await process.StandardOutput.ReadToEndAsync()).Trim();
+    }
 
     public static string GetProcessInfo(this Process process)
     {
