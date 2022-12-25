@@ -37,6 +37,9 @@ public class ConfigModel : IConfigModel
         CreateFolder(ConfigDirectory);
         WriteToDisk();
         return null;
+    }
 
+    public virtual void Validate()
+    {
     }
 }

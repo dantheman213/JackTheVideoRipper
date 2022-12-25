@@ -1,4 +1,5 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.modules;
 
 namespace JackTheVideoRipper;
 
@@ -8,7 +9,7 @@ public class FileNode
     public readonly Type Type;
     public readonly string Extension;
 
-    public bool IsValidUrl => !Uri.Invalid(FileSystem.IsValidUrl);
+    public bool IsValidUrl => Uri.Valid(FileSystem.IsValidUrl);
 
     public FileNode(string uri, Type type)
     {
@@ -22,7 +23,7 @@ public class FileNode
         switch (conversionSource)
         {
             case ConversionSource.Image:
-                modules.FFMPEG.ConvertImageToJpg(Uri, outputFilepath);
+                FFMPEG.ConvertImageToJpg(Uri, outputFilepath);
                 return outputFilepath;
             default:
                 throw new NotImplementedException();

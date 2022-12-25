@@ -25,7 +25,7 @@ public class ProcessBuffer
     
     public string ProcessLine => Cursor < Results.Count ? Results[Cursor] : string.Empty;
     
-    public string[] TokenizedProcessLine => Common.Tokenize(ProcessLine);
+    public string[] TokenizedProcessLine => ProcessLine.HasValue() ? Common.Tokenize(ProcessLine) : Array.Empty<string>();
 
     #endregion
 

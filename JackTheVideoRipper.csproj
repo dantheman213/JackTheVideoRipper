@@ -42,6 +42,10 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>FileSystemResources.resx</DependentUpon>
     </Compile>
+    <Compile Update="views\modals\BasicTextbox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Remove="tests\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,6 +53,35 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <EmbeddedResource Remove="tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="NovaCore">
+      <HintPath>external\NovaCore\NovaCore.dll</HintPath>
+    </Reference>
+    <Reference Include="NovaCore.Common">
+      <HintPath>external\NovaCore\NovaCore.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="NovaCore.FileSystem">
+      <HintPath>external\NovaCore\NovaCore.FileSystem.dll</HintPath>
+    </Reference>
+    <Reference Include="NovaCore.Forms">
+      <HintPath>external\NovaCore\NovaCore.Forms.dll</HintPath>
+    </Reference>
+    <Reference Include="NovaCore.Logging">
+      <HintPath>external\NovaCore\NovaCore.Logging.dll</HintPath>
+    </Reference>
+    <Reference Include="NovaCore.Utilities">
+      <HintPath>external\NovaCore\NovaCore.Utilities.dll</HintPath>
+    </Reference>
+    <Reference Include="NovaCore.Web">
+      <HintPath>external\NovaCore\NovaCore.Web.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

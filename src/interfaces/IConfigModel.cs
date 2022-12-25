@@ -9,4 +9,6 @@ public interface IConfigModel
     void WriteToDisk();
 
     T? GetFromDisk<T>() where T : ConfigModel;
+
+    void Validate();
 }

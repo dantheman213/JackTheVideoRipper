@@ -1,6 +1,8 @@
-﻿using JackTheVideoRipper.extensions;
+﻿using System.Diagnostics;
+using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models;
+using JackTheVideoRipper.models.containers;
 
 namespace JackTheVideoRipper.modules;
 
@@ -11,15 +13,20 @@ internal static class FFMPEG
     private const string _EXECUTABLE_NAME = "ffmpeg.exe";
     
     public static readonly string ExecutablePath = FileSystem.ProgramPath(_EXECUTABLE_NAME);
+
+    public static readonly string FfprobePath = FileSystem.ProgramPath("ffprobe.exe");
     
     private const string _DOWNLOAD_URL = "https://www.ffmpeg.org/download.html";
 
-    private static readonly FfmpegParameters DefaultParameters =
+    private static readonly FfmpegParameters _DefaultParameters =
         new FfmpegParameters().NoStats().LogLevel(LogLevel.Error).HideBanner();
 
-    private static string IMAGE_FORMAT_STRING = "frame_%d.png";
+    private const string _IMAGE_FORMAT_STRING = "frame_%d.png";
     
     private static readonly Command _Command = new(ExecutablePath);
+
+    private const string _NUMBER_OF_FRAMES_PARAMETERS =
+        @"-v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0";
 
     #endregion
 
@@ -29,22 +36,28 @@ internal static class FFMPEG
 
     #endregion
 
-    public static void ConvertImageToJpg(string inputPath, string outputPath)
+    public static FfmpegParameters ConvertImageToJpg(string inputPath, string outputPath)
     {
-        if (!IsInstalled)
-            return;
-
-        FfmpegParameters parameters = DefaultParameters
+        return _DefaultParameters
             .Input(inputPath)
             .Scale(1920)
             .Output(outputPath);
-
-        RunFFMPEG(parameters);
     }
 
-    public static void DownloadLatest()
+    public static async Task<int> GetNumberOfFrames(string filepath)
     {
-        FileSystem.GetWebResourceHandle(_DOWNLOAD_URL);
+        var result = (await FileSystem.RunCommandAsync(FfprobePath, $"{_NUMBER_OF_FRAMES_PARAMETERS} {filepath}"))
+            .Output;
+        
+        if (!int.TryParse(result, out int totalFrames))
+            return -1;
+        
+        return totalFrames;
+    }
+
+    public static async Task DownloadLatest()
+    {
+        await FileSystem.GetWebResourceHandle(_DOWNLOAD_URL, FileSystem.Paths.Install).Run();
     }
 
     // TODO: Verify that input frame count == output frame count
@@ -53,21 +66,21 @@ internal static class FFMPEG
 
     // TODO: Graph for output sampling?? - Speed, frames, etc.
 
-    public static void SplitImages(VideoInformation videoInformation)
+    public static FfmpegParameters SplitImages(VideoInformation videoInformation)
     {
-        RunFFMPEG(new FfmpegParameters(videoInformation.InputFilepath)
+        return new FfmpegParameters(videoInformation.InputFilepath)
             .FrameRate(videoInformation.FramesPerSecond)
-            .Output(IMAGE_FORMAT_STRING));
+            .Output(_IMAGE_FORMAT_STRING);
     }
 
-    public static void Recombine(VideoInformation videoInformation, bool includeAudio = false,
+    public static FfmpegParameters Recombine(VideoInformation videoInformation, bool includeAudio = false,
         string audioFilepath = "")
     {
         FfmpegParameters parameters = new FfmpegParameters()
             .Rate(videoInformation.FramesPerSecond)
             .FrameFormat("image2")
             .Resolution(videoInformation.Resolution)
-            .Input(IMAGE_FORMAT_STRING)
+            .Input(_IMAGE_FORMAT_STRING)
             .VideoCodec(VideoCodecs.H264);
 
         FfmpegParameters optionBasedParameters = includeAudio ?
@@ -79,42 +92,49 @@ internal static class FFMPEG
                 .ConstantRateFactor(25)
                 .PixelFormat(PixelFormats.YUV_420P);
 
-        RunFFMPEG(parameters.Append(optionBasedParameters).Output(videoInformation.OutputFilepath));
+        return parameters.Append(optionBasedParameters).Output(videoInformation.OutputFilepath);
     }
 
     // Used for super-resolution enhancements (external processing)
-    public static void AddAudio(string inputFilepath, string audioFilepath, string output)
+    public static FfmpegParameters AddAudio(string inputFilepath, string audioFilepath, string output)
     {
-        RunFFMPEG(new FfmpegParameters(inputFilepath)
+        return new FfmpegParameters(inputFilepath)
             .Input(audioFilepath)
             .Copy()
             .MapVideo(false)
             .MapAudio(true)
-            .Output(output));
+            .Output(output);
     }
 
     // TODO: Was used originally for the failure, actually occurred due to encoding error from Adobe Premiere Pro
-    public static void Convert(string inputFilepath)
+    public static FfmpegParameters Convert(string inputFilepath)
     {
-        RunFFMPEG(new FfmpegParameters(inputFilepath)
+        return new FfmpegParameters()
             .HardwareAcceleration()
+            .Input(inputFilepath)
             .CopyAudio()
             .CopyVideo(VideoCodecs.AYUV)
-            .Output(inputFilepath, VideoFormats.AVI));
+            .Output(inputFilepath, VideoFormats.AVI);
+    }
+
+    public static FfmpegParameters Recode(string inputFilepath)
+    {
+        return new FfmpegParameters()
+            .HardwareAcceleration()
+            .Input(inputFilepath);
     }
 
     // https://unix.stackexchange.com/questions/28803/how-can-i-reduce-a-videos-size-with-ffmpeg
-    public static void Compress(string inputFilepath)
+    // Reasonable range for H.265 may be 24-30
+    // Lower - 18-24
+    public static FfmpegParameters Compress(string inputFilepath, int compressionRating = 30)
     {
-        Compress(inputFilepath, 28);
-    }
-    
-    public static void Compress(string inputFilepath, int compressionRating)
-    {
-        RunFFMPEG(new FfmpegParameters(inputFilepath)
-            .VideoCodec(VideoCodecs.H265)
+        return new FfmpegParameters()
+            .HardwareAcceleration()
+            .Input(inputFilepath)
+            .VideoCodec(VideoCodecs.H264)
             .ConstantRateFactor(compressionRating)
-            .Output(FileSystem.AppendSuffix(inputFilepath, "COMPRESSED", "_")));
+            .OutputFromInput(inputFilepath, "COMPRESSED");
     }
 
     /** TODO:
@@ -126,47 +146,61 @@ internal static class FFMPEG
      * 6. Recombine all at the end
      *  Look up how YouTube-DL does this (.part files)
      */
-    public static void RepairVideo(string videoFilepath)
+    public static async Task<FfmpegParameters[]> RepairVideo(string videoFilepath)
     {
-        VideoInformation videoInformation = ExtractVideoInformation(videoFilepath);
-
-        SplitImages(videoInformation);
-
-        Recombine(videoInformation);
+        VideoInformation videoInformation = await ExtractVideoInformation(videoFilepath);
+        videoInformation.OutputFilepath = FileSystem.AppendSuffix(videoFilepath, "FIXED", "_");
+        return new[]
+        {
+            SplitImages(videoInformation),
+            Recombine(videoInformation)
+        };
     }
 
-    public static string VerifyIntegrity(string videoFilepath)
+    public static FfmpegParameters VerifyIntegrity(string videoFilepath, string? logFilepath = null)
     {
-        string logFilepath = FileSystem.TempFile;
-        
-        RunFFMPEG(new FfmpegParameters(videoFilepath)
+        string outputFilepath = logFilepath ?? $"{FileSystem.TempFile}.log";
+        return new FfmpegParameters(videoFilepath)
             .LogLevel(LogLevel.Error)
             .FrameFormat() // Don't process frames
-            .Miscellaneous($"- >\"{logFilepath}.log\" 2>&1")); // Redirect standard error to file error.log
-
-        return File.ReadAllText(logFilepath).IsNullOrEmpty() ?
-            $"No errors detected in file {videoFilepath.WrapQuotes()}." :
-            $"Errors detected while verifying file {videoFilepath.WrapQuotes()} (full report: {logFilepath.WrapQuotes()})";
+            .Miscellaneous($"- >{outputFilepath.WrapQuotes()} 2>&1");
     }
 
-    private static string RunFFMPEG(string parameters)
+    public static string RunFFMPEG(string parameters)
     {
         return _Command.RunCommand(parameters);
     }
 
-    private static string RunFFMPEG(IProcessParameters parameters)
+    public static string RunFFMPEG(IProcessParameters parameters)
     {
         return _Command.RunCommand(parameters);
     }
-
-    public static VideoInformation ExtractVideoInformation(string filepath)
+    
+    public static Process CreateCommand(string parameters)
     {
+        return _Command.CreateCommand(parameters);
+    }
+
+    public static Process CreateCommand(IProcessParameters parameters)
+    {
+        return _Command.CreateCommand(parameters);
+    }
+    
+    public static async Task<VideoInformation> ExtractVideoInformation(string filepath)
+    {
+        if (!File.Exists(filepath))
+            return new VideoInformation();
+
+        ExifData exifData = new(await ExifTool.GetTags(filepath, "Video Frame Rate", "Image Size"));
+
         // These fields should be filled by retrieving the file information of the videoFilepath parameter
         return new VideoInformation
         {
             InputFilepath = filepath,
-            FramesPerSecond = 30,
-            Resolution = Resolutions.R_1080P,
+            TotalFrames = await GetNumberOfFrames(filepath),
+            //Duration = metadata.Duration.Duration(),
+            FramesPerSecond = exifData.VideoFrameRate,
+            Resolution = exifData.ImageSize,
             OutputFilepath = FileSystem.AppendSuffix(filepath, "FIXED", "_")
         };
     }
@@ -213,6 +247,8 @@ internal static class FFMPEG
         public const string H265 = "libx265";
 
         public const string AYUV = "ayuv";
+
+        public const string HEVC = "hevc"; // H.265
     }
 
     public static class VideoFormats
@@ -239,6 +275,8 @@ internal static class FFMPEG
         public const string OGG = "ogg";
         
         public const string M4A = "m4a";
+
+        public const string AAC = "aac";
     }
 
     public static class PixelFormats
@@ -250,7 +288,11 @@ internal static class FFMPEG
     {
         public string InputFilepath = string.Empty;
 
-        public int FramesPerSecond;
+        public int TotalFrames;
+
+        public float FramesPerSecond;
+
+        public int Duration;
 
         public string Resolution = string.Empty;
 
@@ -274,9 +316,9 @@ internal static class FFMPEG
 
         #region Public
 
-        public FfmpegParameters Rate(int rate)
+        public FfmpegParameters Rate(float rate)
         {
-            return Add('r', rate);
+            return Add('r', $"{rate:F2}");
         }
 
         public FfmpegParameters Input(string filepath)
@@ -289,6 +331,15 @@ internal static class FFMPEG
             return Append(outputFormat is null ?
                 filepath.WrapQuotes() : 
                 FileSystem.ChangeExtension(filepath, outputFormat).WrapQuotes());
+        }
+        
+        public FfmpegParameters OutputFromInput(string inputFilepath, string suffix, string? outputFormat = null)
+        {
+            string outputFilepath = FileSystem.AppendSuffix(inputFilepath, suffix, "_");
+            
+            return Append(outputFormat is null ?
+                outputFilepath.WrapQuotes() : 
+                FileSystem.ChangeExtension(outputFilepath, outputFormat).WrapQuotes());
         }
 
         public FfmpegParameters AudioCodec(string codec = "copy")
@@ -331,9 +382,9 @@ internal static class FFMPEG
             return Add("map", $"{(shouldMap ? 1 : 0)}:v");
         }
 
-        public FfmpegParameters FrameRate(int framesPerSecond)
+        public FfmpegParameters FrameRate(float framesPerSecond)
         {
-            return Add("vf", $"fps={framesPerSecond}");
+            return Add("vf", $"fps={framesPerSecond:F2}");
         }
 
         public FfmpegParameters Scale(int width = -1, int height = -1)
@@ -389,6 +440,15 @@ internal static class FFMPEG
         public FfmpegParameters Miscellaneous(string parameters)
         {
             return Append(parameters);
+        }
+
+        #endregion
+
+        #region Overrides
+
+        public override string ToString()
+        {
+            return base.ToString().Replace("--", "-");
         }
 
         #endregion

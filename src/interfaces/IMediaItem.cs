@@ -8,9 +8,11 @@ public interface IMediaItem
         
     public string Url { get; }
         
-    public MediaParameters MediaParameters { get; }
+    public IProcessParameters? ProcessParameters { get; }
         
     public string Filepath { get; }
         
     public MediaType MediaType { get; }
+
+    public string ParametersString => ProcessParameters?.ToString() ?? string.Empty;
 }

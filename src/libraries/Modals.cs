@@ -28,12 +28,12 @@ public static class Modals
     
     public static bool Update(AppVersionModel? result)
     {
-        return Confirmation(string.Format(Resources.NewUpdate, result?.VersionString), "New Version Available",
+        return Confirmation(string.Format(Resources.NewUpdate, result?.VersionString), Captions.NEW_VERSION,
             MessageBoxIcon.Information);
     }
 
     public static DialogResult UpToDate()
     {
-        return Notification(Resources.UpToDate, "Version Current");
+        return Notification(Resources.UpToDate, Captions.CURRENT_VERSION);
     }
 }

@@ -1,7 +1,22 @@
-﻿namespace JackTheVideoRipper.extensions;
+﻿using System.Runtime.InteropServices;
+
+namespace JackTheVideoRipper.extensions;
 
 public static class FormExtensions
 {
+    [DllImport("user32.dll")]
+    private static extern bool LockWindowUpdate(IntPtr hWndLock);
+
+    public static void Suspend(this Form form)
+    {
+        LockWindowUpdate(form.Handle);
+    }
+
+    public static void Resume(this Form form)
+    {
+        LockWindowUpdate(IntPtr.Zero);
+    }
+    
     public static bool Confirm(this Form form)
     {
         return form.ShowDialog() is DialogResult.OK or DialogResult.Yes;

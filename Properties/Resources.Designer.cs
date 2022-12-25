@@ -60,15 +60,6 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Could not find AtomicParsley on your system.. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app..
-        /// </summary>
-        internal static string AtomicParsleyMissing {
-            get {
-                return ResourceManager.GetString("AtomicParsleyMissing", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Couldn&apos;t find file to open at {0}.
         /// </summary>
         internal static string CouldNotOpenFile {
@@ -87,6 +78,15 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Could not find {0} on your system.. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app..
+        /// </summary>
+        internal static string DependencyMissing {
+            get {
+                return ResourceManager.GetString("DependencyMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Directory {0} does not exist!.
         /// </summary>
         internal static string DirectoryDoesNotExist {
@@ -96,7 +96,7 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You have pending downloads, are you sure you want to exit?.
+        ///   Looks up a localized string similar to You have pending operations, are you sure you want to exit?.
         /// </summary>
         internal static string ExitWarning {
             get {
@@ -110,15 +110,6 @@ namespace JackTheVideoRipper.Properties {
         internal static string FailedToDownload {
             get {
                 return ResourceManager.GetString("FailedToDownload", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Could not find FFmpeg on your system. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app..
-        /// </summary>
-        internal static string FfmpegMissing {
-            get {
-                return ResourceManager.GetString("FfmpegMissing", resourceCulture);
             }
         }
         

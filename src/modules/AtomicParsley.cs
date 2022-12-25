@@ -8,9 +8,9 @@
 
         public static bool IsInstalled => File.Exists(_ExecutablePath);
 
-        public static void DownloadLatest()
+        public static async Task DownloadLatest()
         {
-            FileSystem.GetWebResourceHandle(_DOWNLOAD_URL);
+            await FileSystem.GetWebResourceHandle(_DOWNLOAD_URL, FileSystem.Paths.Install).Run();
         }
     }
 }

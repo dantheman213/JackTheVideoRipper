@@ -31,10 +31,12 @@ namespace JackTheVideoRipper
         private ListView.ListViewItemCollection ViewItems => listItems.Items;
 
         public ListViewItem FirstSelected => Selected[0];
+
+        public ListViewItem LastSelected => Selected[^1];
         
         public bool NoneSelected => Selected.Count <= 0;
 
-        public bool InItemBounds(MouseEventArgs e) => listItems.FocusedItem.Bounds.Contains(e.Location);
+        public bool InItemBounds(MouseEventArgs e) => listItems.Visible && listItems.FocusedItem.Bounds.Contains(e.Location);
 
         #endregion
 
@@ -96,9 +98,9 @@ namespace JackTheVideoRipper
             _rowUpdateTask = UpdateModuleAsync(_mediaManager.UpdateListItemRows);
         }
         
-        private IAsyncResult UpdateModuleAsync(Func<Task> updateModuleAction)
+        private IAsyncResult? UpdateModuleAsync(Func<Task> updateModuleAction)
         {
-            return BeginInvoke(updateModuleAction, null);
+            return Visible ? BeginInvoke(updateModuleAction, null) : default;
         }
 
         private void ClearAll()
@@ -110,14 +112,29 @@ namespace JackTheVideoRipper
         private void OpenContextMenu()
         {
             contextMenuListItems.Show(Cursor.Position);
-            SetContextVisibility("retryDownloadToolStripMenuItem",  ProcessStatus.Error);
-            SetContextVisibility("stopDownloadToolStripMenuItem",   ProcessStatus.Running);
-            SetContextVisibility("deleteFromDiskToolStripMenuItem", ProcessStatus.Succeeded);
+            SetContextVisibility("retryDownloadToolStripMenuItem",      ProcessStatus.Error);
+            SetContextVisibility("stopDownloadToolStripMenuItem",       ProcessStatus.Running);
+            SetContextVisibility("deleteFromDiskToolStripMenuItem",     ProcessStatus.Succeeded);
+            SetContextVisibility("resumeDownloadToolStripMenuItem",     ProcessStatus.Paused);
+            SetContextVisibility("pauseDownloadToolStripMenuItem",      ProcessStatus.Running);
+            SetContextVisibility("redownloadMediaToolStripMenuItem",    ProcessStatus.Completed);
+            ShowContextItem("deleteRowToolStripMenuItem");
+        }
+        
+        private void ShowContextItem(string name)
+        {
+            SetContextVisibility(name);
         }
 
-        private void SetContextVisibility(string name, ProcessStatus processStatus)
+        private void HideContextItem(string name)
         {
-            contextMenuListItems.Items[name].Visible = SelectedIsStatus(processStatus);
+            SetContextVisibility(name, value:false);
+        }
+
+        private void SetContextVisibility(string name, ProcessStatus? processStatus = null, bool value = true)
+        {
+            contextMenuListItems.Items[name].Visible = processStatus is not null ? 
+                SelectedIsStatus((ProcessStatus) processStatus) : value;
         }
         
         private bool SelectedIsStatus(ProcessStatus processStatus)
@@ -140,7 +157,7 @@ namespace JackTheVideoRipper
         }
         
         private async void KeyDownHandler(object? sender, KeyEventArgs args)
-        { 
+        {
             switch (args.KeyCode)
             {
                 // Ctrl + V
@@ -162,7 +179,7 @@ namespace JackTheVideoRipper
             if (url.Invalid(FileSystem.IsValidUrl))
                 return;
             
-            await _mediaManager.QueueProcess(new MediaItemRow(url));
+            await _mediaManager.QueueProcess(new MediaItemRow<DownloadMediaParameters>(url), ProcessRowType.Download);
         }
         
         private void AddItem(ListViewItem item)
@@ -186,6 +203,7 @@ namespace JackTheVideoRipper
             OnSettingsUpdated(); //< Load initial values (for visibility)
             Core.InitializeScheduler();
             StartEventTimer();
+            Core.DownloadDependency(Dependencies.ExifTool);
         }
 
         private async void FrameMain_Shown(object sender, EventArgs e)
@@ -203,16 +221,6 @@ namespace JackTheVideoRipper
                 EndInvoke(_rowUpdateTask);
 
             await Core.Shutdown();
-        }
-
-        private void FolderToolStripMenuItem_Click(object? sender, EventArgs e)
-        {
-             if (FileSystem.SelectFile() is not { } filepath)
-                 return;
-
-             const string mp4SearchPattern = $"*.{FFMPEG.VideoFormats.MP4}";
-             
-             Directory.GetFiles(filepath, mp4SearchPattern).ForEach(FFMPEG.Compress);
         }
 
         #endregion
@@ -240,6 +248,64 @@ namespace JackTheVideoRipper
         #endregion
 
         #region Event Handlers
+        
+        private async void OnCompressVideo(object? sender, EventArgs e)
+        {
+             if (FileSystem.SelectFile() is not { } filepath)
+                 return;
+
+             if (!FileSystem.WarnAndDeleteIfExists(FileSystem.AppendSuffix(filepath, "COMPRESSED", "_")))
+                 return;
+
+             //FFMPEG.VideoInformation videoInformation = await FFMPEG.ExtractVideoInformation(filepath);
+             
+             var tiddies = await ExifTool.GetMetadata(filepath);
+
+             var row = new MediaItemRow<FFMPEG.FfmpegParameters>(filepath: filepath,
+                 mediaParameters: FFMPEG.Compress(filepath));
+             
+             await _mediaManager.QueueProcess(row, ProcessRowType.Compress);
+        }
+        
+        private void OnCompressBulk(object? sender, EventArgs e)
+        {
+            if (FileSystem.SelectFolder() is not { } path)
+                return;
+            
+            const string mp4SearchPattern = $"*.{FFMPEG.VideoFormats.MP4}";
+             
+            Directory.GetFiles(path, mp4SearchPattern).ForEach(filepath =>
+            {
+                FFMPEG.Compress(filepath);
+            });
+        }
+        
+        private async void OnRecodeVideo(object? sender, EventArgs e)
+        {
+            if (FileSystem.SelectFile() is not { } filepath)
+                return;
+
+            var row = new MediaItemRow<FFMPEG.FfmpegParameters>(filepath: filepath,
+                mediaParameters: FFMPEG.Recode(filepath));
+             
+            await _mediaManager.QueueProcess(row, ProcessRowType.Recode);
+        }
+        
+        private async void OnRepairVideo(object? sender, EventArgs e)
+        {
+            if (FileSystem.SelectFile() is not { } filepath)
+                return;
+
+            var parameters = (await FFMPEG.RepairVideo(filepath)).Select(parameters => 
+                new MediaItemRow<FFMPEG.FfmpegParameters>(filepath: filepath, mediaParameters: parameters));
+
+            async void Repair(MediaItemRow<FFMPEG.FfmpegParameters> row)
+            {
+                await _mediaManager.QueueProcess(row, ProcessRowType.Repair);
+            }
+
+            parameters.ForEach(Repair);
+        }
 
         private void SubscribeEvents()
         {
@@ -282,12 +348,12 @@ namespace JackTheVideoRipper
             
             // Dependencies
             openDependenciesFolderToolStripMenuItem.Click += async (_, _) => await Core.OpenInstallFolder();
-            ytdlpToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.YouTubeDL);
-            vS2010RedistributableToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.Redistributables);
-            atomicParsleyToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.AtomicParsley);
-            vlcPlayerToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.VLC);
-            handbrakeToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.Handbrake);
-            fFmpegToolStripMenuItem.Click += (_, _) => Core.DownloadDependency(Dependencies.FFMPEG);
+            ytdlpToolStripMenuItem.Click += async (_, _) => await Core.DownloadDependency(Dependencies.YouTubeDL);
+            vS2010RedistributableToolStripMenuItem.Click += async (_, _) => await Core.DownloadDependency(Dependencies.Redistributables);
+            atomicParsleyToolStripMenuItem.Click += async (_, _) => await Core.DownloadDependency(Dependencies.AtomicParsley);
+            vlcPlayerToolStripMenuItem.Click += async (_, _) => await Core.DownloadDependency(Dependencies.VLC);
+            handbrakeToolStripMenuItem.Click += async (_, _) => await Core.DownloadDependency(Dependencies.Handbrake);
+            fFmpegToolStripMenuItem.Click += async (_, _) => await Core.DownloadDependency(Dependencies.FFMPEG);
             
             // Media Downloads
             toolStripButtonDownloadVideo.Click += async (_, _) => await DownloadMediaDialog(MediaType.Video);
@@ -297,7 +363,9 @@ namespace JackTheVideoRipper
 
             // Tools
             validateVideoToolStripMenuItem.Click += (_, _) => MediaManager.VerifyIntegrity();
-            compressVideoToolStripMenuItem.Click += FolderToolStripMenuItem_Click;
+            compressVideoToolStripMenuItem.Click += OnCompressVideo;
+            repairVideoToolStripMenuItem.Click += OnRepairVideo;
+            recodeVideoToolStripMenuItem.Click += OnRecodeVideo;
             openConsoleToolStripMenuItem.Click += async (_, _) => await Output.OpenMainConsoleWindow();
             openHistoryToolStripMenuItem.Click += (_, _) => History.Data.OpenHistory();
 
@@ -347,7 +415,7 @@ namespace JackTheVideoRipper
                 await ContextHandler(ContextActions.Copy);
             };
             
-            deleteRowToolStripMenuItem.Click += async (_, _) =>
+            deleteFromDiskToolStripMenuItem.Click += async (_, _) =>
             {
                 await ContextHandler(ContextActions.Delete);
             };

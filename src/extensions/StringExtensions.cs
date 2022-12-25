@@ -11,25 +11,55 @@ public static class StringExtensions
     {
         return str.Contains(element) ? str[..str.IndexOf(element, StringComparison.Ordinal)] : str;
     }
+    
+    public static string Before(this string str, char element)
+    {
+        return str.Contains(element) ? str[..str.IndexOf(element, StringComparison.Ordinal)] : str;
+    }
 
     public static string After(this string str, string element)
     {
         return str.Contains(element) ? str[(str.IndexOf(element, StringComparison.Ordinal) + element.Length)..] : str;
     }
     
+    public static string After(this string str, char element)
+    {
+        return str.Contains(element) ? str[(str.IndexOf(element, StringComparison.Ordinal) + 1)..] : str;
+    }
+    
     public static string BeforeLast(this string str, string element)
     {
         return str.Contains(element) ? str[..str.LastIndexOf(element, StringComparison.Ordinal)] : str;
+    }
+    
+    public static string BeforeLast(this string str, char element)
+    {
+        return str.Contains(element) ? str[..str.LastIndexOf(element)] : str;
     }
 
     public static string AfterLast(this string str, string element)
     {
         return str.Contains(element) ? str[(str.LastIndexOf(element, StringComparison.Ordinal) + element.Length)..] : str;
     }
+    
+    public static string AfterLast(this string str, char element)
+    {
+        return str.Contains(element) ? str[(str.LastIndexOf(element) + 1)..] : str;
+    }
 
     public static bool HasValue(this string? str)
     {
         return !string.IsNullOrEmpty(str);
+    }
+
+    public static string Between(this string str, string start, string end)
+    {
+        return str.After(start).Before(end);
+    }
+    
+    public static string Between(this string str, string enclosingString)
+    {
+        return str.AfterFirst(enclosingString).BeforeLast(enclosingString);
     }
     
     public static bool HasValueAndNot(this string? str, string other)
@@ -72,10 +102,20 @@ public static class StringExtensions
     {
         return str.HasValue() && predicate(str!);
     }
+    
+    public static string? ValidOrDefault(this string? str, Func<string, bool> predicate, string? defaultValue = default)
+    {
+        return str.Valid(predicate) ? str : defaultValue;
+    }
 
     public static bool Invalid(this string? str, Func<string, bool> isValidPredicate)
     {
         return str.IsNullOrEmpty() || !isValidPredicate(str!);
+    }
+    
+    public static string? InvalidOrDefault(this string? str, Func<string, bool> predicate, string? defaultValue = default)
+    {
+        return str.Invalid(predicate) ? str : defaultValue;
     }
 
     public static string Remove(this string str, string element, StringComparison? stringComparison = null)
@@ -123,5 +163,83 @@ public static class StringExtensions
     public static string WrapQuotes(this string str)
     {
         return $"\"{str}\"";
+    }
+    
+    public static bool ContainsLetter(this string str)
+    {
+        return str.Any(char.IsLetter);
+    }
+
+    public static bool ContainsNumber(this string str)
+    {
+        return str.Any(char.IsDigit);
+    }
+    
+    public static bool ContainsSymbol(this string str)
+    {
+        return str.Any(char.IsSymbol);
+    }
+
+    private static readonly char[] _Numbers =
+    {
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+    };
+
+    private static readonly char[] _Letters =
+    {
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+            'w', 'x', 'y', 'z',
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V',
+            'W', 'X', 'Y', 'Z'
+    };
+
+    public static string BeforeFirstNumber(this string str, bool inclusive = false)
+    {
+        return str.ContainsLetter() ? str[..(str.IndexOfAny(_Numbers) + (inclusive ? 1 : 0))] : str;
+    }
+    
+    public static string BeforeLastNumber(this string str, bool inclusive = false)
+    {
+        return str.ContainsNumber() ? str[..(str.Length - str.LastIndexOfAny(_Numbers) - 2)] : str;
+    }
+
+    public static string BeforeFirstLetter(this string str, bool inclusive = false)
+    {
+        return str.ContainsLetter() ? str[..(str.IndexOfAny(_Letters) + (inclusive ? 1 : 0))] : str;
+    }
+    
+    public static string BeforeLastLetter(this string str, bool inclusive = false)
+    {
+        return str.ContainsLetter() ? str[..(str.Length - str.LastIndexOfAny(_Letters) - 2)] : str;
+    }
+    
+    public static string AfterFirstNumber(this string str, bool inclusive = false)
+    {
+        return str.ContainsNumber() ? str[str.IndexOfAny(_Numbers)..] : str;
+    }
+    
+    public static string AfterLastNumber(this string str, bool inclusive = false)
+    {
+        return str.ContainsNumber() ? str[str.LastIndexOfAny(_Numbers)..] : str;
+    }
+
+    public static string AfterFirstLetter(this string str, bool inclusive = false)
+    {
+        return str.ContainsLetter() ? str[str.IndexOfAny(_Letters)..] : str;
+    }
+    
+    public static string AfterLastLetter(this string str, bool inclusive = false)
+    {
+        return str.ContainsLetter() ? str[str.LastIndexOfAny(_Letters)..] : str;
+    }
+    
+    public static string AfterFirst(this string str, string element, bool inclusive = false)
+    {
+        return str.Contains(element) ? str[str.IndexOf(element, StringComparison.Ordinal)..] : str;
+    }
+    
+    public static string BeforeFirst(this string str, string element, bool inclusive = false)
+    {
+        return str.Contains(element) ? str[..(str.Length - str.IndexOf(element, StringComparison.Ordinal) - 2)] : str;
     }
 }

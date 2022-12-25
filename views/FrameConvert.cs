@@ -11,7 +11,7 @@
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            FileSystem.GetWebResourceHandle(_HAND_BRAKE_URL, false);
+            FileSystem.GetWebResourceHandle(_HAND_BRAKE_URL, useShellExecute:false);
         }
     }
 }

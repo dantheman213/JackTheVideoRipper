@@ -13,7 +13,7 @@ namespace JackTheVideoRipper
         public string Url { get; set; } = string.Empty;
         
         [JsonIgnore]
-        public MediaParameters MediaParameters { get; init; }
+        public IProcessParameters? ProcessParameters { get; init; }
         
         [JsonProperty("filepath")]
         public string Filepath { get; set; } = string.Empty;
@@ -22,6 +22,6 @@ namespace JackTheVideoRipper
         public MediaType MediaType { get; set; }
 
         [JsonProperty("parameters")]
-        public string ParameterString => MediaParameters.ToString();
+        public string ParameterString => ProcessParameters?.ToString() ?? string.Empty;
     }
 }

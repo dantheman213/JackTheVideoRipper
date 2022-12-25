@@ -4,6 +4,9 @@
     <Compile Update="external\ConsoleControl\ConsoleControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Update="src\models\AsyncProcess.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Update="views\FrameAbout.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -50,6 +53,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="views\FrameYTDLDependencyInstall.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="views\modals\BasicDropdown.cs">
       <SubType>Form</SubType>
     </Compile>
   </ItemGroup>

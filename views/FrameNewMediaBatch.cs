@@ -29,7 +29,7 @@ namespace JackTheVideoRipper
 
         private bool ShouldUpdateAudio => ExportAudio && !EncodeVideo;
         
-        private string Filename => FileSystem.GetFilename(Filepath);
+        private string Filename => FileSystem.GetFilenameWithoutExtension(Filepath);
 
         #endregion
 
@@ -121,7 +121,7 @@ namespace JackTheVideoRipper
 
         private void ButtonLocationBrowse_Click(object sender, EventArgs e)
         {
-            if (FileSystem.SelectFile() is { } filepath)
+            if (FileSystem.SelectFolder() is { } filepath)
                 Filepath = filepath;
         }
         
@@ -198,13 +198,13 @@ namespace JackTheVideoRipper
             cbVideoEncoder.Enabled = !enabled || ExportVideo;
         }
         
-        private void AddItem(MediaParameters mediaParameters)
+        private void AddItem(DownloadMediaParameters mediaParameters)
         {
             Items.Add(new DownloadMediaItem
             {
                 Title = string.Empty,
                 Filepath = string.Empty,
-                MediaParameters = mediaParameters,
+                ProcessParameters = mediaParameters,
                 Url = mediaParameters.MediaSourceUrl,
                 MediaType = Type
             });
@@ -224,7 +224,7 @@ namespace JackTheVideoRipper
                 return;
             }
 
-            AddItem(new MediaParameters(url)
+            AddItem(new DownloadMediaParameters(url)
             {
                 ExportAudio = ExportAudio,
                 ExportVideo = ExportVideo,

@@ -10,7 +10,7 @@ namespace JackTheVideoRipper
     {
         #region Data Members
 
-        public MediaItemRow MediaItemRow;
+        public MediaItemRow<DownloadMediaParameters> MediaItemRow;
 
         private readonly MediaType _startType;
 
@@ -32,7 +32,7 @@ namespace JackTheVideoRipper
         
         private bool ShouldUpdateAudio => ExportAudio && !FormatVideo;
         
-        private string Filename => FileSystem.GetFilename(Filepath);
+        private string Filename => FileSystem.GetFilenameWithoutExtension(Filepath);
 
         #endregion
 
@@ -228,7 +228,10 @@ namespace JackTheVideoRipper
         private void CopyUrlFromClipboard()
         {
             if (FileSystem.GetClipboardAsUrl() is not { } url)
+            {
+                Modals.Warning("Clipboard content is not valid url!");
                 return;
+            }
             
             Url = url;
         }
@@ -268,7 +271,7 @@ namespace JackTheVideoRipper
 
         private void GenerateMediaItemRow()
         {
-            MediaParameters mediaParameters = new(LastValidUrl)
+            DownloadMediaParameters mediaParameters = new(LastValidUrl)
             {
                 FilenameFormatted = Filepath,
                 Username = Username,
@@ -289,7 +292,7 @@ namespace JackTheVideoRipper
 
             MediaType mediaType = ExportVideo ? MediaType.Video : MediaType.Audio;
 
-            MediaItemRow = new MediaItemRow(LastValidUrl, Title, Filepath, mediaType, mediaParameters);
+            MediaItemRow = new MediaItemRow<DownloadMediaParameters>(LastValidUrl, Title, Filepath, mediaType, mediaParameters);
         }
 
         private void ToggleVideo(bool enabled)
@@ -362,7 +365,7 @@ namespace JackTheVideoRipper
             
             GenerateDownloadCommand();
                 
-            FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.MediaParameters}");
+            FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.ProcessParameters}");
 
             Modals.Notification(@"Command copied to clipboard!", @"Generate Command");
         }
@@ -410,7 +413,7 @@ namespace JackTheVideoRipper
 
         #region Static Methods
 
-        public static MediaItemRow? GetMedia(MediaType type)
+        public static MediaItemRow<DownloadMediaParameters>? GetMedia(MediaType type)
         {
             FrameNewMedia frameNewMedia = new(type);
             return frameNewMedia.Confirm() ? frameNewMedia.MediaItemRow : null;

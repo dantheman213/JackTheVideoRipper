@@ -13,9 +13,9 @@ public class HistoryItem : IMediaItem
         
     [JsonProperty("url")]
     public string Url { get; set; } = string.Empty;
-        
+
     [JsonIgnore]
-    public MediaParameters MediaParameters { get; init; }
+    public IProcessParameters? ProcessParameters { get; init; }
         
     [JsonProperty("filepath")]
     public string Filepath { get; set; } = string.Empty;
@@ -24,7 +24,7 @@ public class HistoryItem : IMediaItem
     public MediaType MediaType { get; set; } = MediaType.Video;
 
     [JsonProperty("parameters")]
-    public string ParameterString => MediaParameters.ToString();
+    public string ParameterString => ProcessParameters?.ToString() ?? string.Empty;
     
     // Other properties
 
@@ -61,7 +61,7 @@ public class HistoryItem : IMediaItem
         Url = mediaItem.Url;
         Filepath = mediaItem.Filepath;
         MediaType = mediaItem.MediaType;
-        MediaParameters = mediaItem.MediaParameters;
+        ProcessParameters = mediaItem.ProcessParameters;
     }
     
     public string[] ViewItemArray => new[]

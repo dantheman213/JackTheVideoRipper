@@ -8,7 +8,7 @@ public static class Aria2c
     
     public static readonly string ExecutablePath = FileSystem.ProgramPath(_EXECUTABLE_NAME);
     
-    private const string _DOWNLOAD_URL = "https://github.com/aria2/aria2/releases/latest"; // TODO: ...
+    private const string _DOWNLOAD_URL = "https://github.com/aria2/aria2/releases/latest";
     
     private static readonly Command _Command = new(ExecutablePath);
     
@@ -24,9 +24,9 @@ public static class Aria2c
 
     #region Public Methods
 
-    public static void DownloadLatest()
+    public static async Task DownloadLatest()
     {
-        FileSystem.GetWebResourceHandle(_DOWNLOAD_URL);
+        await FileSystem.GetWebResourceHandle(_DOWNLOAD_URL, FileSystem.Paths.Install).Run();
     }
 
     #endregion

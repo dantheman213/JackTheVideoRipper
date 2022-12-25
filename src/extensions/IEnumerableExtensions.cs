@@ -29,4 +29,24 @@ public static class IEnumerableExtensions
     {
         return enumerable.ToArray().Reverse();
     }
+
+    public static bool All(this IEnumerable<bool> enumerable)
+    {
+        return enumerable.All(b => b);
+    }
+    
+    public static bool Any(this IEnumerable<bool> enumerable)
+    {
+        return enumerable.Any(b => b);
+    }
+
+    public static bool None<T>(this IEnumerable<T> enumerable)
+    {
+        return !enumerable.Any();
+    }
+
+    public static bool Empty<T>(this IEnumerable<T> enumerable)
+    {
+        return !enumerable.Any();
+    }
 }

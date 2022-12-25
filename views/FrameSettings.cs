@@ -106,7 +106,7 @@
         {
             buttonLocationBrowse.Click += (_, _) =>
             {
-                if (FileSystem.SelectFile(textLocation.Text.Trim()) is { } selectedPath)
+                if (FileSystem.SelectFolder(textLocation.Text.Trim()) is { } selectedPath)
                     textLocation.Text = selectedPath;
             };
             

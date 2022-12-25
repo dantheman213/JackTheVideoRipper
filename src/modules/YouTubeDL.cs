@@ -161,7 +161,7 @@ namespace JackTheVideoRipper
         
         private static async Task<string> GetExtractors()
         {
-            return await _Command.RunCommandAync(Params.Extractors);
+            return await _Command.RunCommandAsync(Params.Extractors);
         }
 
         private static string GetVersion()
@@ -181,7 +181,7 @@ namespace JackTheVideoRipper
             if (!response.IsSuccessStatusCode)
                 return string.Empty;
 
-            string title = Web.GetTitle(response.GetResponse());
+            string title = Web.GetTitle(await response.GetResponseAsync());
 
             DomainInfo? domainInfo = FileSystem.ParseUrl(url);
 
@@ -191,23 +191,38 @@ namespace JackTheVideoRipper
             string domain = $"{domainInfo.Domain}";
             string domainExtended = $"{domainInfo.Domain}.{domainInfo.TLD}";
 
-            if (RemoveIfEndsWith(title, "-", domain) is { } domainWithDash)
-                return domainWithDash;
-            if (RemoveIfEndsWith(title, "|", domain) is { } domainWithPipe)
-                return domainWithPipe;
-            if (RemoveIfEndsWith(title, "-", domainExtended) is { } domainExtendedWithDash)
-                return domainExtendedWithDash;
-            if (RemoveIfEndsWith(title, "|", domainExtended) is { } domainExtendedWithPipe)
-                return domainExtendedWithPipe;
+            if (RemoveIfStartsWith(title, "-", domain) is { } domainWithDashStart)
+                return domainWithDashStart;
+            if (RemoveIfStartsWith(title, "|", domain) is { } domainWithPipeStart)
+                return domainWithPipeStart;
+            if (RemoveIfStartsWith(title, "-", domainExtended) is { } domainExtendedWithDashStart)
+                return domainExtendedWithDashStart;
+            if (RemoveIfStartsWith(title, "|", domainExtended) is { } domainExtendedWithPipeStart)
+                return domainExtendedWithPipeStart;
+            if (RemoveIfEndsWith(title, "-", domain) is { } domainWithDashEnd)
+                return domainWithDashEnd;
+            if (RemoveIfEndsWith(title, "|", domain) is { } domainWithPipeEnd)
+                return domainWithPipeEnd;
+            if (RemoveIfEndsWith(title, "-", domainExtended) is { } domainExtendedWithDashEnd)
+                return domainExtendedWithDashEnd;
+            if (RemoveIfEndsWith(title, "|", domainExtended) is { } domainExtendedWithPipeEnd)
+                return domainExtendedWithPipeEnd;
             
             return title;
         }
         
+        private static string? RemoveIfStartsWith(string title, string separator, string domainText)
+        {
+            string text = $"{domainText} {separator}";
+            return title.StartsWith(text, DEFAULT_COMPARISON) ?
+                title.Remove(text, DEFAULT_COMPARISON).Trim() : null;
+        }
+        
         private static string? RemoveIfEndsWith(string title, string separator, string domainText)
         {
-            string text = $" {separator} {domainText}";
+            string text = $"{separator} {domainText}";
             return title.EndsWith(text, DEFAULT_COMPARISON) ?
-                title.Remove(text, DEFAULT_COMPARISON) : null;
+                title.Remove(text, DEFAULT_COMPARISON).Trim() : null;
         }
 
         #endregion

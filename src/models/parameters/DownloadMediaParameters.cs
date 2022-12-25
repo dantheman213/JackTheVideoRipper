@@ -1,9 +1,10 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.modules;
 
 namespace JackTheVideoRipper;
 
-public struct MediaParameters
+public struct DownloadMediaParameters : IProcessParameters
 {
     public readonly string MediaSourceUrl;
     
@@ -39,7 +40,7 @@ public struct MediaParameters
 
     private bool AudioOnly => ExportAudio && !ExportVideo;
 
-    public MediaParameters(string url)
+    public DownloadMediaParameters(string url)
     {
         MediaSourceUrl = url;
     }

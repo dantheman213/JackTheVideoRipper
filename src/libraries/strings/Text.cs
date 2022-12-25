@@ -11,7 +11,7 @@ public static class Text
     public const string DASHES = "---";
     public const string PROGRESS_COMPLETE = "100%";
     public const string NOT_APPLICABLE = "N/A";
-    public const string DEFAULT_SPEED = "0.0 KB/s";
+    public const string DEFAULT_SPEED = "--";
     public const string DEFAULT_PROGRESS = "0%";
     public const string DEFAULT_TIME = "--:--";
     public const string DEFAULT_SIZE = "-";

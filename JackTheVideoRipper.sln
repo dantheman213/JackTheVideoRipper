@@ -5,6 +5,8 @@ VisualStudioVersion = 17.3.32825.248
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JackTheVideoRipper", "JackTheVideoRipper.csproj", "{48153FA6-8334-423C-A8FB-64BB3D0BFB8C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JackTheVideoRipperTest", "tests\JackTheVideoRipperTest\JackTheVideoRipperTest.csproj", "{A35704C5-D62F-4A72-A158-B4A5D09EADF9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{48153FA6-8334-423C-A8FB-64BB3D0BFB8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{48153FA6-8334-423C-A8FB-64BB3D0BFB8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{48153FA6-8334-423C-A8FB-64BB3D0BFB8C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A35704C5-D62F-4A72-A158-B4A5D09EADF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A35704C5-D62F-4A72-A158-B4A5D09EADF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A35704C5-D62F-4A72-A158-B4A5D09EADF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A35704C5-D62F-4A72-A158-B4A5D09EADF9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

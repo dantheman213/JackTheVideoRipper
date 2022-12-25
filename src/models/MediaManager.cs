@@ -1,6 +1,7 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.models.rows;
 using JackTheVideoRipper.modules;
 using JackTheVideoRipper.views;
 
@@ -10,7 +11,7 @@ public class MediaManager
 {
     #region Data Members
 
-    private readonly ProcessPool _processPool;
+    private readonly ProcessPool _processPool = new();
 
     #endregion
 
@@ -44,7 +45,6 @@ public class MediaManager
 
     public MediaManager()
     {
-        _processPool = new ProcessPool();
         _processPool.ProcessCompleted += ProcessCompletionCallback;
         _processPool.ProcessStarted += ProcessStartedCallback;
     }
@@ -112,19 +112,32 @@ public class MediaManager
         Parallel.ForEach(_processPool.RemoveFailed(), OnProcessRemoved);
     }
 
-    public void AddRow(IMediaItem row)
+    public void AddRow(IMediaItem row, ProcessRowType processRowType)
     {
-        OnProcessAdded(_processPool.QueueDownloadProcess(row));
+        switch (processRowType)
+        {
+            case ProcessRowType.Download:
+                OnProcessAdded(_processPool.QueueDownloadProcess(row));
+                break;
+            case ProcessRowType.Compress:
+                OnProcessAdded(_processPool.QueueCompressProcess(row));
+                break;
+            default:
+            case ProcessRowType.Convert:
+            case ProcessRowType.Recode:
+            case ProcessRowType.Repair:
+                break;
+        }
     }
 
-    public async Task QueueProcess(IMediaItem row)
+    public async Task QueueProcess(IMediaItem row, ProcessRowType processRowType)
     {
-        await Core.RunTaskInMainThread(() => AddRow(row));
+        await Core.RunTaskInMainThread(() => AddRow(row, processRowType));
     }
     
-    public async ValueTask QueueProcessAsync(IMediaItem row, CancellationToken cancellationToken)
+    public async ValueTask QueueProcessAsync(IMediaItem row, CancellationToken cancellationToken, ProcessRowType processRowType)
     {
-        await Core.RunTaskInMainThread(() => AddRow(row));
+        await Core.RunTaskInMainThread(() => AddRow(row, processRowType), cancellationToken);
     }
 
     public void QueueBatchDownloads()
@@ -132,18 +145,21 @@ public class MediaManager
         Common.RepeatInvoke(UpdateProcessQueue, Settings.Data.MaxConcurrentDownloads);
     }
 
+    public HashSet<string> ExistingUrls => _processPool
+        .GetOfType<DownloadProcessUpdateRow>()
+        .Select(r => r.Url)
+        .ToHashSet();
+
     public async Task DownloadBatch(IEnumerable<string>? urls = null)
     {
         if (FrameNewMediaBatch.GetMedia(urls?.MergeReturn() ?? string.Empty) is not { } items)
             return;
 
-        HashSet<string> existingUrls = _processPool
-            .GetOfType<DownloadProcessUpdateRow>()
-            .Select(r => r.Url)
-            .ToHashSet();
+        HashSet<string> existingUrls = ExistingUrls;
 
         IEnumerable<DownloadMediaItem> uniqueUrls = items.Where(i => !existingUrls.Contains(i.Url));
-        await Parallel.ForEachAsync(uniqueUrls, QueueProcessAsync);
+        await Parallel.ForEachAsync(uniqueUrls, (row, token) => QueueProcessAsync(row, token, ProcessRowType.Download));
+        
         QueueBatchDownloads();
     }
 
@@ -180,7 +196,7 @@ public class MediaManager
         if (FrameNewMedia.GetMedia(type) is not { } mediaItemRow)
             return;
             
-        await QueueProcess(mediaItemRow);
+        await QueueProcess(mediaItemRow, ProcessRowType.Download);
     }
 
     private async Task GetNewMediaSimple(MediaType type)
@@ -188,7 +204,7 @@ public class MediaManager
         if (FrameNewMediaSimple.GetMedia(type) is not { } mediaItemRow)
             return;
             
-        await QueueProcess(mediaItemRow);
+        await QueueProcess(mediaItemRow, ProcessRowType.Download);
     }
 
     public void RetryProcess(string tag)
@@ -236,13 +252,14 @@ public class MediaManager
         {
             case ContextActions.OpenMedia:
                 if (Selected.Completed)
-                    await Task.Run(() => Common.OpenFileInMediaPlayer(Selected.Path));
+                    await Common.OpenFileInMediaPlayer(Selected.Path);
                 break;
             case ContextActions.Copy:
                 Core.CopyToClipboard(Selected.Url);
                 break;
             case ContextActions.Delete:
-                RemoveProcess(Selected.Tag);
+                if (Selected.Finished)
+                    FileSystem.DeleteFileIfExists(Selected.Path);
                 break;
             case ContextActions.Stop:
                 if (!Selected.Completed)
@@ -253,7 +270,7 @@ public class MediaManager
                     RetryProcess(Selected.Tag);
                 break;
             case ContextActions.OpenUrl:
-                Common.OpenInBrowser(Selected.Url);
+                await Common.OpenInBrowser(Selected.Url);
                 break;
             case ContextActions.Reveal:
                 await FileSystem.OpenFolder(Selected.Path);
@@ -263,8 +280,7 @@ public class MediaManager
                     ResumeProcess(Selected.Tag);
                 break;
             case ContextActions.Remove:
-                if (Selected.Finished)
-                    FileSystem.DeleteFileIfExists(Selected.Path);
+                RemoveProcess(Selected.Tag);
                 break;
             case ContextActions.OpenConsole:
                 await Selected.OpenInConsole();
@@ -328,11 +344,18 @@ public class MediaManager
 
     public static void VerifyIntegrity()
     {
-        if (FileSystem.GetFilePathUsingDialog() is not { } filepath)
+        if (FileSystem.SelectFile() is not { } filepath)
             return;
         
         Output.WriteLine($"Verifying file: {filepath.WrapQuotes()}");
         Output.WriteLine(FFMPEG.VerifyIntegrity(filepath), sendAsNotification:true);
+
+        string logFilepath = FileSystem.TempFile;
+        string result = File.ReadAllText(logFilepath).IsNullOrEmpty() ?
+            $"No errors detected in file {filepath.WrapQuotes()}." :
+            $"Errors detected while verifying file {filepath.WrapQuotes()} (full report: {logFilepath.WrapQuotes()})";
+
+        Output.WriteLine(result);
     }
 
     #endregion

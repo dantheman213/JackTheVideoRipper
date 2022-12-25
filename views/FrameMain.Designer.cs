@@ -101,6 +101,7 @@
          this.helpSupportToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.contextMenuListItems = new System.Windows.Forms.ContextMenuStrip(this.components);
          this.convertMediaToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+         this.redownloadMediaToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
          this.openFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.openURLInBrowserToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -109,6 +110,7 @@
          this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
          this.retryDownloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.resumeDownloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+         this.pauseDownloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.copyUrlToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.stopDownloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
          this.deleteFromDiskToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -194,7 +196,7 @@
          // 
          // cDownloadSpeed
          // 
-         this.cDownloadSpeed.Text = "Download Speed";
+         this.cDownloadSpeed.Text = "Speed";
          this.cDownloadSpeed.Width = 157;
          // 
          // cETA
@@ -632,6 +634,7 @@
          this.contextMenuListItems.ImageScalingSize = new System.Drawing.Size(24, 24);
          this.contextMenuListItems.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.convertMediaToolStripMenuItem,
+            this.redownloadMediaToolStripMenuItem,
             this.toolStripMenuItem1,
             this.openFolderToolStripMenuItem,
             this.openURLInBrowserToolStripMenuItem,
@@ -640,6 +643,7 @@
             this.toolStripMenuItem2,
             this.retryDownloadToolStripMenuItem,
             this.resumeDownloadToolStripMenuItem,
+            this.pauseDownloadToolStripMenuItem,
             this.copyUrlToolStripMenuItem,
             this.stopDownloadToolStripMenuItem,
             this.deleteFromDiskToolStripMenuItem,
@@ -653,6 +657,12 @@
          this.convertMediaToolStripMenuItem.Name = "convertMediaToolStripMenuItem";
          this.convertMediaToolStripMenuItem.Size = new System.Drawing.Size(240, 24);
          this.convertMediaToolStripMenuItem.Text = "Convert Media";
+         // 
+         // redownloadMediaToolStripMenuItem
+         // 
+         this.redownloadMediaToolStripMenuItem.Name = "redownloadMediaToolStripMenuItem";
+         this.redownloadMediaToolStripMenuItem.Size = new System.Drawing.Size(240, 24);
+         this.redownloadMediaToolStripMenuItem.Text = "Redownload";
          // 
          // toolStripMenuItem1
          // 
@@ -699,6 +709,12 @@
          this.resumeDownloadToolStripMenuItem.Name = "resumeDownloadToolStripMenuItem";
          this.resumeDownloadToolStripMenuItem.Size = new System.Drawing.Size(240, 24);
          this.resumeDownloadToolStripMenuItem.Text = "Resume Download";
+         // 
+         // resumeDownloadToolStripMenuItem
+         // 
+         this.pauseDownloadToolStripMenuItem.Name = "pauseDownloadToolStripMenuItem";
+         this.pauseDownloadToolStripMenuItem.Size = new System.Drawing.Size(240, 24);
+         this.pauseDownloadToolStripMenuItem.Text = "Pause Download";
          // 
          // copyUrlToolStripMenuItem
          // 
@@ -939,6 +955,7 @@
         private System.Windows.Forms.ContextMenuStrip contextMenuListItems;
         private System.Windows.Forms.ToolStripMenuItem openFolderToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem convertMediaToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem redownloadMediaToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.ColumnHeader cStatus;
         private System.Windows.Forms.ToolStripMenuItem openURLInBrowserToolStripMenuItem;
@@ -947,6 +964,7 @@
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
         private System.Windows.Forms.ToolStripMenuItem retryDownloadToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem resumeDownloadToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem pauseDownloadToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem stopDownloadToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem deleteFromDiskToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem copyUrlToolStripMenuItem;

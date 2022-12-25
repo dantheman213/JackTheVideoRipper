@@ -5,10 +5,19 @@ namespace JackTheVideoRipper
     [Serializable]
     public class SettingsModel : ConfigModel
     {
-        [JsonIgnore]
+        #region Static Data Members
+        
         public static readonly string SettingsFilepath = Path.Combine(ConfigDirectory, "settings.json");
 
+        #endregion
+
+        #region Attributes
+
         public override string Filepath => SettingsFilepath;
+
+        #endregion
+
+        #region Data Members
 
         [JsonProperty("default_download_path")]
         public string DefaultDownloadPath { get; set; } = FileSystem.Paths.Download;
@@ -30,5 +39,23 @@ namespace JackTheVideoRipper
         
         [JsonProperty("enable_multi_threaded_downloads")]
         public bool EnableMultiThreadedDownloads { get; set; }
+        
+        [JsonProperty("last_opened_filepath")]
+        public string LastOpenedFilepath { get; set; } = FileSystem.Paths.Download;
+        
+        #endregion
+
+        #region Public Methods
+
+        public override void Validate()
+        {
+            if (!Directory.Exists(DefaultDownloadPath))
+                DefaultDownloadPath = FileSystem.Paths.Download;
+            
+            if (!Directory.Exists(LastOpenedFilepath))
+                LastOpenedFilepath = FileSystem.Paths.Download;
+        }
+
+        #endregion
     }
 }

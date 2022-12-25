@@ -115,9 +115,9 @@ public class Console
 
     private void WriteFromQueue()
     {
-        while (Active && !_messageQueue.Empty())
+        while (Active && !_messageQueue.Empty() && Control is not null)
         {
-            Control!.WriteLog(_messageQueue.Dequeue());
+            Control?.WriteLog(_messageQueue.Dequeue());
         }
     }
     

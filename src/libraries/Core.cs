@@ -1,4 +1,6 @@
-﻿using JackTheVideoRipper.extensions;
+﻿using System.Runtime.ExceptionServices;
+using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.modules;
 using JackTheVideoRipper.Properties;
 using JackTheVideoRipper.views;
 
@@ -11,6 +13,10 @@ public static class Core
     public static TaskScheduler Scheduler { get; private set; } = null!;
     
     private static TaskFactory TaskFactory { get; set; } = null!;
+
+    public static readonly CancellationTokenSource FormClosingCancellationTokenSource = new();
+    
+    private static CancellationToken FormClosingCancellationToken => FormClosingCancellationTokenSource.Token;
 
     public static async Task Startup()
     {
@@ -26,6 +32,7 @@ public static class Core
 
     public static async Task Shutdown()
     {
+        FormClosingCancellationTokenSource.Cancel();
         await Config.Save();
     }
 
@@ -53,23 +60,44 @@ public static class Core
         }
 
         // Verify FFMPEG
-        if (!modules.FFMPEG.IsInstalled)
+        if (!FFMPEG.IsInstalled)
         {
-            Modals.Warning(Resources.FfmpegMissing, Captions.REQUIRED_NOT_INSTALLED);
+            MissingDependencyModal("FFMPEG");
         }
 
         // Verify Atomic Parsley
         if (!AtomicParsley.IsInstalled)
         {
-            Modals.Warning(Resources.AtomicParsleyMissing, Captions.REQUIRED_NOT_INSTALLED);
+            MissingDependencyModal("Atomic Parsley");
         }
+        
+        // Verify Aria2C
+        if (!Aria2c.IsInstalled)
+        {
+            MissingDependencyModal("Aria2C");
+        }
+
+        // Verify ExifTool
+        if (!ExifTool.IsInstalled)
+        {
+            MissingDependencyModal("ExifTool");
+        }
+    }
+
+    private static void MissingDependencyModal(string name)
+    {
+        Modals.Warning(MissingDependencyMessage(name), Captions.REQUIRED_NOT_INSTALLED);
+    }
+
+    private static string MissingDependencyMessage(string name)
+    {
+        return string.Format(Resources.DependencyMissing, name);
     }
 
     private static void InstallDependencies()
     {
         FrameYTDLDependencyInstall frameDependencyInstall = new();
         frameDependencyInstall.ShowDialog();
-        // TODO ?
         Modals.Notification(Resources.InstallationSuccess, Captions.REQUIRED_INSTALLED);
         frameDependencyInstall.Close();
     }
@@ -95,27 +123,33 @@ public static class Core
         await FileSystem.OpenFileExplorer(FileSystem.Paths.Install);
     }
     
-    public static void DownloadDependency(Dependencies dependency)
+    public static async Task DownloadDependency(Dependencies dependency)
     {
         switch (dependency)
         {
             case Dependencies.YouTubeDL:
-                FileSystem.GetWebResourceHandle(YouTubeDL.UPDATE_URL);
+                await FileSystem.GetWebResourceHandle(YouTubeDL.UPDATE_URL).Run();
                 break;
             case Dependencies.FFMPEG:
-                modules.FFMPEG.DownloadLatest();
+                await FFMPEG.DownloadLatest();
                 break;
             case Dependencies.Handbrake:
-                FileSystem.GetWebResourceHandle(URLs.HANDBRAKE);
+                await FileSystem.GetWebResourceHandle(URLs.HANDBRAKE).Run();
                 break;
             case Dependencies.VLC:
-                FileSystem.GetWebResourceHandle(URLs.VLC);
+                await FileSystem.GetWebResourceHandle(URLs.VLC).Run();
                 break;
             case Dependencies.AtomicParsley:
-                AtomicParsley.DownloadLatest();
+                await AtomicParsley.DownloadLatest();
                 break;
             case Dependencies.Redistributables:
-                FileSystem.GetWebResourceHandle(URLs.REDISTRIBUTABLES);
+                await FileSystem.GetWebResourceHandle(URLs.REDISTRIBUTABLES).Run();
+                break;
+            case Dependencies.Aria2c:
+                await Aria2c.DownloadLatest();
+                break;
+            case Dependencies.ExifTool:
+                await ExifTool.DownloadLatest();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(dependency), dependency, null);
@@ -149,6 +183,11 @@ public static class Core
     public static bool IsConnectedToInternet()
     {
         return InternetGetConnectedState(out int _, 0);         
+    }
+    
+    public static void Crash(string message, Exception? exception = null)
+    {
+        Environment.FailFast(message, exception);
     }
     
     private static void DownloadImages()
@@ -204,6 +243,11 @@ public static class Core
         OpenExceptionHandler(args.Exception);
     }
     
+    public static void OpenExceptionHandler(object? sender, FirstChanceExceptionEventArgs args)
+    {
+        OpenExceptionHandler(args.Exception);
+    }
+    
     public static void OpenExceptionHandler(object? sender, UnhandledExceptionEventArgs args)
     {
         if (args.ExceptionObject is not Exception exception)
@@ -214,7 +258,7 @@ public static class Core
     public static void OpenExceptionHandler(Exception exception)
     {
         if (new FrameErrorHandler(exception).ShowDialog() == DialogResult.Abort)
-            Application.Exit();
+            Crash("Application closed due to unhandled exception.", exception);
     }
 
     #endregion
@@ -223,24 +267,32 @@ public static class Core
     
     // https://stackoverflow.com/questions/15428604/how-to-run-a-task-on-a-custom-taskscheduler-using-await
 
-    public static Task RunTaskInMainThread(Func<Task> func)
+    public static Task RunTaskInMainThread(Func<Task> func, CancellationToken? cancellationToken = null,
+        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
     {
-        return TaskFactory.StartNew(func).Unwrap();
+        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken,
+            taskCreationOptions, Scheduler).Unwrap();
     }
     
-    public static Task<T> RunTaskInMainThread<T>(Func<Task<T>> func)
+    public static Task<T> RunTaskInMainThread<T>(Func<Task<T>> func, CancellationToken? cancellationToken = null,
+        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
     {
-        return TaskFactory.StartNew(func).Unwrap();
+        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken,
+            taskCreationOptions, Scheduler).Unwrap();
     }
     
-    public static Task RunTaskInMainThread(Action func)
+    public static Task RunTaskInMainThread(Action func, CancellationToken? cancellationToken = null,
+        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
     {
-        return TaskFactory.StartNew(func);
+        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken, 
+            taskCreationOptions, Scheduler);
     }
     
-    public static Task<T> RunTaskInMainThread<T>(Func<T> func)
+    public static Task<T> RunTaskInMainThread<T>(Func<T> func, CancellationToken? cancellationToken = null,
+        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
     {
-        return TaskFactory.StartNew(func);
+        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken,
+            taskCreationOptions, Scheduler);
     }
 
     #endregion

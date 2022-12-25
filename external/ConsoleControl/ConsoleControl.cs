@@ -48,7 +48,7 @@ namespace ConsoleControl
         }
 
         /// <summary>
-        /// Handles the OnProcessError event of the processInterace control.
+        /// Handles the OnProcessError event of the processInterface control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="args">The <see cref="ProcessEventArgs"/> instance containing the event data.</param>
@@ -62,7 +62,7 @@ namespace ConsoleControl
         }
 
         /// <summary>
-        /// Handles the OnProcessOutput event of the processInterace control.
+        /// Handles the OnProcessOutput event of the processInterface control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="args">The <see cref="ProcessEventArgs"/> instance containing the event data.</param>
@@ -76,7 +76,7 @@ namespace ConsoleControl
         }
 
         /// <summary>
-        /// Handles the OnProcessInput event of the processInterace control.
+        /// Handles the OnProcessInput event of the processInterface control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="args">The <see cref="ProcessEventArgs"/> instance containing the event data.</param>
@@ -86,7 +86,7 @@ namespace ConsoleControl
         }
 
         /// <summary>
-        /// Handles the OnProcessExit event of the processInterace control.
+        /// Handles the OnProcessExit event of the processInterface control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="args">The <see cref="ProcessEventArgs"/> instance containing the event data.</param>

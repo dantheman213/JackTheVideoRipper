@@ -73,7 +73,25 @@ namespace JackTheVideoRipper.views
          TextBox.VScroll += UpdateConsoleFrozen;
          TextBox.MouseDown += OnMouseDown;
          TextBox.SelectionChanged += UpdateConsoleFrozen;
+         TextBox.LostFocus += OnLostFocus;
+         TextBox.GotFocus += OnGotFocus;
          saveToFileToolStripMenuItem.Click += OnSaveToFile;
+      }
+
+      private bool _suspended;
+      
+      private void OnLostFocus(object? sender, EventArgs e)
+      {
+         TextBox.Suspend();
+         _suspended = true;
+         UpdateConsoleFrozen(sender, e);
+      }
+
+      private void OnGotFocus(object? sender, EventArgs e)
+      {
+         TextBox.Resume();
+         _suspended = false;
+         UpdateConsoleFrozen(sender, e);
       }
 
       private void FrameConsole_Load(object? sender, EventArgs e)
@@ -88,7 +106,8 @@ namespace JackTheVideoRipper.views
          if (FileSystem.SaveFileUsingDialog() is not { } filename || filename.IsNullOrEmpty())
             return;
          
-         FileSystem.SaveToFile(filename, ConsoleControl.Text);
+         // TODO: Use the results from the process?
+         FileSystem.SaveToFile(filename, TextBox.Text);
       }
 
       private void OnMouseDown(object? sender, MouseEventArgs args)
@@ -99,7 +118,7 @@ namespace JackTheVideoRipper.views
 
       private async void UpdateConsoleFrozen(object? sender, EventArgs args)
       {
-         if (TextBox.IsAtMaxScroll() && !TextBox.HasSelected())
+         if (_suspended || TextBox.IsAtMaxScroll() && !TextBox.HasSelected())
          {
             if (Frozen)
                await Tasks.StartAfter(UnfreezeConsole);

@@ -7,18 +7,46 @@ namespace JackTheVideoRipper.models.containers;
 [Serializable]
 public class HistoryModel : ConfigModel
 {
+    #region Static Data Members
+        
     public static readonly string HistoryFilepath = Path.Combine(ConfigDirectory, "history.json");
-    
-    public override string Filepath => HistoryFilepath;
-    
-    private HistoryTable _historyItemTable = new();
 
+    #endregion
+
+    #region Attributes
+
+    public override string Filepath => HistoryFilepath;
+
+    #endregion
+
+    #region Data Members
+
+    private HistoryTable _historyItemTable = new();
+    
     [JsonProperty("history_items")]
     public List<HistoryItem> HistoryItems
     {
         get => _historyItemTable.HistoryItems;
         set => _historyItemTable = new HistoryTable(value);
     }
+
+    #endregion
+
+    #region Constructor
+
+    [JsonConstructor]
+    public HistoryModel(List<HistoryItem> historyItems)
+    {
+        HistoryItems = historyItems;
+    }
+    
+    public HistoryModel()
+    {
+    }
+
+    #endregion
+
+    #region Public Methods
 
     public void AddHistoryItem(string tag, IMediaItem mediaItem)
     {
@@ -27,6 +55,11 @@ public class HistoryModel : ConfigModel
             WebsiteName = string.Empty,     //< Change later...
             Result = ProcessStatus.Created  //< Change later...
         });
+    }
+
+    public bool ContainsUrl(string url)
+    {
+        return _historyItemTable.ContainsUrl(url);
     }
 
     public HistoryItem? GetByTag(string tag)
@@ -52,12 +85,12 @@ public class HistoryModel : ConfigModel
         
         frameHistory.Show();
     }
-    
+
     public void MarkStarted(string tag, DateTime? startDate = null)
     {
         _historyItemTable.MarkStarted(tag, startDate ?? DateTime.Now);
     }
-    
+
     public void MarkCompleted(string tag, DateTime? completionDate = null, ProcessStatus result = ProcessStatus.Completed)
     {
         _historyItemTable.MarkCompleted(tag, completionDate ?? DateTime.Now, result);
@@ -67,4 +100,6 @@ public class HistoryModel : ConfigModel
     {
         _historyItemTable.UpdateFileInformation(tag, filepath, filesize);
     }
+
+    #endregion
 }

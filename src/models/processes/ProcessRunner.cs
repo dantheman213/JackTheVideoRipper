@@ -26,17 +26,21 @@ public abstract class ProcessRunner : IProcessRunner
     
     public bool Succeeded { get; private set; }
     
+    public bool ProcessExited { get; private set; }
+    
+    public bool Started { get; private set; }
+    
     public string FileName { get; private set; } = string.Empty;
+
+    public List<string> Dependencies { get; private set; } = new();
 
     #endregion
 
     #region Attributes
 
-    public bool ProcessExited => Process?.HasExited ?? true;
-
+    public bool ProcessRunning => Started && !ProcessExited;
+    
     public bool Failed => !Succeeded;
-
-    public bool Started => ProcessStatus is not ProcessStatus.Created;
                 
     public bool Finished => ProcessStatus is ProcessStatus.Completed
         or ProcessStatus.Error
@@ -61,18 +65,27 @@ public abstract class ProcessRunner : IProcessRunner
     {
         ParameterString = parameterString;
         CompletionCallback = completionCallback;
+        SubscribeEvents();
     }
 
     #endregion
 
     #region Process States
+    
+    protected virtual bool SetProcessStatus(ProcessStatus processStatus)
+    {
+        if (IsProcessStatus(processStatus))
+            return false;
+        ProcessStatus = processStatus;
+        return true;
+    }
 
     public virtual Task<bool> Update()
     {
         // Don't run updates after we've completed
         if (Paused || Finished)
             return FalseTask;
-        
+
         Buffer.Update();
 
         return TrueTask;
@@ -96,8 +109,8 @@ public abstract class ProcessRunner : IProcessRunner
     {
         if (!SetProcessStatus(ProcessStatus.Stopped))
             return;
-        
-        Process?.Kill();
+
+        Kill();
     }
     
     public virtual void Retry()
@@ -135,7 +148,7 @@ public abstract class ProcessRunner : IProcessRunner
         SetProcessStatus(ProcessStatus.Queued);
     }
 
-    // Returns if the process succeeded
+    // Returns if the process succeeded / can proceed
     public virtual bool HandleExitCode(int exitCode)
     {
         return exitCode == 0;
@@ -156,20 +169,22 @@ public abstract class ProcessRunner : IProcessRunner
         Process?.Resume();
     }
 
+    #endregion
+
+    #region Event Handlers
+
     public virtual void OnProcessExit(object? o, EventArgs eventArgs)
     {
         CloseProcess();
-        Core.RunTaskInMainThread(Complete);
-    }
-    
-    protected virtual bool SetProcessStatus(ProcessStatus processStatus)
-    {
-        if (IsProcessStatus(processStatus))
-            return false;
-        ProcessStatus = processStatus;
-        return true;
+        Complete();
     }
 
+    protected void OnApplicationExit(object? sender, EventArgs args)
+    {
+        if (ProcessRunning)
+            Kill();
+    }
+    
     protected virtual void NotifyCompletion()
     {
         CompletionCallback.Invoke(this);
@@ -188,18 +203,19 @@ public abstract class ProcessRunner : IProcessRunner
 
     public void Kill()
     {
-        if (ProcessExited)
+        if (!Started || ProcessExited)
             return;
         
-        FileSystem.TryKillProcessAndChildren(Process!.Id);
+        // Needed to stop process hierarchy
+        Process!.Kill();
     }
     
     public void TryKillProcess()
     {
-        if (ProcessExited)
+        if (!Started || ProcessExited)
             return;
         
-        try { Process!.Kill(); }
+        try { Kill(); }
         catch (Exception exception)
         {
             Output.WriteLine(exception);
@@ -216,6 +232,11 @@ public abstract class ProcessRunner : IProcessRunner
         Buffer.SaveLogs();
     }
 
+    public void AddDependency(string tag)
+    {
+        Dependencies.Add(tag);
+    }
+
     #endregion
 
     #region Protected Methods
@@ -227,6 +248,11 @@ public abstract class ProcessRunner : IProcessRunner
     #endregion
 
     #region Private Methods
+    
+    private void SubscribeEvents()
+    {
+        Application.ApplicationExit += OnApplicationExit;
+    }
 
     private void InitializeProcess()
     {
@@ -247,6 +273,7 @@ public abstract class ProcessRunner : IProcessRunner
         Process.Start();
         Process.BeginOutputReadLine();
         Process.BeginErrorReadLine();
+        Started = true;
     }
     
     private void CloseProcess(bool notifyCompletion = true)
@@ -255,6 +282,7 @@ public abstract class ProcessRunner : IProcessRunner
             return;
         ExitCode = Process.ExitCode;
         Succeeded = HandleExitCode(ExitCode);
+        ProcessExited = true;
         Process.Close();
         if (notifyCompletion)   
             NotifyCompletion();

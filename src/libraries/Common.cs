@@ -13,7 +13,7 @@ namespace JackTheVideoRipper
         
         private static readonly Regex _NumericPattern = new(@"[^\d]", RegexOptions.Compiled);
         
-        private static readonly Regex _SpaceSplitPattern = new(@"\s+");
+        private static readonly Regex _SpaceSplitPattern = new(@"\s+", RegexOptions.Compiled);
         
         private const string _CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -41,16 +41,16 @@ namespace JackTheVideoRipper
             return _NumericPattern.Remove(str).ValueOrDefault("0");
         }
 
-        public static void OpenInBrowser(string url)
+        public static async Task OpenInBrowser(string url)
         {
             if (url.Valid(FileSystem.IsValidUrl))
-                FileSystem.GetWebResourceHandle(url);
+                await FileSystem.GetWebResourceHandle(url).Run();
         }
 
-        public static void OpenFileInMediaPlayer(string filepath)
+        public static async Task OpenFileInMediaPlayer(string filepath)
         {
             if (filepath.Valid(File.Exists))
-                FileSystem.GetWebResourceHandle(filepath);
+                await FileSystem.GetWebResourceHandle(filepath).Run();
         }
         
         public static void RepeatInvoke(Action action, int n, int sleepTime = 300)
@@ -72,6 +72,16 @@ namespace JackTheVideoRipper
         {
             //return $"{RandomString(5)}{DateTime.UtcNow.Ticks}";
             return Guid.NewGuid().ToString();
+        }
+        
+        public static string TimeString(float timeInSeconds)
+        {
+            if (timeInSeconds <= 0.01f)
+                return Text.DEFAULT_TIME;
+            double hours = Math.Floor(timeInSeconds / 360);
+            double minutes = Math.Floor(timeInSeconds % 360 / 60);
+            double seconds = MathF.Floor(timeInSeconds % 60);
+            return $"{hours:00.}:{minutes:00.}:{seconds:00.}";
         }
 
         #endregion

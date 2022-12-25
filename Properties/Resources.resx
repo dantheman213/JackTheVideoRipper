@@ -126,14 +126,11 @@
   <data name="InstallationError" xml:space="preserve">
     <value>Required components not installed! This app will NOT behave correctly because its critical dependencies are missing.</value>
   </data>
-  <data name="FfmpegMissing" xml:space="preserve">
-    <value>Could not find FFmpeg on your system. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app.</value>
-  </data>
-  <data name="AtomicParsleyMissing" xml:space="preserve">
-    <value>Could not find AtomicParsley on your system.. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app.</value>
+  <data name="DependencyMissing" xml:space="preserve">
+    <value>Could not find {0} on your system.. This app will NOT behave correctly because its critical dependencies are missing. Please reinstall this app.</value>
   </data>
   <data name="ExitWarning" xml:space="preserve">
-    <value>You have pending downloads, are you sure you want to exit?</value>
+    <value>You have pending operations, are you sure you want to exit?</value>
   </data>
   <data name="NewUpdate" xml:space="preserve">
     <value>New Version JackTheVideoRipper {0} Available! View Download Page?</value>

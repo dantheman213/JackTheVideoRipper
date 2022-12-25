@@ -3,10 +3,10 @@ using System.Net;
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.modules;
 using JackTheVideoRipper.Properties;
-using Nager.PublicSuffix;
 
-namespace JackTheVideoRipper.models;
+namespace JackTheVideoRipper.models.rows;
 
 public class DownloadProcessUpdateRow : ProcessUpdateRow
 {
@@ -14,21 +14,21 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
 
     private bool _redirected;
 
-    private string RedirectedUrl = string.Empty;
+    private string _redirectedUrl = string.Empty;
 
-    private DownloadStage DownloadStage = DownloadStage.None;
+    private DownloadStage _downloadStage = DownloadStage.None;
     
-    private const string ALREADY_DOWNLOADED = "has already been downloaded";
+    private const string _ALREADY_DOWNLOADED = "has already been downloaded";
 
     public string OriginalUrl => base.Url;
 
     public new string Url
     {
-        get => _redirected ? RedirectedUrl : OriginalUrl;
+        get => _redirected ? _redirectedUrl : OriginalUrl;
         set
         {
             _redirected = true;
-            RedirectedUrl = value;
+            _redirectedUrl = value;
         }
     }
 
@@ -57,12 +57,17 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
     // Extract elements of CLI output from YouTube-DL
     protected override void SetProgressText(IReadOnlyList<string> tokens)
     {
-        if (tokens.Count < 8 || DownloadStage != DownloadStage.Downloading)
+        if (tokens.Count < 8 || _downloadStage != DownloadStage.Downloading)
             return;
         Progress = tokens[1];
         FileSize = FormatSize(tokens[3]);
         DownloadSpeed = tokens[5];
         Eta = tokens[7];
+    }
+    
+    protected override async Task<string> GetTitle()
+    {
+        return await YouTubeDL.GetTitle(Url, false);
     }
 
     protected override string? GetStatus()
@@ -70,9 +75,9 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
         if (Buffer.ProcessLine is not { } line || line.IsNullOrEmpty())
             return string.Empty;
 
-        DownloadStage = YouTubeDL.GetDownloadStage(line);
+        _downloadStage = YouTubeDL.GetDownloadStage(line);
 
-        return DownloadStage switch
+        return _downloadStage switch
         {
             DownloadStage.Waiting       => Messages.WAITING,
             DownloadStage.Retrieving    => Messages.RETRIEVING,
@@ -119,8 +124,8 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
 
         string line = download.After(Tags.DOWNLOAD).Trim();
 
-        return line.Contains(ALREADY_DOWNLOADED, StringComparison.OrdinalIgnoreCase) ?
-            line.Before(ALREADY_DOWNLOADED).Trim() :
+        return line.Contains(_ALREADY_DOWNLOADED, StringComparison.OrdinalIgnoreCase) ?
+            line.Before(_ALREADY_DOWNLOADED).Trim() :
             line.After("Destination: ").Trim();
     }
 
@@ -135,7 +140,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
 
         try
         {
-            RedirectedUrl = await GetRedirectedLink(VideoProxy.GetProxyType(domainInfo.Domain), OriginalUrl);
+            _redirectedUrl = await GetRedirectedLink(VideoProxy.GetProxyType(domainInfo.Domain), OriginalUrl);
         }
         catch (Exception exception)
         {
@@ -143,20 +148,20 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
             return false;
         }
 
-        HttpResponseMessage resourceStatus = await Web.GetResourceStatus(RedirectedUrl);
+        HttpResponseMessage resourceStatus = await Web.GetResourceStatus(_redirectedUrl);
 
         switch (resourceStatus.StatusCode)
         {
             case HttpStatusCode.NotFound:
-                Fail(new WebException($"Resource could not be found at: {RedirectedUrl.WrapQuotes()} (Error {resourceStatus.ResponseCode()})"));
+                Fail(new WebException($"Resource could not be found at: {_redirectedUrl.WrapQuotes()} (Error {resourceStatus.ResponseCode()})"));
                 return false;
         }
         
-        _redirected = RedirectedUrl != OriginalUrl;
+        _redirected = _redirectedUrl != OriginalUrl;
         if (_redirected)
         {
             string oldSite = domainInfo.Domain.WrapQuotes();
-            string newSite = FileSystem.ParseUrl(RedirectedUrl)?.Domain.WrapQuotes().ValueOrDefault()!;
+            string newSite = FileSystem.ParseUrl(_redirectedUrl)?.Domain.WrapQuotes().ValueOrDefault()!;
             Buffer.AddLog($"Redirected from video proxy site {oldSite} to {newSite}", ProcessLogType.Info);
         }
         
@@ -212,9 +217,11 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
 
         if (FileSize.IsNullOrEmpty() || FileSize is Text.DEFAULT_SIZE or "~" || IsFilesizeNegligible())
             FileSize = FileSystem.GetFileSizeFormatted(Path);
-        
+
         if (Title.IsNullOrEmpty())
-            Title = await YouTubeDL.GetTitle(Url, false);
+            await RetrieveTitle();
+
+        await ExifTool.AddTag(Path, "Title", Title);
 
         SendProcessCompletedNotification();
             
@@ -224,6 +231,8 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
 
     private static string FormatSize(string size)
     {
+        if (size.Contains("KiB"))
+            return size.Replace("KiB", " KB");
         if (size.Contains("MiB"))
             return size.Replace("MiB", " MB");
         if (size.Contains("GiB"))
@@ -235,7 +244,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
     
     private bool IsFilesizeNegligible()
     {
-        return float.TryParse(FileSize.Split()[0], out float size) && size < 0.001;
+        return !float.TryParse(FileSize.Split()[0], out float size) || size < 0.001;
     }
 
     private void SendProcessCompletedNotification()

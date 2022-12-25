@@ -9,7 +9,7 @@ namespace JackTheVideoRipper.views
         
         public FrameErrorHandler(Exception exception)
         {
-            _exception = exception;
+            _exception = exception.InnerException ?? exception;;
             InitializeComponent();
             SubscribeEvents();
         }

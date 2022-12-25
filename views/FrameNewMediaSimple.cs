@@ -8,7 +8,7 @@ namespace JackTheVideoRipper.views
     {
         #region Data Members
 
-        public MediaItemRow MediaItemRow;
+        public MediaItemRow<DownloadMediaParameters> MediaItemRow;
 
         private readonly MediaType _startType;
         
@@ -18,7 +18,7 @@ namespace JackTheVideoRipper.views
 
         #region Properties
         
-        private string Filename => FileSystem.GetFilename(Filepath);
+        private string Filename => FileSystem.GetFilenameWithoutExtension(Filepath);
 
         #endregion
 
@@ -84,24 +84,28 @@ namespace JackTheVideoRipper.views
 
         private void GenerateMediaItemRow()
         {
-            MediaParameters mediaParameters = new(Url)
+            DownloadMediaParameters mediaParameters = new(Url)
             {
                 FilenameFormatted = Filepath,
                 ExportAudio = ExportAudio,
                 ExportVideo = ExportVideo,
-                RunMultiThreaded = Settings.Data.EnableMultiThreadedDownloads
+                RunMultiThreaded = Settings.Data.EnableMultiThreadedDownloads,
+                AddMetaData = true
             };
 
             MediaType mediaType = ExportVideo ? MediaType.Video : MediaType.Audio;
 
-            MediaItemRow = new MediaItemRow(Url, string.Empty, Filepath, mediaType, mediaParameters);
+            MediaItemRow = new MediaItemRow<DownloadMediaParameters>(Url, string.Empty, Filepath, mediaType, mediaParameters);
         }
         
         private void Download()
         {
-            if (!Url.Invalid(FileSystem.IsValidUrl))
+            if (Url.Valid(FileSystem.IsValidUrl))
             {
                 if (!FileSystem.WarnIfFileExists(Filepath))
+                    return;
+
+                if (History.Data.ContainsUrl(Url) && !Modals.Confirmation("This item has already been downloaded, continue?"))
                     return;
 
                 GenerateDownloadCommand();
@@ -124,23 +128,23 @@ namespace JackTheVideoRipper.views
         
         private void GetCommand()
         {
-            if (Url.HasValue())
+            if (Url.Valid(FileSystem.IsValidUrl))
             {
                 GenerateDownloadCommand();
                 
-                FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.MediaParameters}");
+                FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.ProcessParameters}");
 
                 Modals.Notification(@"Command copied to clipboard!", @"Generate Command");
             }
             else
             {
-                // TODO?
+                Modals.Warning("No valid url provided to create command from");
             }
         }
         
         #region Static Methods
 
-        public static MediaItemRow? GetMedia(MediaType type)
+        public static MediaItemRow<DownloadMediaParameters>? GetMedia(MediaType type)
         {
             FrameNewMediaSimple frameNewMedia = new(type);
             return frameNewMedia.Confirm() ? frameNewMedia.MediaItemRow : null;

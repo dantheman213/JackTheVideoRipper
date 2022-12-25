@@ -2,6 +2,7 @@
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models;
+using JackTheVideoRipper.models.rows;
 
 namespace JackTheVideoRipper;
 
@@ -29,7 +30,7 @@ public class ProcessPool
 
     #endregion
 
-    #region Properties
+    #region Attributes
 
     public bool AnyActive => AnyRunning || AnyQueued || AnyPaused;
 
@@ -116,22 +117,19 @@ public class ProcessPool
     {
         return _processTable.Processes.Where(predicate);
     }
+    
+    public ListViewItem QueueCompressProcess(IMediaItem mediaItem)
+    {
+        return QueueProcess(new CompressProcessUpdateRow(mediaItem, OnCompleteProcess));
+    }
 
     public ListViewItem QueueDownloadProcess(IMediaItem mediaItem)
     {
-        DownloadProcessUpdateRow processUpdateRow = new(mediaItem, OnCompleteProcess);
-        if (mediaItem.Title.IsNullOrEmpty())
-        {
-            StartBackgroundTask(async () =>
-            {
-                processUpdateRow.Title = await YouTubeDL.GetTitle(processUpdateRow.Url);
-            });
-        }
-        return QueueProcess(processUpdateRow);
+        return QueueProcess(new DownloadProcessUpdateRow(mediaItem, OnCompleteProcess));
     }
     
     // TODO: Create overrides for different types of processes
-    // Processes: Conversion, Validate, Compress, Repair
+    // Processes: Conversion, Validate, Repair
     
     public ListViewItem QueueProcess(IProcessUpdateRow processUpdateRow)
     {
@@ -370,12 +368,14 @@ public class ProcessPool
         
         RunProcess(processUpdateRow);
 
+        // Starting Process Succeeded
         if (await processUpdateRow.Start())
         {
             ProcessStarted();
             return;
         }
         
+        // Failed to Start Process
         StopProcess(processUpdateRow);
     }
     

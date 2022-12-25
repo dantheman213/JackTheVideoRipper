@@ -14,6 +14,8 @@ internal static class Settings
         // If it returns null, it does not exist on disk
         if (Data.CreateOrLoadFromDisk<SettingsModel>() is not { } loadedData)
             return;
+        
+        loadedData.Validate();
 
         Data = loadedData;
     }

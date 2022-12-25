@@ -35,7 +35,7 @@ namespace JackTheVideoRipper.models
             HttpResponseMessage response = await FileSystem.SimpleWebQueryAsync(_ASSEMBLY_INFO_FILE_URL);
 
             if (response.IsSuccessStatusCode)
-                return response.GetResponse();
+                return await response.GetResponseAsync();
             
             Output.WriteLine(@$"Failed to download {response.ResponseCode()})");
             return null;

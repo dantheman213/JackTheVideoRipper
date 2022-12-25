@@ -28,6 +28,8 @@ public interface IProcessRunner
     bool Finished { get; }
     
     bool Paused { get; }
+    
+    List<string> Dependencies { get; }
 
     Task<bool> Update();
 

@@ -16,7 +16,7 @@ namespace JackTheVideoRipper
             }
             
             await StartBackgroundTasks();
-            ConfigureExceptionHandling();
+            //ConfigureExceptionHandling();
             ConfigureGraphics();
             Application.Run(new FrameMain());
             Application.Exit();
@@ -55,6 +55,8 @@ namespace JackTheVideoRipper
         {
             // Add the event handler for handling UI thread exceptions to the event.
             Application.ThreadException += Core.OpenExceptionHandler;
+
+            //AppDomain.CurrentDomain.FirstChanceException += Core.OpenExceptionHandler;
 
             // Set the unhandled exception mode to force all Windows Forms errors to go through our handler.
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);

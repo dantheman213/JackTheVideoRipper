@@ -16,6 +16,8 @@ internal static class History
         // If it returns null, it does not exist on disk
         if (Data.CreateOrLoadFromDisk<HistoryModel>() is not { } loadedData)
             return;
+        
+        loadedData.Validate();
 
         Data = loadedData;
     }

@@ -7,5 +7,7 @@ public enum Dependencies
     Handbrake,
     VLC,
     AtomicParsley,
-    Redistributables
+    Redistributables,
+    Aria2c,
+    ExifTool
 }
