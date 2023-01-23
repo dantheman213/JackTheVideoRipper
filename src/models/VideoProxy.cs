@@ -1,11 +1,10 @@
-﻿using Nager.PublicSuffix;
+﻿using JackTheVideoRipper.extensions;
+using Nager.PublicSuffix;
 
 namespace JackTheVideoRipper.models;
 
 public static class VideoProxy
 {
-    public const string PORNKAI = "pornkai";
-
     public static bool IsProxyLink(string url)
     {
         return IsProxyLink(FileSystem.ParseUrl(url));
@@ -15,9 +14,15 @@ public static class VideoProxy
     {
         if (domainInfo is null)
             return false;
-        if (domainInfo.Domain is PORNKAI)
-            return true;
         return false;
+    }
+    
+    public static async Task<string> GetRedirectedLink(string parsedUrl, string originalUrl)
+    {
+        return GetProxyType(parsedUrl) switch
+        {
+            _ => originalUrl
+        };
     }
 
     public static VideoProxyType GetProxyType(string? domain)
@@ -32,6 +37,5 @@ public static class VideoProxy
 
 public enum VideoProxyType
 {
-    None,
-    Pornkai
+    None
 }

@@ -172,44 +172,10 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
     {
         return proxyType switch
         {
-            VideoProxyType.Pornkai => await GetPornkaiRedirect(url),
             _ => url
         };
     }
 
-    private static async Task<string> GetXHamsterLink(string id)
-    {
-        string redirectedUrl = await Web.GetRedirectedUrl($"https://xhamster.com/embed/{id}");
-        string redirectedId = new Uri(redirectedUrl).Segments.Last();
-        return $"https://xhamster.com/videos?id={redirectedId}";
-    }
-
-    private static async Task<string> GetPornkaiRedirect(string url)
-    {
-        string id = url.After("key=").Before("&");
-        switch (id.Length)
-        {
-            // XHamster
-            case 4:
-            case 5:
-                return await GetXHamsterLink(id);
-            case > 2:
-                switch (id[..2])
-                {
-                    case "xh":
-                        return await GetXHamsterLink(id);
-                    case "ph":
-                        return $"https://www.pornhub.com/view_video.php?viewkey={id}";
-                    case "xv":
-                        // xvideos won't redirect without a character after the slash?
-                        return $"https://www.xvideos.com/video{id.After("xv")}/a";
-                }
-                break;
-        }
-
-        throw new NotImplementedException($"Pornkai link not supported! ({url.WrapQuotes()})");
-    }
-    
     private async Task PostDownloadTasks()
     {
         if (Path.IsNullOrEmpty())
