@@ -1,4 +1,7 @@
-﻿namespace JackTheVideoRipper.extensions;
+﻿using System.ComponentModel;
+using System.Text.RegularExpressions;
+
+namespace JackTheVideoRipper.extensions;
 
 public static class StringExtensions
 {
@@ -159,10 +162,20 @@ public static class StringExtensions
     {
         return str.Split("\r\n", options);
     }
+    
+    public static string Wrap(this string str, string prefix, string suffix)
+    {
+        return $"{prefix}{str}{suffix}";
+    }
+    
+    public static string Wrap(this string str, string wrapper)
+    {
+        return $"{wrapper}{str}{wrapper}";
+    }
 
     public static string WrapQuotes(this string str)
     {
-        return $"\"{str}\"";
+        return str.Wrap("\"");
     }
     
     public static bool ContainsLetter(this string str)
@@ -241,5 +254,43 @@ public static class StringExtensions
     public static string BeforeFirst(this string str, string element, bool inclusive = false)
     {
         return str.Contains(element) ? str[..(str.Length - str.IndexOf(element, StringComparison.Ordinal) - 2)] : str;
+    }
+    
+    public static T? Convert<T>(this string input)
+    {
+        try
+        {
+            return TypeDescriptor.GetConverter(typeof(T)).ConvertFromString(input) is T output ? output : default;
+        }
+        catch (NotSupportedException)
+        {
+            return default;
+        }
+    }
+
+    private static readonly Regex _SplitPattern1 = new(@"(\P{Ll})(\P{Ll}\p{Ll})", RegexOptions.Compiled);
+    
+    private static readonly Regex _SplitPattern2 = new(@"(\p{Ll})(\P{Ll})", RegexOptions.Compiled);
+
+    private const string _SPLIT_REPLACEMENT = "$1 $2";
+
+    // https://stackoverflow.com/questions/5796383/insert-spaces-between-words-on-a-camel-cased-token
+    public static string SplitCamelCase(this string str)
+    {
+        return _SplitPattern2.Replace(_SplitPattern1.Replace(str, _SPLIT_REPLACEMENT), _SPLIT_REPLACEMENT);
+    }
+    
+    private static readonly Regex _UnderScorePattern = new(@"_", RegexOptions.Compiled);
+
+    public static string ReplaceUnderscore(this string str)
+    {
+        return _UnderScorePattern.Replace(str, " ");
+    }
+    
+    private static readonly Regex _RemoveMultiSpacePattern = new(@"\s\s+", RegexOptions.Compiled);
+    
+    public static string RemoveMultiSpace(this string str)
+    {
+        return _RemoveMultiSpacePattern.Replace(str, " ");
     }
 }

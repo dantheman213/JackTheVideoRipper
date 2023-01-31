@@ -19,12 +19,12 @@ public static class FormExtensions
     
     public static bool Confirm(this Form form)
     {
-        return form.ShowDialog() is DialogResult.OK or DialogResult.Yes;
+        return form.ShowDialog().IsSuccess();
     }
     
     public static bool Confirm(this CommonDialog dialog)
     {
-        return dialog.ShowDialog() is DialogResult.OK or DialogResult.Yes;
+        return dialog.ShowDialog().IsSuccess();
     }
 
     public static void Close(this Form form, DialogResult result)
