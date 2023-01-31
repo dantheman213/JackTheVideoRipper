@@ -18,28 +18,37 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
-    <data name="FileExists" xml:space="preserve">
-    <value>Warning: File Already Exists</value>
-  </data>
-    <data name="RequiredInstalled" xml:space="preserve">
-        <value>Required Components Installed</value>
+    <data name="Complete" xml:space="preserve">
+        <value>Complete</value>
     </data>
-    <data name="RequiredNotInstalled" xml:space="preserve">
-        <value>Required components not installed</value>
+    <data name="Error" xml:space="preserve">
+        <value>Error</value>
     </data>
-    <data name="ApplicationError" xml:space="preserve">
-        <value>Application Error</value>
+    <data name="Downloading" xml:space="preserve">
+        <value>Downloading</value>
     </data>
-    <data name="VerifyExit" xml:space="preserve">
-        <value>Verify Exit</value>
+    <data name="Waiting" xml:space="preserve">
+        <value>Waiting</value>
     </data>
-    <data name="NewVersion" xml:space="preserve">
-        <value>New Version Available</value>
+    <data name="Stopped" xml:space="preserve">
+        <value>Stopped</value>
     </data>
-    <data name="CurrentVersion" xml:space="preserve">
-        <value>Version Current</value>
+    <data name="Cancelled" xml:space="preserve">
+        <value>Cancelled</value>
     </data>
-    <data name="GenerateCommand" xml:space="preserve">
-        <value>Generate Command</value>
+    <data name="Idle" xml:space="preserve">
+        <value>Idle</value>
+    </data>
+    <data name="Paused" xml:space="preserve">
+        <value>Paused</value>
+    </data>
+    <data name="Queued" xml:space="preserve">
+        <value>Queued</value>
+    </data>
+    <data name="Starting" xml:space="preserve">
+        <value>Starting</value>
+    </data>
+    <data name="Succeeded" xml:space="preserve">
+        <value>Succeeded</value>
     </data>
 </root>

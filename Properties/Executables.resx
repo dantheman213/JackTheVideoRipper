@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+            
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="FFMPEG" xml:space="preserve">
+        <value>ffmpeg.exe</value>
+    </data>
+    <data name="FFProbe" xml:space="preserve">
+        <value>ffprobe.exe</value>
+    </data>
+    <data name="YouTubeDL" xml:space="preserve">
+        <value>yt-dlp.exe</value>
+    </data>
+    <data name="Handbrake" xml:space="preserve">
+        <value>handbrake.exe</value>
+    </data>
+    <data name="VLC" xml:space="preserve">
+        <value>vlc.exe</value>
+    </data>
+    <data name="AtomicParsley" xml:space="preserve">
+        <value>AtomicParsley.exe</value>
+    </data>
+    <data name="Aria2c" xml:space="preserve">
+        <value>aria2c.exe</value>
+    </data>
+    <data name="ExifTool" xml:space="preserve">
+        <value>exiftool.exe</value>
+    </data>
+    <data name="TaskManager" xml:space="preserve">
+        <value>taskmgr.exe</value>
+    </data>
+    <data name="Explorer" xml:space="preserve">
+        <value>explorer.exe</value>
+    </data>
+    <data name="Command" xml:space="preserve">
+        <value>cmd.exe</value>
+    </data>
+</root>

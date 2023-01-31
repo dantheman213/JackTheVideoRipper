@@ -7,7 +7,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace JackTheVideoRipper.Properties {
+namespace JackTheVideoRipper {
     using System;
     
     
@@ -21,14 +21,14 @@ namespace JackTheVideoRipper.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Captions {
+    internal class Executables {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Captions() {
+        internal Executables() {
         }
         
         /// <summary>
@@ -38,7 +38,7 @@ namespace JackTheVideoRipper.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.Captions", typeof(Captions).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.Executables", typeof(Executables).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -60,74 +60,101 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Application Error.
+        ///   Looks up a localized string similar to aria2c.exe.
         /// </summary>
-        internal static string ApplicationError {
+        internal static string Aria2c {
             get {
-                return ResourceManager.GetString("ApplicationError", resourceCulture);
+                return ResourceManager.GetString("Aria2c", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Version Current.
+        ///   Looks up a localized string similar to AtomicParsley.exe.
         /// </summary>
-        internal static string CurrentVersion {
+        internal static string AtomicParsley {
             get {
-                return ResourceManager.GetString("CurrentVersion", resourceCulture);
+                return ResourceManager.GetString("AtomicParsley", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Warning: File Already Exists.
+        ///   Looks up a localized string similar to cmd.exe.
         /// </summary>
-        internal static string FileExists {
+        internal static string Command {
             get {
-                return ResourceManager.GetString("FileExists", resourceCulture);
+                return ResourceManager.GetString("Command", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Generate Command.
+        ///   Looks up a localized string similar to exiftool.exe.
         /// </summary>
-        internal static string GenerateCommand {
+        internal static string ExifTool {
             get {
-                return ResourceManager.GetString("GenerateCommand", resourceCulture);
+                return ResourceManager.GetString("ExifTool", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to New Version Available.
+        ///   Looks up a localized string similar to explorer.exe.
         /// </summary>
-        internal static string NewVersion {
+        internal static string Explorer {
             get {
-                return ResourceManager.GetString("NewVersion", resourceCulture);
+                return ResourceManager.GetString("Explorer", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Required Components Installed.
+        ///   Looks up a localized string similar to ffmpeg.exe.
         /// </summary>
-        internal static string RequiredInstalled {
+        internal static string FFMPEG {
             get {
-                return ResourceManager.GetString("RequiredInstalled", resourceCulture);
+                return ResourceManager.GetString("FFMPEG", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Required components not installed.
+        ///   Looks up a localized string similar to ffprobe.exe.
         /// </summary>
-        internal static string RequiredNotInstalled {
+        internal static string FFProbe {
             get {
-                return ResourceManager.GetString("RequiredNotInstalled", resourceCulture);
+                return ResourceManager.GetString("FFProbe", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Verify Exit.
+        ///   Looks up a localized string similar to handbrake.exe.
         /// </summary>
-        internal static string VerifyExit {
+        internal static string Handbrake {
             get {
-                return ResourceManager.GetString("VerifyExit", resourceCulture);
+                return ResourceManager.GetString("Handbrake", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to taskmgr.exe.
+        /// </summary>
+        internal static string TaskManager {
+            get {
+                return ResourceManager.GetString("TaskManager", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to vlc.exe.
+        /// </summary>
+        internal static string VLC {
+            get {
+                return ResourceManager.GetString("VLC", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to yt-dlp.exe.
+        /// </summary>
+        internal static string YouTubeDL {
+            get {
+                return ResourceManager.GetString("YouTubeDL", resourceCulture);
             }
         }
     }

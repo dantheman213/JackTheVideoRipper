@@ -21,14 +21,14 @@ namespace JackTheVideoRipper.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Captions {
+    internal class AppInfo {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Captions() {
+        internal AppInfo() {
         }
         
         /// <summary>
@@ -38,7 +38,7 @@ namespace JackTheVideoRipper.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.Captions", typeof(Captions).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.AppInfo", typeof(AppInfo).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -60,74 +60,29 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Application Error.
+        ///   Looks up a localized string similar to JackTheVideoRipper.
         /// </summary>
-        internal static string ApplicationError {
+        internal static string ProgramName {
             get {
-                return ResourceManager.GetString("ApplicationError", resourceCulture);
+                return ResourceManager.GetString("ProgramName", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Version Current.
+        ///   Looks up a localized string similar to jtvr.
         /// </summary>
-        internal static string CurrentVersion {
+        internal static string ProgramPrefix {
             get {
-                return ResourceManager.GetString("CurrentVersion", resourceCulture);
+                return ResourceManager.GetString("ProgramPrefix", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Warning: File Already Exists.
+        ///   Looks up a localized string similar to https://github.com/dantheman213/JackTheVideoRipper/.
         /// </summary>
-        internal static string FileExists {
+        internal static string ProgramUrl {
             get {
-                return ResourceManager.GetString("FileExists", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Generate Command.
-        /// </summary>
-        internal static string GenerateCommand {
-            get {
-                return ResourceManager.GetString("GenerateCommand", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to New Version Available.
-        /// </summary>
-        internal static string NewVersion {
-            get {
-                return ResourceManager.GetString("NewVersion", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Required Components Installed.
-        /// </summary>
-        internal static string RequiredInstalled {
-            get {
-                return ResourceManager.GetString("RequiredInstalled", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Required components not installed.
-        /// </summary>
-        internal static string RequiredNotInstalled {
-            get {
-                return ResourceManager.GetString("RequiredNotInstalled", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Verify Exit.
-        /// </summary>
-        internal static string VerifyExit {
-            get {
-                return ResourceManager.GetString("VerifyExit", resourceCulture);
+                return ResourceManager.GetString("ProgramUrl", resourceCulture);
             }
         }
     }

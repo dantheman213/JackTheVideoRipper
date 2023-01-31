@@ -37,7 +37,7 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Captions.resx</DependentUpon>
     </Compile>
-    <Compile Update="Properties\FileSystemResources.Designer.cs">
+    <Compile Update="Properties\RFileSystem.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>FileSystemResources.resx</DependentUpon>
@@ -46,6 +46,46 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Remove="tests\**" />
+    <Compile Update="Properties\AppInfo.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>AppInfo.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\FileFilters.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>FileFilters.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Messages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Messages.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Notifications.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Notifications.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Text.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Text.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Urls.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Urls.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Statuses.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Statuses.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Executables.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Executables.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
@@ -54,6 +94,44 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <EmbeddedResource Remove="tests\**" />
+    <EmbeddedResource Update="Properties\AppInfo.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>AppInfo.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\RFileSystem.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Captions.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\FileFilters.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>FileFilters.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Messages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Messages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Notifications.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Notifications.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Text.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Text.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Urls.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Urls.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Statuses.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Statuses.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Executables.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Executables.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

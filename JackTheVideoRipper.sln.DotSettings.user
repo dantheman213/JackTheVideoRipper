@@ -22,6 +22,21 @@
   &lt;Project Location="I:\GitHub\JackTheVideoRipper\tests\JackTheVideoRipperTest" Presentation="&amp;lt;JackTheVideoRipperTest&amp;gt;" /&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FResources/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FAppInfo/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FCaptions/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FExecutables/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FFileFilters/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FMessages/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FNotifications/@EntryIndexedValue">False</s:Boolean>
+	
+	
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FResources/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FRFileSystem/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FStatuses/@EntryIndexedValue">False</s:Boolean>
+	
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FText/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FUrls/@EntryIndexedValue">False</s:Boolean>
+	
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/Initialized/@EntryValue">True</s:Boolean>
 	
 	</wpf:ResourceDictionary>

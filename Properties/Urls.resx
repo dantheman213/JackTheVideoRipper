@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+            
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="ApplicationUpdate" xml:space="preserve">
+        <value>https://github.com/dantheman213/JackTheVideoRipper/releases</value>
+    </data>
+    <data name="HandbrakeDownload" xml:space="preserve">
+        <value>https://handbrake.fr/downloads.php</value>
+    </data>
+    <data name="VLC" xml:space="preserve">
+        <value>https://www.videolan.org/vlc</value>
+    </data>
+    <data name="VS2010Redistributables" xml:space="preserve">
+        <value>https://www.microsoft.com/en-us/download/details.aspx?id=26999</value>
+    </data>
+    <data name="VersionInfo" xml:space="preserve">
+        <value>https://raw.githubusercontent.com/dantheman213/JackTheVideoRipper/master/version</value>
+    </data>
+    <data name="Aria2c" xml:space="preserve">
+        <value>https://github.com/aria2/aria2/releases/latest</value>
+    </data>
+    <data name="YouTubeDL" xml:space="preserve">
+        <value>https://github.com/yt-dlp/yt-dlp</value>
+    </data>
+    <data name="YouTubeDLDownload" xml:space="preserve">
+        <value>https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe</value>
+    </data>
+    <data name="YouTubeVideo" xml:space="preserve">
+        <value>https://www.youtube.com/watch?v={0}</value>
+    </data>
+    <data name="AtomicParsley" xml:space="preserve">
+        <value>https://atomicparsley.sourceforge.net</value>
+    </data>
+    <data name="Handbrake" xml:space="preserve">
+        <value>https://handbrake.fr/</value>
+    </data>
+    <data name="ExifTool" xml:space="preserve">
+        <value>https://sourceforge.net/projects/exiftool/files/latest/download</value>
+    </data>
+    <data name="FFMPEG" xml:space="preserve">
+        <value>https://www.ffmpeg.org/download.html</value>
+    </data>
+</root>

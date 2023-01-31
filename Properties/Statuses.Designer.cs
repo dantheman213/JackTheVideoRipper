@@ -7,7 +7,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace JackTheVideoRipper.Properties {
+namespace JackTheVideoRipper {
     using System;
     
     
@@ -21,14 +21,14 @@ namespace JackTheVideoRipper.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Captions {
+    internal class Statuses {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Captions() {
+        internal Statuses() {
         }
         
         /// <summary>
@@ -38,7 +38,7 @@ namespace JackTheVideoRipper.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.Captions", typeof(Captions).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.Statuses", typeof(Statuses).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -60,74 +60,101 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Application Error.
+        ///   Looks up a localized string similar to Cancelled.
         /// </summary>
-        internal static string ApplicationError {
+        internal static string Cancelled {
             get {
-                return ResourceManager.GetString("ApplicationError", resourceCulture);
+                return ResourceManager.GetString("Cancelled", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Version Current.
+        ///   Looks up a localized string similar to Complete.
         /// </summary>
-        internal static string CurrentVersion {
+        internal static string Complete {
             get {
-                return ResourceManager.GetString("CurrentVersion", resourceCulture);
+                return ResourceManager.GetString("Complete", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Warning: File Already Exists.
+        ///   Looks up a localized string similar to Downloading.
         /// </summary>
-        internal static string FileExists {
+        internal static string Downloading {
             get {
-                return ResourceManager.GetString("FileExists", resourceCulture);
+                return ResourceManager.GetString("Downloading", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Generate Command.
+        ///   Looks up a localized string similar to Error.
         /// </summary>
-        internal static string GenerateCommand {
+        internal static string Error {
             get {
-                return ResourceManager.GetString("GenerateCommand", resourceCulture);
+                return ResourceManager.GetString("Error", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to New Version Available.
+        ///   Looks up a localized string similar to Idle.
         /// </summary>
-        internal static string NewVersion {
+        internal static string Idle {
             get {
-                return ResourceManager.GetString("NewVersion", resourceCulture);
+                return ResourceManager.GetString("Idle", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Required Components Installed.
+        ///   Looks up a localized string similar to Paused.
         /// </summary>
-        internal static string RequiredInstalled {
+        internal static string Paused {
             get {
-                return ResourceManager.GetString("RequiredInstalled", resourceCulture);
+                return ResourceManager.GetString("Paused", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Required components not installed.
+        ///   Looks up a localized string similar to Queued.
         /// </summary>
-        internal static string RequiredNotInstalled {
+        internal static string Queued {
             get {
-                return ResourceManager.GetString("RequiredNotInstalled", resourceCulture);
+                return ResourceManager.GetString("Queued", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Verify Exit.
+        ///   Looks up a localized string similar to Starting.
         /// </summary>
-        internal static string VerifyExit {
+        internal static string Starting {
             get {
-                return ResourceManager.GetString("VerifyExit", resourceCulture);
+                return ResourceManager.GetString("Starting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stopped.
+        /// </summary>
+        internal static string Stopped {
+            get {
+                return ResourceManager.GetString("Stopped", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Succeeded.
+        /// </summary>
+        internal static string Succeeded {
+            get {
+                return ResourceManager.GetString("Succeeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Waiting.
+        /// </summary>
+        internal static string Waiting {
+            get {
+                return ResourceManager.GetString("Waiting", resourceCulture);
             }
         }
     }

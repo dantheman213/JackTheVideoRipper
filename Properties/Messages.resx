@@ -1,0 +1,168 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+            
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="Downloading" xml:space="preserve">
+        <value>Downloading</value>
+    </data>
+    <data name="Retrieving" xml:space="preserve">
+        <value>Retrieving Info</value>
+    </data>
+    <data name="SavingMetadata" xml:space="preserve">
+        <value>Saving Metadata</value>
+    </data>
+    <data name="Transcoding" xml:space="preserve">
+        <value>Transcoding</value>
+    </data>
+    <data name="Waiting" xml:space="preserve">
+        <value>Waiting...</value>
+    </data>
+    <data name="Compressing" xml:space="preserve">
+        <value>Compressing</value>
+    </data>
+    <data name="DependencyMissing" xml:space="preserve">
+        <value>Could not find {0} on your system... Some functions may not be available or proceed correctly. Please reinstall this app.</value>
+    </data>
+    <data name="DirectoryDoesNotExist" xml:space="preserve">
+    <value>Directory {0} does not exist!</value>
+  </data>
+    <data name="ExitWarning" xml:space="preserve">
+    <value>You have pending operations, are you sure you want to exit?</value>
+  </data>
+    <data name="FailedToDownload" xml:space="preserve">
+    <value>Failed to download {0}</value>
+  </data>
+    <data name="InstallationError" xml:space="preserve">
+    <value>Required components not installed! This app will NOT behave correctly because its critical dependencies are missing.</value>
+  </data>
+    <data name="InstallationSuccess" xml:space="preserve">
+    <value>Components have been installed successfully!</value>
+  </data>
+    <data name="InstallMessage" xml:space="preserve">
+    <value>yt-dlp is required and is not bundled with the installer as it is updated frequently. Install?</value>
+  </data>
+    <data name="InvalidAudio" xml:space="preserve">
+    <value>Can only embed thumbnails in mp3 and m4a containers!</value>
+  </data>
+    <data name="InvalidVideo" xml:space="preserve">
+    <value>Cannot embed thumbnails in non-mp4 containers!</value>
+  </data>
+    <data name="LinkNotSupported" xml:space="preserve">
+    <value>Link from domain {0} is not supported. Please see About page for a list of supported services.</value>
+  </data>
+    <data name="NewUpdate" xml:space="preserve">
+        <value>New Version of {0} {1} Available! View Download Page?</value>
+    </data>
+    <data name="OverwriteFile" xml:space="preserve">
+        <value>It looks like this file already exists, overwrite it?</value>
+    </data>
+    <data name="UpToDate" xml:space="preserve">
+    <value>App is currently up to date!</value>
+  </data>
+    <data name="YouTubeDLUpdated" xml:space="preserve">
+    <value>Dependency yt-dlp has been upgraded from {0} to {1}!</value>
+  </data>
+    <data name="LostConnection" xml:space="preserve">
+        <value>Client has lost connection to internet!</value>
+    </data>
+    <data name="AlreadyRunning" xml:space="preserve">
+        <value>Application already running!</value>
+    </data>
+    <data name="CountersInitialized" xml:space="preserve">
+        <value>Counters successfully initialized</value>
+    </data>
+    <data name="UnhandledException" xml:space="preserve">
+        <value>Application closed due to unhandled exception.</value>
+    </data>
+    <data name="CommandFailed" xml:space="preserve">
+        <value>Command failed to execute! (Exit Code = {0})</value>
+    </data>
+    <data name="ClipboardInvalidUrl" xml:space="preserve">
+        <value>Clipboard content is not valid url!</value>
+    </data>
+    <data name="MetadataLookupFailed" xml:space="preserve">
+        <value>Unable to retrieve metadata!</value>
+    </data>
+    <data name="NoVideoMetadata" xml:space="preserve">
+        <value>(no video metadata could be extracted)</value>
+    </data>
+    <data name="NoAudioMetadata" xml:space="preserve">
+        <value>(no audio metadata could be extracted)</value>
+    </data>
+    <data name="FailedParseUrl" xml:space="preserve">
+        <value>Failed to parse provided url!</value>
+    </data>
+    <data name="CommandCopied" xml:space="preserve">
+        <value>Command copied to clipboard!</value>
+    </data>
+    <data name="InvalidUrlBulk" xml:space="preserve">
+        <value>Invalid URL detected, skipping: {0}</value>
+    </data>
+    <data name="AlreadyDownloaded" xml:space="preserve">
+        <value>This item has already been downloaded, continue?</value>
+    </data>
+    <data name="InvalidUrl" xml:space="preserve">
+        <value>No valid url provided to create command from</value>
+    </data>
+    <data name="TaskCancelled" xml:space="preserve">
+        <value>TASK CANCELLED (REASON: TIMEOUT EXPIRED)</value>
+    </data>
+    <data name="StartupTasks" xml:space="preserve">
+        <value>Running Startup Tasks</value>
+    </data>
+    <data name="ProcessStarted" xml:space="preserve">
+        <value>Process started execution</value>
+    </data>
+    <data name="ProcessCompleted" xml:space="preserve">
+        <value>Process completed</value>
+    </data>
+    <data name="ProcessInitialized" xml:space="preserve">
+        <value>Process initialized</value>
+    </data>
+    <data name="FFMPEGFileExists" xml:space="preserve">
+        <value>already exists. Overwrite? [y/N]</value>
+    </data>
+    <data name="ExifToolPressEnter" xml:space="preserve">
+        <value>-- press ENTER --</value>
+    </data>
+    <data name="ContextActionFailed" xml:space="preserve">
+        <value>Context action failed!</value>
+    </data>
+    <data name="VerifyingFile" xml:space="preserve">
+        <value>Verifying file: {0}</value>
+    </data>
+    <data name="VerifyNoErrors" xml:space="preserve">
+        <value>No errors detected in file {0}.</value>
+    </data>
+    <data name="VerifyErrorsDetected" xml:space="preserve">
+        <value>Errors detected while verifying file {0} (full report: {0})</value>
+    </data>
+    <data name="YouTubeDLAlreadyDownloaded" xml:space="preserve">
+        <value>has already been downloaded</value>
+    </data>
+    <data name="ResourceNotFound" xml:space="preserve">
+        <value>Resource could not be found at: {0} (Error {1})</value>
+    </data>
+    <data name="RedirectedProxy" xml:space="preserve">
+        <value>Redirected from video proxy site {0} to {1}</value>
+    </data>
+    <data name="FinishedDownloading" xml:space="preserve">
+        <value>{0} finished downloading!</value>
+    </data>
+</root>

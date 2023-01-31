@@ -21,14 +21,14 @@ namespace JackTheVideoRipper.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Captions {
+    internal class RFileSystem {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Captions() {
+        internal RFileSystem() {
         }
         
         /// <summary>
@@ -38,7 +38,7 @@ namespace JackTheVideoRipper.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.Captions", typeof(Captions).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("JackTheVideoRipper.Properties.RFileSystem", typeof(RFileSystem).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -60,20 +60,65 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Application Error.
+        ///   Looks up a localized string similar to Couldn&apos;t find file to open at {0}.
         /// </summary>
-        internal static string ApplicationError {
+        internal static string CouldNotOpenFile {
             get {
-                return ResourceManager.GetString("ApplicationError", resourceCulture);
+                return ResourceManager.GetString("CouldNotOpenFile", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Version Current.
+        ///   Looks up a localized string similar to Could not start File Explorer!.
         /// </summary>
-        internal static string CurrentVersion {
+        internal static string CouldNotStartExplorer {
             get {
-                return ResourceManager.GetString("CurrentVersion", resourceCulture);
+                return ResourceManager.GetString("CouldNotStartExplorer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not start process: {0}.
+        /// </summary>
+        internal static string CouldNotStartProcess {
+            get {
+                return ResourceManager.GetString("CouldNotStartProcess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not start Task Manager!.
+        /// </summary>
+        internal static string CouldNotStartTaskManager {
+            get {
+                return ResourceManager.GetString("CouldNotStartTaskManager", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not create process with empty bin path!.
+        /// </summary>
+        internal static string EmptyBinPath {
+            get {
+                return ResourceManager.GetString("EmptyBinPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to explorer.exe.
+        /// </summary>
+        internal static string Exe_Explorer {
+            get {
+                return ResourceManager.GetString("Exe_Explorer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to taskmgr.exe.
+        /// </summary>
+        internal static string Exe_TaskManager {
+            get {
+                return ResourceManager.GetString("Exe_TaskManager", resourceCulture);
             }
         }
         
@@ -87,47 +132,20 @@ namespace JackTheVideoRipper.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Generate Command.
+        ///   Looks up a localized string similar to WARNING: Process already running!.
         /// </summary>
-        internal static string GenerateCommand {
+        internal static string ProcessAlreadyRunning {
             get {
-                return ResourceManager.GetString("GenerateCommand", resourceCulture);
+                return ResourceManager.GetString("ProcessAlreadyRunning", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to New Version Available.
+        ///   Looks up a localized string similar to SELECT * FROM Win32_Process WHERE ParentProcessID={0}.
         /// </summary>
-        internal static string NewVersion {
+        internal static string SelectProcessById {
             get {
-                return ResourceManager.GetString("NewVersion", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Required Components Installed.
-        /// </summary>
-        internal static string RequiredInstalled {
-            get {
-                return ResourceManager.GetString("RequiredInstalled", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Required components not installed.
-        /// </summary>
-        internal static string RequiredNotInstalled {
-            get {
-                return ResourceManager.GetString("RequiredNotInstalled", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Verify Exit.
-        /// </summary>
-        internal static string VerifyExit {
-            get {
-                return ResourceManager.GetString("VerifyExit", resourceCulture);
+                return ResourceManager.GetString("SelectProcessById", resourceCulture);
             }
         }
     }

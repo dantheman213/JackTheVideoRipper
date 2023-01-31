@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+            
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="SelectProcessById" xml:space="preserve">
+        <value>SELECT * FROM Win32_Process WHERE ParentProcessID={0}</value>
+    </data>
+    <data name="Exe_TaskManager" xml:space="preserve">
+        <value>taskmgr.exe</value>
+    </data>
+    <data name="Exe_Explorer" xml:space="preserve">
+        <value>explorer.exe</value>
+    </data>
+    <data name="FileExists" xml:space="preserve">
+        <value>Warning: File Already Exists</value>
+    </data>
+    <data name="CouldNotOpenFile" xml:space="preserve">
+    <value>Couldn't find file to open at {0}</value>
+  </data>
+    <data name="CouldNotStartProcess" xml:space="preserve">
+    <value>Could not start process: {0}</value>
+  </data>
+    <data name="ProcessAlreadyRunning" xml:space="preserve">
+    <value>WARNING: Process already running!</value>
+  </data>
+    <data name="CouldNotStartTaskManager" xml:space="preserve">
+        <value>Could not start Task Manager!</value>
+    </data>
+    <data name="CouldNotStartExplorer" xml:space="preserve">
+        <value>Could not start File Explorer!</value>
+    </data>
+    <data name="EmptyBinPath" xml:space="preserve">
+        <value>Could not create process with empty bin path!</value>
+    </data>
+</root>
