@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Management;
 using System.Net;
@@ -10,11 +11,11 @@ using System.Text.RegularExpressions;
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models;
+using JackTheVideoRipper.models.processes;
 using JackTheVideoRipper.Properties;
 using Nager.PublicSuffix;
 using Newtonsoft.Json;
 using SpecialFolder = System.Environment.SpecialFolder;
-using ProcessResult = System.Threading.Tasks.Task<(int ExitCode, string Output)>;
 
 namespace JackTheVideoRipper;
 
@@ -33,6 +34,11 @@ public static class FileSystem
     public static readonly char DirectorySeparatorChar = Path.DirectorySeparatorChar;
 
     public const string RUN_AS_ADMIN = "runas";
+     
+    #endregion
+
+    #region Embedded Types
+
     public static class Paths
     {
         public static readonly string AppPath       = Path.GetDirectoryName(MainModule?.FileName).ValueOrDefault();
@@ -90,6 +96,11 @@ public static class FileSystem
     {
         return Environment.GetFolderPath(specialFolder);
     }
+    
+    public static string MergePaths(IEnumerable<string> parts)
+    {
+        return Path.Combine(parts.ToArray());
+    }
 
     public static string MergePaths(params string[] parts)
     {
@@ -116,16 +127,16 @@ public static class FileSystem
         CreateFolder(MergePaths(pathHierarchy));
     }
 
-    public static async Task OpenDownloads()
+    public static void OpenDownloads()
     {
-        await OpenFolder(Settings.Data.DefaultDownloadPath);
+        OpenFolder(Settings.Data.DefaultDownloadPath);
     }
     
-    public static async Task OpenFolder(string? folderPath)
+    public static void OpenFolder(string? folderPath)
     {
         if (folderPath.Valid(FolderExists))
         {
-            await OpenFileExplorer(folderPath!);
+            OpenFileExplorer(folderPath!);
         }
         else
         {
@@ -140,32 +151,19 @@ public static class FileSystem
         return directory;
     }
 
-    public static void CreateFolderIfNotExists(params string[] directories)
-    {
-        while (true)
-        {
-            if (directories.Empty())
-                return;
-
-            CreateFolder(directories);
-
-            directories = directories.Skip(1).ToArray();
-        }
-    }
-
     public static void CreatePathIfNoneExists(string filepath)
     {
-        CreateFolderIfNotExists(Directory.GetDirectories(filepath));
+        Directory.CreateDirectory(GetDirectory(filepath));
     }
 
     public static string ProgramPath(string executablePath)
     {
-        return MergePaths(Paths.Install, executablePath);
+        return CreateInstallPath(executablePath);
     }
     
     public static string GetDownloadPath(string filename)
     {
-        return MergePaths(Settings.Data.DefaultDownloadPath, ValidateFilename(filename));
+        return CreateDownloadPath(ValidateFilename(filename));
     }
     
     private static void ValidateFilePath(string filepath, bool deleteFileIfExists = false)
@@ -181,13 +179,15 @@ public static class FileSystem
 
     #region Process Methods
 
-    public static AsyncProcess GetWebResourceHandle(string url, string downloadDirectory = "", bool useShellExecute = true)
+    // Useful for single file (NOT A ZIP ARCHIVE)
+    public static AsyncProcess GetWebResourceHandle(string url, string downloadDirectory = "",
+        bool useShellExecute = false)
     {
         return CreateAsyncProcess(new ProcessStartInfo(url)
         {
             WorkingDirectory = downloadDirectory,
             UseShellExecute = useShellExecute
-        });
+        }, timeoutPeriod: 60000);
     }
 
     public static Process CreateProcess(ProcessStartInfo processStartInfo, bool enableRaisingEvents = false)
@@ -199,9 +199,9 @@ public static class FileSystem
         };
     }
     
-    public static AsyncProcess CreateAsyncProcess(ProcessStartInfo processStartInfo)
+    public static AsyncProcess CreateAsyncProcess(ProcessStartInfo processStartInfo, int timeoutPeriod = -1)
     {
-        return new AsyncProcess
+        return new AsyncProcess(timeoutPeriod)
         {
             StartInfo = processStartInfo
         };
@@ -215,43 +215,46 @@ public static class FileSystem
 
         return CreateProcess(new ProcessStartInfo
         {
-            WindowStyle = ProcessWindowStyle.Hidden,
-            FileName = bin,
-            Arguments = parameters,
-            WorkingDirectory = workingDir.ValueOrDefault(Paths.AppPath),
-            UseShellExecute = executeShell,
-            RedirectStandardError = redirect,
-            RedirectStandardOutput = redirect,
-            RedirectStandardInput = redirect,
-            CreateNoWindow = true,
-        }, enableRaisingEvents);
+            WindowStyle                 = ProcessWindowStyle.Hidden,
+            FileName                    = bin,
+            Arguments                   = parameters,
+            WorkingDirectory            = workingDir.ValueOrDefault(Paths.AppPath),
+            UseShellExecute             = executeShell,
+            RedirectStandardError       = redirect,
+            RedirectStandardOutput      = redirect,
+            RedirectStandardInput       = redirect,
+            CreateNoWindow              = true,
             Verb                        = runAsAdmin ? RUN_AS_ADMIN : string.Empty
+        },  enableRaisingEvents);
     }
-    
+
     public static AsyncProcess CreateAsyncProcess(string bin, string parameters, string workingDir = "",
-        bool runAsAdmin = false, bool executeShell = false, bool redirect = true)
+        bool runAsAdmin = false, bool redirectInput = true, int timeoutPeriod = -1)
     {
         if (bin.Invalid(IsValidPath))
             throw new FileSystemException(RFileSystem.EmptyBinPath);
 
         return CreateAsyncProcess(new ProcessStartInfo
         {
-            WindowStyle = ProcessWindowStyle.Hidden,
-            FileName = bin,
-            Arguments = parameters,
-            WorkingDirectory = workingDir.ValueOrDefault(Paths.AppPath),
-            UseShellExecute = executeShell,
-            RedirectStandardError = redirect,
-            RedirectStandardOutput = redirect,
-            RedirectStandardInput = redirect,
-            CreateNoWindow = true,
-        });
+            WindowStyle                 = ProcessWindowStyle.Hidden,
+            FileName                    = bin,
+            Arguments                   = parameters,
+            WorkingDirectory            = workingDir.ValueOrDefault(Paths.AppPath),
+            RedirectStandardInput       = redirectInput,
+            CreateNoWindow              = true,
             Verb                        = runAsAdmin ? RUN_AS_ADMIN : string.Empty
+        },  timeoutPeriod);
     }
     
     public static string TryRunProcess(Process process)
     {
         return TryStartProcess(process).GetOutput();
+    }
+    
+    public static bool RunProcess(ProcessStartInfo processStartInfo)
+    {
+        Process process = CreateProcess(processStartInfo);
+        return process.Start();
     }
     
     public static string RunProcess(Process process)
@@ -270,14 +273,15 @@ public static class FileSystem
         return RunProcess(path, parameters.ToString());
     }
     
-    public static async ProcessResult RunProcessAsync(string filepath, string args)
+    public static async Task<ProcessResult> RunProcessAsync(string filepath, string args, string workingDir = "",
+        bool runAsAdmin = false, bool redirectInput = true, int timeoutPeriod = -1)
     {
-        return await CreateAsyncProcess(filepath, args).Run();
+        return await CreateAsyncProcess(filepath, args, workingDir, runAsAdmin, redirectInput, timeoutPeriod).Run();
     }
     
-    public static async ProcessResult RunProcessAsync(ProcessStartInfo processStartInfo)
+    public static async Task<ProcessResult> RunProcessAsync(ProcessStartInfo processStartInfo, int timeoutPeriod = -1)
     {
-        return await CreateAsyncProcess(processStartInfo).Run();
+        return await CreateAsyncProcess(processStartInfo, timeoutPeriod).Run();
     }
 
     public static Process TryStartProcess(ProcessStartInfo processStartInfo)
@@ -287,23 +291,23 @@ public static class FileSystem
 
     public static Process TryStartProcess(Process process)
     {
-        LogExceptions(() => { if (!process.Start()) { Log(Resources.ProcessAlreadyRunning); } });
+        void LogIfFailed()
+        {
+            if (!process.Start()) Log(RFileSystem.ProcessAlreadyRunning);
+        }
+        
+        LogExceptions(LogIfFailed);
         return process;
     }
     
-    public static async ProcessResult TryStartProcessAsync(ProcessStartInfo processStartInfo)
+    public static async Task<ProcessResult> TryStartProcessAsync(ProcessStartInfo processStartInfo, int timeoutPeriod = -1)
     {
-        return await TryStartProcessAsync(CreateAsyncProcess(processStartInfo));
+        return await TryStartProcessAsync(CreateAsyncProcess(processStartInfo, timeoutPeriod));
     }
 
-    public static async ProcessResult TryStartProcessAsync(AsyncProcess process)
+    public static async Task<ProcessResult> TryStartProcessAsync(AsyncProcess process)
     {
-        (int, string) result = (-1, string.Empty);
-        await LogExceptionsAsync(async () =>
-        {
-            result = await process.Run();
-        });
-        return result;
+        return await LogExceptionsAsync(async () => await process.Run()) ?? new ProcessResult();
     }
 
     #endregion
@@ -315,10 +319,17 @@ public static class FileSystem
         return RunProcess(CreateProcess(binPath, paramString, workingDir, runAsAdmin));
     }
     
-    public static async ProcessResult RunCommandAsync(string binPath, string paramString, string workingDir = "", 
-        bool runAsAdmin = false)
+    public static async Task<ProcessResult> RunCommandAsync(string binPath, string paramString,
+        string workingDir = "", bool runAsAdmin = false, bool redirectInput = true, int timeoutPeriod = -1)
     {
-        return await CreateAsyncProcess(binPath, paramString, workingDir, runAsAdmin).Run();
+        return await CreateAsyncProcess(binPath, paramString, workingDir, runAsAdmin, redirectInput, timeoutPeriod).Run();
+    }
+    
+    public static async Task<ProcessResult> RunCommandAsync<T>(string binPath, string paramString,
+        string workingDir = "", bool runAsAdmin = false, bool redirectInput = true, int timeoutPeriod = -1)
+    {
+        
+        return await CreateAsyncProcess(binPath, paramString, workingDir, runAsAdmin, redirectInput, timeoutPeriod).Run();
     }
 
     public static string RunWebCommand(string binPath, string url, string parameterString)
@@ -326,20 +337,25 @@ public static class FileSystem
         return url.Valid(IsValidUrl) ? RunCommand(binPath, $"{parameterString} {url}") : string.Empty;
     }
     
-    public static async ProcessResult RunWebCommandAsync(string binPath, string url, string parameterString)
+    public static async Task<ProcessResult?> RunWebCommandAsync(string binPath, string url, string parameterString)
     {
         return url.Valid(IsValidUrl) ? 
             await RunCommandAsync(binPath, $"{parameterString} {url}") :
-            (-1, string.Empty);
+            default;
     }
 
     #endregion
 
     #region JSON Methods
 
+    public static string Serialize(object? obj)
+    {
+        return JsonConvert.SerializeObject(obj);
+    }
+
     public static void WriteJsonToFile(string filepath, object? obj)
     {
-        SaveToFile(filepath, JsonConvert.SerializeObject(obj));
+        SaveToFile(filepath, Serialize(obj));
     }
     
     public static void SerializeAndDownload(object? obj)
@@ -364,7 +380,7 @@ public static class FileSystem
 
     public static async Task<string> GetJsonResponse(string binPath, string url, string parameterString)
     {
-        return (await RunWebCommandAsync(binPath, url, parameterString)).Output;
+        return (await RunWebCommandAsync(binPath, url, parameterString))?.Output ?? string.Empty;
     }
     
     public static async Task<T?> ReceiveJsonResponseAsync<T>(string binPath, string url, string parameterString)
@@ -375,54 +391,96 @@ public static class FileSystem
     // youtube-dl returns an individual json object per line
     public static IEnumerable<T> ReceiveMultiJsonResponse<T>(string binPath, string url, string parameterString)
     {
-        return url.Valid(IsValidUrl) ? CreateJsonArray<T>(RunWebCommand(binPath, url, parameterString)) : Array.Empty<T>();
+        return CreateMultiJson<T>(url, RunWebCommand(binPath, url, parameterString));
     }
-    
-    public static async Task<IEnumerable<T>> ReceiveMultiJsonResponseAsync<T>(string binPath, string url, string parameterString)
+
+    public static async Task<IEnumerable<T>> ReceiveMultiJsonResponseAsync<T>(string binPath, string url,
+        string parameterString)
     {
-        return url.Valid(IsValidUrl) ? CreateJsonArray<T>(await GetJsonResponse(binPath, url, parameterString)) : Array.Empty<T>();
+        return CreateMultiJson<T>(url, await GetJsonResponse(binPath, url, parameterString));
+    }
+
+    public static IEnumerable<T> CreateMultiJson<T>(string url, string jsonResponse)
+    {
+        return url.Valid(IsValidUrl) ? CreateJsonArray<T>(jsonResponse) : Array.Empty<T>();
     }
 
     private static IEnumerable<T> CreateJsonArray<T>(string jsonResponse)
     {
-        return jsonResponse.HasValue()
-            ? Deserialize<IEnumerable<T>>($"[{jsonResponse.Replace("\n", ",\n")}]") ?? Array.Empty<T>()
-            : Array.Empty<T>();
+        if (jsonResponse.IsNullOrEmpty())
+            return Array.Empty<T>();
+
+        string reformatted = jsonResponse.Replace("\n", ",\n").Wrap("[", "]");
+        
+        return Deserialize<IEnumerable<T>>(reformatted) ?? Array.Empty<T>();
     }
 
     #endregion
 
     #region Program Methods
-
-    public static async Task OpenFileExplorer(string directory)
+    
+    public static void OpenWebPage(string url)
     {
-        await RunProcessAsync(new ProcessStartInfo
+        if (url.Invalid(IsValidUrl))
+            return;
+        
+        OpenFileExplorer(url);
+    }
+
+    public static void OpenFileExplorer(string directory)
+    {
+        bool startedSuccessfully = RunProcess(new ProcessStartInfo
         {
             Arguments = directory,
-            FileName = _EXPLORER_EXECUTABLE
+            FileName = Executables.Explorer
         });
+        
+        if (!startedSuccessfully)
+        {
+            throw new ProcessFailedToStartException(RFileSystem.CouldNotStartExplorer);
+        }
     }
 
-    public static async Task OpenTaskManager()
+    public static void OpenTaskManager()
     {
-        await TryStartProcessAsync(new ProcessStartInfo
+        bool startedSuccessfully;
+        try
         {
-            CreateNoWindow = false,
-            UseShellExecute = true,
-            FileName = MergePaths(Environment.SystemDirectory, _TASK_MANAGER_EXECUTABLE),
-            Arguments = string.Empty
-        });
+            startedSuccessfully = RunProcess(new ProcessStartInfo
+            {
+                CreateNoWindow = false,
+                UseShellExecute = true,
+                FileName = CreateSystemPath(Executables.TaskManager)
+            });
+        }
+        catch (Win32Exception win32Exception)
+        {
+            // User Cancelled
+            if (win32Exception.NativeErrorCode == 1223)
+                return;
+            throw new ProcessFailedToStartException(RFileSystem.CouldNotStartTaskManager, win32Exception);
+        }
+        catch (Exception exception)
+        {
+            throw new ProcessFailedToStartException(RFileSystem.CouldNotStartTaskManager, exception);
+        }
+
+        if (!startedSuccessfully)
+        {
+            throw new ProcessFailedToStartException(RFileSystem.CouldNotStartTaskManager);
+        }
     }
-    
-    public static async Task OpenFileExplorerWithFileSelected(string filePath)
+
+    public static void OpenFileExplorerWithFileSelected(string filePath)
     {
-        await OpenFileExplorer($"/select, {filePath.WrapQuotes()}");
+        OpenFileExplorer($"/select, {filePath.WrapQuotes()}");
     }
     
     public static async Task<bool> InstallProgram(string downloadUrl, string filename)
     {
-        return downloadUrl.Valid(IsValidUrl) && 
-               (await DownloadWebFileAsync(downloadUrl, Path.Join(Paths.Install, filename))).HasValue();
+        if (CreateInstallPath(filename) is not { } installPath)
+            return false;
+        return downloadUrl.Valid(IsValidUrl) && (await DownloadWebFileAsync(downloadUrl, installPath)).HasValue();
     }
 
     #endregion
@@ -443,27 +501,32 @@ public static class FileSystem
 
     public static string DownloadTempFile(string url, string extension)
     {
-        return url.Valid(IsValidUrl) ? DownloadWebFile(url, GetTempFilename(extension)) : string.Empty;
+        return DownloadWebFile(url, GetTempFilename(extension));
     }
 
-    public static string DownloadWebFile(string url, string localPath, bool deleteFileIfExists = true)
+    private static bool ValidateWebFile(string url, string? localPath, bool deleteFileIfExists = true)
     {
         if (url.Invalid(IsValidUrl) || localPath.Invalid(IsValidPath))
-            return string.Empty;
+            return false;
         
-        ValidateFilePath(localPath, deleteFileIfExists);
+        ValidateFilePath(localPath!, deleteFileIfExists);
+        return true;
+    }
+
+    public static string DownloadWebFile(string url, string? localPath, bool deleteFileIfExists = true)
+    {
+        if (!ValidateWebFile(url, localPath, deleteFileIfExists))
+            return string.Empty;
 
         HttpResponseMessage response = SimpleWebQuery(url);
 
-        return HandleResponse(response, localPath);
+        return HandleResponse(response, localPath!);
     }
     
     public static async Task<string?> DownloadWebFileAsync(string url, string localPath, bool deleteFileIfExists = true)
     {
-        if (url.Invalid(IsValidUrl) || localPath.Invalid(IsValidPath))
+        if (!ValidateWebFile(url, localPath, deleteFileIfExists))
             return string.Empty;
-
-        ValidateFilePath(localPath, deleteFileIfExists);
 
         return await GetResource(url, localPath);
     }
@@ -497,9 +560,10 @@ public static class FileSystem
     {
         if (url.Invalid(IsValidUrl))
             return new HttpResponseMessage(HttpStatusCode.BadRequest);
-        using HttpClient client = CreateClient(handler);
-        return completionOption is null ? await client.GetAsync(url) : 
-            await client.GetAsync(url, (HttpCompletionOption) completionOption);
+        using HttpClient client = CreateClientWithUserAgent(handler);
+        
+        return completionOption is not { } option ? await client.GetAsync(url) : 
+            await client.GetAsync(url, option);
     }
 
     private static async Task<string?> GetResource(string resourceUrl, string localPath, HttpMessageHandler? handler = null)
@@ -508,13 +572,13 @@ public static class FileSystem
             return null;
         
         // Open Client
-        using HttpClient client = CreateClient(handler);
+        using HttpClient client = CreateClientWithUserAgent(handler);
 
         // Get the name of the Resource we're requesting
         if (await client.GetResourceFileName(resourceUrl) is not { } filename)
             return null;
 
-        return await client.DownloadResourceAsync(resourceUrl, Path.Combine(localPath, filename));
+        return await client.DownloadResourceAsync(resourceUrl, MergePaths(localPath, filename));
     }
 
     private static IEnumerable<string> SystemInformation => new[]
@@ -539,6 +603,11 @@ public static class FileSystem
     };
 
     private static HttpClient CreateClient(HttpMessageHandler? handler = null)
+    {
+        return handler == null ? new HttpClient() : new HttpClient(handler);
+    }
+    
+    private static HttpClient CreateClientWithUserAgent(HttpMessageHandler? handler = null)
     {
         return handler == null ? 
             new HttpClient
@@ -601,24 +670,29 @@ public static class FileSystem
             $"{AppInfo.ProgramPrefix}{separator}{prefix}{separator}{TimeStampDate}.{extension}");
     }
     
-    public static async Task OpenFile(string filepath, bool openDownloadsIfNull)
+    public static void OpenFile(string filepath, bool openDownloadsIfNull)
     {
         if (filepath.Valid(Exists))
         {
-            await OpenFileExplorerWithFileSelected(filepath);
+            OpenFileExplorerWithFileSelected(filepath);
         }
         else
         {
             // couldn't find folder, rolling back to just the folder with no select
             Log(string.Format(RFileSystem.CouldNotOpenFile, filepath.WrapQuotes()));
             if (openDownloadsIfNull)
-                await OpenDownloads();
+                OpenDownloads();
         }
+    }
+    
+    public static string GetFilepathWithoutExtension(string filepath)
+    {
+        return filepath.BeforeLast('.');
     }
 
     public static string GetFilenameWithoutExtension(string filepath)
     {
-        return filepath.BeforeLast('.');
+        return GetFilename(filepath).BeforeLast('.');
     }
     
     public static string GetFilename(string filepath)
@@ -633,12 +707,12 @@ public static class FileSystem
     
     public static string ChangeExtension(string filepath, string extension)
     {
-        return $"{GetFilenameWithoutExtension(filepath)}.{extension}";
+        return $"{GetFilepathWithoutExtension(filepath)}.{extension}";
     }
 
     public static string AppendSuffix(string filepath, string suffix, string separator = "")
     {
-        return $"{GetFilenameWithoutExtension(filepath)}{separator}{suffix}.{GetExtension(filepath)}";
+        return $"{GetFilepathWithoutExtension(filepath)}{separator}{suffix}.{GetExtension(filepath)}";
     }
 
     public static string GetDirectory(string? path)
@@ -663,11 +737,25 @@ public static class FileSystem
         return _FilenamePattern.Replace(filename, replacement).Replace(" ", replacement);
     }
 
-    public static string? CreateDownloadPath(string? filename, params string[] folderHierarchy)
+    public static string CreateDownloadPath(string? filename, params string[] folderHierarchy)
     {
         return filename.Valid(IsValidPath)
-            ? Path.Combine(folderHierarchy.Prepend(Settings.Data.DefaultDownloadPath).Append(filename!).ToArray())
-            : null;
+            ? MergePaths(folderHierarchy.Prepend(Settings.Data.DefaultDownloadPath).Append(filename!))
+            : string.Empty;
+    }
+    
+    public static string CreateInstallPath(string? filename, params string[] folderHierarchy)
+    {
+        return filename.Valid(IsValidPath)
+            ? MergePaths(folderHierarchy.Prepend(Paths.Install).Append(filename!))
+            : string.Empty;
+    }
+    
+    public static string CreateSystemPath(string? filename, params string[] folderHierarchy)
+    {
+        return filename.Valid(IsValidPath)
+            ? MergePaths(folderHierarchy.Prepend(Paths.System).Append(filename!))
+            : string.Empty;
     }
     
     public static long GetFileSize(string filepath)
@@ -677,7 +765,7 @@ public static class FileSystem
     
     public static string GetFileSizeFormatted(string filepath)
     {
-        return GetSizeWithSuffix(GetFileSize(filepath));
+        return GetFileSizeFormatted(GetFileSize(filepath));
     }
     
     public static bool TryParseFileSize(string sizeString, out long fileSize)
@@ -691,10 +779,10 @@ public static class FileSystem
 
         string suffix = tokens[1].ToUpper();
 
-        if (!SuffixToSizeMultiplierDict.ContainsKey(suffix))
+        if (!_SuffixToSizeMultiplierDict.ContainsKey(suffix))
             return false;
 
-        fileSize = SuffixToSizeMultiplierDict[suffix] * baseSize;
+        fileSize = _SuffixToSizeMultiplierDict[suffix] * baseSize;
 
         return true;
     }
@@ -703,8 +791,9 @@ public static class FileSystem
     {
         if (sizeString.IsNullOrEmpty())
             return 0;
-        (double baseSize, string suffix) = (double.Parse(sizeString.BeforeFirstLetter()), sizeString.AfterFirstLetter(true));
-        return (long) Math.Floor(SuffixToSizeMultiplierDict[suffix.ToUpper()] * baseSize);
+        double baseSize = double.Parse(sizeString.BeforeFirstLetter());
+        string suffix = sizeString.AfterFirstLetter(true);
+        return (long) Math.Floor(_SuffixToSizeMultiplierDict[suffix.ToUpper()] * baseSize);
     }
 
     private static readonly string[] _SizeSuffixes = { "B", "KB", "MB", "GB", "TB", "PB", "XB" };
@@ -715,7 +804,7 @@ public static class FileSystem
     private static readonly string[] _SizeFullSuffixes = { "Bytes", "Kilobytes", "Megabytes", "Gigabytes",
         "Terabytes", "Petabytes", "Exobytes" };
     
-    public static readonly Dictionary<string, long> SuffixToSizeMultiplierDict = new()
+    private static readonly Dictionary<string, long> _SuffixToSizeMultiplierDict = new()
     {
         // Bytes
         { _SizeSuffixes[0],                         1 },
@@ -753,45 +842,52 @@ public static class FileSystem
         { _SizeFullSuffixesSingular[6].ToUpper(),   1L<<60 }
     };
 
-    public static string SizeSuffix(int n, bool useShortSuffixes) =>
+    public static string FileSizeSuffix(int n, bool useShortSuffixes) =>
         useShortSuffixes ? _SizeSuffixes[n] : _SizeFullSuffixes[n];
 
-    public static string GetSizeWithSuffix(long value, int decimalPlaces = 1, bool useShortSuffixes = true)
+    public static string FileSizeFormatString(double adjustedSize = 0, int decimalPlaces = 1, int magnitude = 0, 
+        bool useShortSuffixes = true)
+    {
+        return string.Format($"{{0:n{decimalPlaces}}} {FileSizeSuffix(magnitude, useShortSuffixes)}", adjustedSize);
+    }
+
+    public static string GetFileSizeFormatted(long value, int decimalPlaces = 1, bool useShortSuffixes = true)
     {
         if (decimalPlaces < 0)
             throw new ArgumentOutOfRangeException(nameof(decimalPlaces));
-        
-        switch (value)
+
+        if (value <= 0)
         {
-            case < 0:
-                return $"-{GetSizeWithSuffix(-value, decimalPlaces)}";
-            case 0:
-                return string.Format($"{{0:n{decimalPlaces}}} {SizeSuffix(0, useShortSuffixes)}", 0);
+            return value switch
+            {
+                < 0 => $"-{GetFileSizeFormatted(-value, decimalPlaces)}",
+                _ => FileSizeFormatString()
+            };
         }
 
         // mag is 0 for bytes, 1 for KB, 2, for MB, etc.
-        int mag = (int) Math.Floor(Math.Log(value, 1024));
+        int magnitude = (int) Math.Floor(Math.Log(value, 1024));
 
         // 1L << (mag * 10) == 2 ^ (10 * mag) 
         // [i.e. the number of bytes in the unit corresponding to mag]
-        double adjustedSize = (double) value / (1L << (mag * 10));
+        double adjustedSize = (double) value / (1L << (magnitude * 10));
 
         // make adjustment when the value is large enough that
         // it would round up to 1000 or more
         if (Math.Round(adjustedSize, decimalPlaces) >= 1024)
         {
-            mag += 1;
+            magnitude += 1;
             adjustedSize /= 1024;
         }
 
-        return string.Format($"{{0:n{decimalPlaces}}} {SizeSuffix(mag, useShortSuffixes)}", adjustedSize);
+        return FileSizeFormatString(adjustedSize, decimalPlaces, magnitude, useShortSuffixes);
     }
 
     public static string MoveFile(string filepath, string destinationDirectory, bool overwrite = true)
     {
         if (filepath.IsNullOrEmpty() || destinationDirectory.IsNullOrEmpty())
             return string.Empty;
-        string destinationFilepath = Path.Join(destinationDirectory, GetFilename(filepath));
+        string destinationFilepath = MergePaths(destinationDirectory, GetFilename(filepath));
         File.Move(filepath, destinationFilepath, overwrite);
         return destinationFilepath;
     }
@@ -801,13 +897,18 @@ public static class FileSystem
         return Directory.GetFiles(path).None() && Directory.GetDirectories(path).None();
     }
 
-    public static string? MoveFolder(string path, string destinationDirectory, bool moveChildren = false)
+    public static string? MoveFolder(string path, string destinationDirectory, bool moveChildren = false,
+        bool throwWhenFailed = false)
     {
         if (path.IsNullOrEmpty())
             return string.Empty;
         if (!IsFolderEmpty(path) && !moveChildren)
+        {
+            if (throwWhenFailed)
+                throw new MoveFailedException();
             return null;
-        string destinationPath = Path.Join(destinationDirectory, Path.GetFileName(path));
+        }
+        string destinationPath = MergePaths(destinationDirectory, Path.GetFileName(path));
         MoveChildFolders(path, destinationPath);
         MoveFiles(path, destinationPath);
         Directory.Move(path, destinationPath);
@@ -826,7 +927,7 @@ public static class FileSystem
     
     public static bool MoveChildFolders(string rootDirectory, string destinationDirectory)
     {
-        CreateFolderIfNotExists(Path.Combine(destinationDirectory, GetFolderName(rootDirectory)));
+        CreateFolderIfNotExists(MergePaths(destinationDirectory, GetFolderName(rootDirectory)));
         return MoveFolders(Directory.GetDirectories(rootDirectory), destinationDirectory);
     }
 
@@ -849,14 +950,16 @@ public static class FileSystem
     {
         if (filepath.IsNullOrEmpty() || destinationDirectory.IsNullOrEmpty())
             return string.Empty;
-        string destinationFilepath = Path.Join(destinationDirectory, GetFilename(filepath));
+        string destinationFilepath = MergePaths(destinationDirectory, GetFilename(filepath));
         File.Copy(filepath, destinationFilepath, overwrite);
         return destinationFilepath;
     }
     
     public static bool CopyFiles(string directory, string destinationDirectory, bool overwrite = true)
     {
-        return Directory.GetFiles(directory).Select(file => CopyFile(file, destinationDirectory, overwrite)).All(Exists);
+        return Directory.GetFiles(directory)
+            .Select(file => CopyFile(file, destinationDirectory, overwrite))
+            .All(Exists);
     }
     
     public static async Task<string?> ExtractResourceFromUrl(string url, string filepath)
@@ -877,7 +980,7 @@ public static class FileSystem
             "zip"   => ExtractZip(filepath),
             "gz"    => await ExtractTarGz(filepath),
             "tar"   => await ExtractTar(filepath),
-            _       => null
+            _       => throw new UnsupportedArchiveFormatException()
         };
 
         return result;
@@ -886,7 +989,7 @@ public static class FileSystem
     public static string ExtractZip(string filepath, string? outputDirectory = null)
     {
         outputDirectory ??= TempPath;
-        string extractPath = Path.Combine(outputDirectory, GetFilenameWithoutExtension(filepath));
+        string extractPath = MergePaths(outputDirectory, GetFilenameWithoutExtension(filepath));
         
         if (!Exists(filepath))
             ZipFile.CreateFromDirectory(outputDirectory, filepath);
@@ -900,7 +1003,7 @@ public static class FileSystem
         outputDirectory ??= TempPath;
         await using FileStream stream = File.OpenRead(filename);
         await ExtractTarGz(stream, outputDirectory);
-        return Path.Combine(outputDirectory, filename);
+        return MergePaths(outputDirectory, filename);
     }
 
     public static async Task ExtractTarGz(Stream stream, string? outputDirectory = null)
@@ -929,7 +1032,7 @@ public static class FileSystem
         outputDirectory ??= TempPath;
         await using FileStream stream = File.OpenRead(filename);
         await ExtractTar(stream, outputDirectory);
-        return Path.Combine(outputDirectory, filename);
+        return MergePaths(outputDirectory, filename);
     }
 
     private static string GetAsciiString(byte[] buffer, int count)
@@ -963,7 +1066,7 @@ public static class FileSystem
             long size = Convert.ToInt64(GetAsciiString(sizeMemory, result2).Trim(), 8);
 
             stream.Seek(376L, SeekOrigin.Current);
-            string output = Path.Combine(outputDirectory, name);
+            string output = MergePaths(outputDirectory, name);
             
             // Directory, skip
             if (name.EndsWith('/'))
@@ -985,16 +1088,7 @@ public static class FileSystem
 
     public static string GetClipboardText()
     {
-        string content = string.Empty;
-
-        void GetContent()
-        {
-            content = Clipboard.GetText().Trim();
-        }
-        
-        RunSTA(GetContent);
-        
-        return content;
+        return RunSTA(Clipboard.GetText).Trim();
     }
 
     public static string? GetClipboardAsUrl()
@@ -1067,6 +1161,12 @@ public static class FileSystem
         return RunFileDialog<OpenFileDialog>(initialDirectory, filename, filter);
     }
     
+    public static string? SelectFileMulti(string? initialDirectory = null, string? filename = null,
+        string? filter = null)
+    {
+        return RunFileDialog<OpenFileDialog>(initialDirectory, filename, filter, true);
+    }
+    
     public static string? SaveFileUsingDialog(string? initialDirectory = null, string? filename = null,
         string? filter = null)
     {
@@ -1074,16 +1174,21 @@ public static class FileSystem
     }
     
     public static string? RunFileDialog<T>(string? initialDirectory = null, string? filename = null, 
-        string? filter = null) where T : FileDialog, new()
+        string? filter = null, bool multiSelect = false) where T : FileDialog, new()
     {
         string? selectedPath = null;
 
         T fileDialog = new()
         {
             InitialDirectory = initialDirectory ?? Settings.Data.LastOpenedFilepath,
-            Filter = filter ?? Filters.AllFiles,
+            Filter = filter ?? FileFilters.AllFiles,
             FileName = filename
         };
+
+        if (fileDialog is OpenFileDialog dialog)
+        {
+            dialog.Multiselect = multiSelect;
+        }
 
         void DialogHandler()
         {
@@ -1094,7 +1199,7 @@ public static class FileSystem
 
         RunSTA(DialogHandler);
 
-        if (selectedPath.Invalid(Exists))
+        if (selectedPath.Valid(Exists))
             Settings.Data.LastOpenedFilepath = GetDirectory(selectedPath);
 
         return selectedPath.IsNullOrEmpty() ? null : selectedPath;
@@ -1120,7 +1225,7 @@ public static class FileSystem
                 result = folderBrowserDialog.SelectedPath;
         });
         
-        if (result.Invalid(FolderExists))
+        if (result.Valid(FolderExists))
             Settings.Data.LastOpenedFilepath = result!;
         
         return result;
@@ -1260,9 +1365,41 @@ public static class FileSystem
 
     public class InvalidPathException : FileSystemException
     {
+        public InvalidPathException() { }
+        
+        public InvalidPathException(string message) : base(message) { }
+        
+        public InvalidPathException(string message, Exception innerException) : base(message, innerException) { }
     }
     
     public class InvalidUrlException : FileSystemException
+    {
+        public InvalidUrlException() { }
+        
+        public InvalidUrlException(string message) : base(message) { }
+        
+        public InvalidUrlException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
+    public class ProcessFailedToStartException : FileSystemException
+    {
+        public ProcessFailedToStartException() { }
+        
+        public ProcessFailedToStartException(string message) : base(message) { }
+        
+        public ProcessFailedToStartException(string message, Exception innerException) : base(message, innerException) { }
+    }
+    
+    public class MoveFailedException : FileSystemException
+    {
+        public MoveFailedException() { }
+        
+        public MoveFailedException(string message) : base(message) { }
+        
+        public MoveFailedException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
+    public class UnsupportedArchiveFormatException : FileSystemException
     {
     }
 
