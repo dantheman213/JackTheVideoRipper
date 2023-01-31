@@ -1,11 +1,14 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
+using JackTheVideoRipper.models.parameters;
 using JackTheVideoRipper.modules;
 
 namespace JackTheVideoRipper;
 
-public struct DownloadMediaParameters : IProcessParameters
+public struct DownloadMediaParameters : IProcessParameters, IRequiresUrlParameters
 {
+    public string Url => MediaSourceUrl;
+    
     public readonly string MediaSourceUrl;
     
     public string FilenameFormatted = string.Empty;
@@ -45,9 +48,9 @@ public struct DownloadMediaParameters : IProcessParameters
         MediaSourceUrl = url;
     }
 
-    private YouTubeDL.YouTubeParameters Build()
+    private YouTubeParameters Build()
     {
-        YouTubeDL.YouTubeParameters youTubeParameters = new();
+        YouTubeParameters youTubeParameters = new();
         
         // Authentication
         if (Username.HasValue() && Password.HasValue())
