@@ -7,7 +7,7 @@ using static FileSystem;
 public class ConfigModel : IConfigModel
 {
     [JsonIgnore]
-    public static readonly string ConfigDirectory = Path.Combine(Paths.Settings, "settings");
+    public static readonly string ConfigDirectory = Paths.Config;
 
     [JsonIgnore]
     public virtual string Filepath { get; } = string.Empty;
