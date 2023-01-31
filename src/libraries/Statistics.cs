@@ -6,22 +6,36 @@ namespace JackTheVideoRipper;
 
 public static class Statistics
 {
+    private static readonly Stopwatch _StartupTimer = new();
+    
     private static PerformanceCounter? _cpuCounter;
     private static PerformanceCounter? _ramCounter;
     private static readonly List<PerformanceCounter> _NetworkCounters = new();
 
     private static readonly Notification _InitializedNotification = new(Messages.CountersInitialized, typeof(Statistics));
 
+    public static void BeginStartup()
+    {
+        _StartupTimer.Start();
+    }
+
+    public static void EndStartup()
+    {
+        _StartupTimer.Stop();
+    }
+
+    public static string StartupMessage => string.Format(Notifications.StartupTime, _StartupTimer.ElapsedMilliseconds);
+
+    private static readonly Task[] _CounterInitializationTasks =
+    {
+        Task.Run(InitializeCpuCounter),
+        Task.Run(InitializeMemoryCounter),
+        Task.Run(InitializeNetworkTrackers)
+    };
+
     public static async Task InitializeCounters()
     {
-        Task[] tasks =
-        {
-            Task.Run(InitializeCpuCounter),
-            Task.Run(InitializeMemoryCounter),
-            Task.Run(InitializeNetworkTrackers)
-        };
-
-        await Task.WhenAll(tasks).ContinueWith(_ =>
+        await Task.WhenAll(_CounterInitializationTasks).ContinueWith(_ =>
         {
             NotificationsManager.SendNotification(_InitializedNotification);
         });
@@ -37,7 +51,8 @@ public static class Statistics
         _ramCounter = InitializePerformanceCounter("Memory", "Available MBytes");
     }
 
-    private static PerformanceCounter? InitializePerformanceCounter(string categoryName, string counterName, string instanceName = "")
+    private static PerformanceCounter? InitializePerformanceCounter(string categoryName, string counterName, 
+        string instanceName = "")
     {
         try
         {
@@ -59,7 +74,8 @@ public static class Statistics
             PerformanceCounterCategory category = new("Network Interface");
             Parallel.ForEach(category.GetInstanceNames(), instance =>
             {
-                _NetworkCounters.Add(new PerformanceCounter(category.CategoryName, "Bytes Received/sec", instance));
+                PerformanceCounter counter = new(category.CategoryName, "Bytes Received/sec", instance);
+                _NetworkCounters.Add(counter);
             });
         }
         catch (Exception ex)
@@ -97,6 +113,17 @@ public static class Statistics
 
     private static string GetFormattedSize(double value)
     {
-        return FileSystem.GetSizeWithSuffix((long) Math.Floor(value), 2);
+        return FileSystem.GetFileSizeFormatted((long) Math.Floor(value), 2);
+    }
+
+    public static class Toolbar
+    {
+        public static string ToolbarStatus => $"{Ripper.Instance.GetProgramStatus(),-20}"; // 20 chars
+
+        public static string ToolbarCpu => $@"CPU: {GetCpuUsagePercentage(),7}"; // 12 chars
+
+        public static string ToolbarMemory => $@"Available Memory: {GetAvailableMemory(),9}"; // 27 chars
+
+        public static string ToolbarNetwork => $@"Network Usage: {GetNetworkTransfer(),10}"; // 25 chars
     }
 }
