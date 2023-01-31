@@ -116,7 +116,7 @@ public class FormatManager
 
     private static bool IsValidFormat(string str)
     {
-        return !(str.Contains(Text.UNRECOGNIZED_CODEC) || str.Contains(Text.NONE));
+        return !(str.Contains(Text.UnrecognizedCodec) || str.Contains(Text.None));
     }
 
     public IEnumerable<string> GetAudioFormatRows()

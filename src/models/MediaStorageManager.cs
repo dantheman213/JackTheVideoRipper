@@ -1,19 +1,28 @@
-﻿namespace JackTheVideoRipper.models;
+﻿using JackTheVideoRipper.models.containers;
+using JackTheVideoRipper.modules;
+
+namespace JackTheVideoRipper.models;
 
 public class MediaStorageManager
 {
-    private static readonly string Directory = Path.Combine(FileSystem.Paths.Settings, "data");
-    private static readonly string Filepath = Path.Combine(Directory, "media_table.json");
+    private static readonly string _Directory = FileSystem.Paths.Data;
     
-    private MediaTable MediaTable = new();
+    private static readonly string _Filepath = FileSystem.MergePaths(_Directory, "media_table.json");
+    
+    private MediaTable _mediaTable = new();
 
     public void LoadFromDisk()
     {
-        if (FileSystem.Deserialize<MediaTable>(Filepath) is { } mediaTable)
-            MediaTable = mediaTable;
+        if (FileSystem.Deserialize<MediaTable>(_Filepath) is { } mediaTable)
+            _mediaTable = mediaTable;
+    }
+    
+    public void SaveToDisk()
+    {
+        FileSystem.WriteJsonToFile(_Filepath, _mediaTable);
     }
 
-    public void AddMedia()
+    public async Task AddMedia()
     {
         // Open folder select to select file
         
@@ -27,5 +36,15 @@ public class MediaStorageManager
          * Tags = tags (Optional)
          * TableIndex = NodeCount
          **/
+
+        if (FileSystem.SelectFolder("H:\\Orno\\Projekte") is not { } projectRoot)
+            return;
+
+        if (FileSystem.SelectFile(projectRoot) is not { } originalFile)
+            return;
+
+        ExifData metadata = await ExifTool.GetMetadata(originalFile);
+        
+        _mediaTable.AddMedia(metadata.Title, "", metadata.Comments, originalFile, projectRoot);
     }
 }
