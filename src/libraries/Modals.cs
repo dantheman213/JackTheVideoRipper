@@ -1,5 +1,6 @@
 ﻿using JackTheVideoRipper.models;
 using JackTheVideoRipper.Properties;
+using JackTheVideoRipper.viewmodels;
 
 namespace JackTheVideoRipper;
 
@@ -40,6 +41,17 @@ public static class Modals
     public static DialogResult UpToDate()
     {
         return Notification(Messages.UpToDate, Captions.CurrentVersion);
+    }
+
+    public static string? BasicTextbox(string? title = null, string? defaultValue = null)
+    {
+        return new BasicTextboxModal(title, defaultValue).Open();
+    }
+
+    public static string? BasicDropdown(IEnumerable<string> options, string? title = null, string? defaultValue = null)
+    {
+        return new BasicDropdownModal(options, title, defaultValue).Open();
+    }
     
     public static bool ConfirmExit()
     {
