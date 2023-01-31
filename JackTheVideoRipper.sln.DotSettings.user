@@ -9,6 +9,7 @@
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=I_003A_005CGitHub_005CJackTheVideoRipper_005Cexternal_005CProcessGovernor_005Cprocgov_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=I_003A_005CGitHub_005CJackTheVideoRipper_005Cexternal_005CProcessGovernor_005Cprocgov_005CAsproLock_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=I_003A_005CGitHub_005CJackTheVideoRipper_005Cexternal_005Cprocgov_002Edll/@EntryIndexedValue">True</s:Boolean>
+	<s:String x:Key="/Default/CodeInspection/Highlighting/SweaWarningsMode/@EntryValue">ShowAndRun</s:String>
 	<s:String x:Key="/Default/CodeStyle/Naming/CSharpNaming/PredefinedNamingRules/=Constants/@EntryIndexedValue">&lt;Policy Inspect="True" Prefix="" Suffix="" Style="AA_BB" /&gt;</s:String>
 	<s:String x:Key="/Default/CodeStyle/Naming/CSharpNaming/PredefinedNamingRules/=PrivateConstants/@EntryIndexedValue">&lt;Policy Inspect="True" Prefix="_" Suffix="" Style="AA_BB" /&gt;</s:String>
 	<s:String x:Key="/Default/CodeStyle/Naming/CSharpNaming/PredefinedNamingRules/=PrivateStaticFields/@EntryIndexedValue">&lt;Policy Inspect="True" Prefix="_" Suffix="" Style="aaBb" /&gt;</s:String>
@@ -21,7 +22,7 @@
 	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=39036b4f_002Dbe0c_002D4536_002D8cf9_002D50c7758bce50/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from &amp;lt;JackTheVideoRipperTest&amp;gt;" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;Project Location="I:\GitHub\JackTheVideoRipper\tests\JackTheVideoRipperTest" Presentation="&amp;lt;JackTheVideoRipperTest&amp;gt;" /&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
-	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FResources/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fexternal_002FConsoleControl_002FConsoleControl/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FAppInfo/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FCaptions/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FExecutables/@EntryIndexedValue">False</s:Boolean>
@@ -37,6 +38,26 @@
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FText/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002FProperties_002FUrls/@EntryIndexedValue">False</s:Boolean>
 	
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameAbout/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameCheckMetadata/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameConsole/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameConvert/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameErrorHandler/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameHelp/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameHistory/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameImportPlaylist/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameMain/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameMediaManager/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameNewMedia/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameNewMediaBatch/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameNewMediaSimple/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameNotifications/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameSettings/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002FFrameYTDLDependencyInstall/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002Fmodals_002FFrameBasicDropdown/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=JackTheVideoRipper_002Fviews_002Fmodals_002FFrameBasicTextbox/@EntryIndexedValue">False</s:Boolean>
+	<s:String x:Key="/Default/ResxEditorPersonal/DisabledLanguages/@EntryValue"></s:String>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/Initialized/@EntryValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/ShowOnlyErrors/@EntryValue">False</s:Boolean>
 	
 	</wpf:ResourceDictionary>
