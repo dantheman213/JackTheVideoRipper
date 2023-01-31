@@ -44,7 +44,7 @@ namespace JackTheVideoRipper.views
 
       public async Task OpenConsole()
       {
-         await Core.RunTaskInMainThread(Show);
+         await Threading.RunInMainContext(Show);
          await MoveToTop();
       }
 
@@ -54,7 +54,7 @@ namespace JackTheVideoRipper.views
       
       public async Task MoveToTop()
       {
-         await Core.RunTaskInMainThread(Activate);
+         await Threading.RunInMainContext(Activate);
       }
 
       private void ShowContextMenu()

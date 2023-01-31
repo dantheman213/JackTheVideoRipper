@@ -16,6 +16,6 @@ public static class Tasks
     public static async Task StartAfter(Action action, int tickInMilliseconds = _DEFAULT_TICK)
     {
         await Task.Delay(tickInMilliseconds);
-        await Core.RunTaskInMainThread(action);
+        await Threading.RunInMainContext(action);
     }
 }

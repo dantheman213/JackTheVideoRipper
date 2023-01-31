@@ -36,13 +36,6 @@ public static class Core
         await Config.Save();
     }
 
-    public static void InitializeScheduler()
-    {
-        Scheduler = TaskScheduler.FromCurrentSynchronizationContext();
-        TaskFactory = new TaskFactory(CancellationToken.None, TaskCreationOptions.DenyChildAttach,
-            TaskContinuationOptions.None, Scheduler);
-    }
-    
     public static void CheckDependencies()
     {
         // Verify YouTube-DL
@@ -256,41 +249,6 @@ public static class Core
     }
 
     #endregion
-
-    #region Task Scheduling
-    
-    // https://stackoverflow.com/questions/15428604/how-to-run-a-task-on-a-custom-taskscheduler-using-await
-
-    public static Task RunTaskInMainThread(Func<Task> func, CancellationToken? cancellationToken = null,
-        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
-    {
-        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken,
-            taskCreationOptions, Scheduler).Unwrap();
-    }
-    
-    public static Task<T> RunTaskInMainThread<T>(Func<Task<T>> func, CancellationToken? cancellationToken = null,
-        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
-    {
-        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken,
-            taskCreationOptions, Scheduler).Unwrap();
-    }
-    
-    public static Task RunTaskInMainThread(Action func, CancellationToken? cancellationToken = null,
-        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
-    {
-        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken, 
-            taskCreationOptions, Scheduler);
-    }
-    
-    public static Task<T> RunTaskInMainThread<T>(Func<T> func, CancellationToken? cancellationToken = null,
-        TaskCreationOptions taskCreationOptions = TaskCreationOptions.None)
-    {
-        return TaskFactory.StartNew(func, cancellationToken ?? FormClosingCancellationToken,
-            taskCreationOptions, Scheduler);
-    }
-
-    #endregion
-
     #region Imports
 
     [System.Runtime.InteropServices.DllImport("wininet.dll")]
