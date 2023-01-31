@@ -37,7 +37,7 @@ public static class Web
 
                 // Doesn't have a URL Schema, meaning it's a relative or absolute URL
                 if (!location.IsAbsoluteUri)
-                    location = new Uri(new Uri(newUrl), location);
+                    location = CreateAbsoluteUri(location, newUrl);
 
                 return location.AbsoluteUri;
             }
@@ -45,6 +45,11 @@ public static class Web
             case HttpStatusCode.NotFound:
                 throw new RedirectFailedException($"Url {newUrl.WrapQuotes()} resulted in status code {response.ResponseCode()}");
         }
+    }
+
+    public static Uri CreateAbsoluteUri(Uri relativeUri, string newUrl)
+    {
+        return new Uri(new Uri(newUrl), relativeUri);
     }
 
     // https://stackoverflow.com/questions/704956/getting-the-redirected-url-from-the-original-url
@@ -56,10 +61,7 @@ public static class Web
         string newUrl = url;
         do
         {
-            try
-            {
-                newUrl = await GetRedirect(newUrl);
-            }
+            try { newUrl = await GetRedirect(newUrl); }
             catch (WebException webException)
             {
                 // Return the last known good URL
