@@ -1,20 +1,17 @@
-﻿namespace JackTheVideoRipper
+﻿using JackTheVideoRipper.models;
+
+namespace JackTheVideoRipper
 {
-    public partial class FrameYTDLDependencyInstall : Form
+    public partial class FrameYTDLDependencyInstall : TaskForm
     {
         public FrameYTDLDependencyInstall()
         {
             InitializeComponent();
         }
 
-        private async void FrameYTDLDependencyInstall_Shown(object sender, EventArgs e)
+        public override async Task GetPrimaryTask()
         {
-            Application.DoEvents();
-            await YouTubeDL.DownloadAndInstall().ContinueWith(task => Close());
-        }
-
-        private void FrameYTDLDependencyInstall_Load(object sender, EventArgs e)
-        {
+            await YouTubeDL.DownloadAndInstall();
         }
     }
 }
