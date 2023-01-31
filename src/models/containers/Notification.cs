@@ -2,6 +2,7 @@
 
 public struct Notification
 {
+    public DateTime? DateQueued = null;
     public DateTime? DatePosted = null;
     public readonly string Message;
     public readonly string? ShortenedMessage;
@@ -10,7 +11,7 @@ public struct Notification
 
     public NotificationRow? NotificationRow = null;
     
-    public string[] ViewItemArray => new[] {DatePosted.ToString()!, SenderName, SenderGuid.ToString(), Message};
+    public string[] ViewItemArray => new[] {DateQueued.ToString()!, SenderName, SenderGuid.ToString(), Message};
 
     public Notification(string message, Type T, string? shortenedMessage = null)
     {
