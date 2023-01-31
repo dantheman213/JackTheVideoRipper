@@ -17,7 +17,7 @@ public interface IProcessRunner
 
     bool Completed { get; }
     
-    string FileName { get; }
+    string ProcessFileName { get; }
     
     bool Failed { get; }
     

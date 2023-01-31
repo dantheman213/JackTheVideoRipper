@@ -2,7 +2,7 @@
 
 public interface IListViewItemRow
 {
-    ListViewItem ViewItem { get; }
+    IViewItem ViewItem { get; }
 
     string Tag { get; }
 }

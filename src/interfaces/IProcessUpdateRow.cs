@@ -32,7 +32,7 @@ public interface IProcessUpdateRow : IProcessRunner, IListViewItemRow
         set => ViewItem.SubItems[4].Text = value;
     }
         
-    public string DownloadSpeed
+    public string Speed
     {
         get => ViewItem.SubItems[5].Text;
         set => ViewItem.SubItems[5].Text = value;
