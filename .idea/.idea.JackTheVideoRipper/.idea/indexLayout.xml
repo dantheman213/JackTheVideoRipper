@@ -3,6 +3,8 @@
   <component name="UserContentModel">
     <attachedFolders />
     <explicitIncludes />
-    <explicitExcludes />
+    <explicitExcludes>
+      <Path>external/ProcessGovernor</Path>
+    </explicitExcludes>
   </component>
 </project>

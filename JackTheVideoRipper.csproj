@@ -58,6 +58,9 @@
 
   <ItemGroup>
     <None Remove="tests\**" />
+    <None Remove="external\procgov.dll" />
+    <None Remove="external\procgov.pdb" />
+    <None Remove="external\procgov.runtimeconfig.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -82,6 +85,13 @@
     <Reference Include="NovaCore.Web">
       <HintPath>external\NovaCore\NovaCore.Web.dll</HintPath>
     </Reference>
+    <Reference Include="procgov">
+      <HintPath>external\procgov.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="external\ProcessGovernor" />
   </ItemGroup>
 
 </Project>
