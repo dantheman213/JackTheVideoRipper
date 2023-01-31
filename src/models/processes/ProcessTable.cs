@@ -1,4 +1,5 @@
-﻿using JackTheVideoRipper.interfaces;
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 
 namespace JackTheVideoRipper.models;
 
@@ -7,9 +8,7 @@ public class ProcessTable
     private readonly Dictionary<string, IProcessUpdateRow> _processUpdateRowDictionary = new();
     
     public IProcessUpdateRow? this[string tag] => Contains(tag) ? Get(tag) : null;
-    
-    public IProcessUpdateRow Selected => Get((string) Core.FrameMain.FirstSelected.Tag);
-    
+
     private readonly ReaderWriterLockSlim _tableLock = new();
     
     public IProcessUpdateRow[] Processes
@@ -56,6 +55,19 @@ public class ProcessTable
             _tableLock.ExitReadLock();
         }
     }
+    
+    public bool TryGet(string tag, out IProcessUpdateRow? processUpdateRow)
+    {
+        _tableLock.EnterReadLock();
+        try
+        {
+            return _processUpdateRowDictionary.TryGetValue(tag, out processUpdateRow);
+        }
+        finally
+        {
+            _tableLock.ExitReadLock();
+        }
+    }
 
     public bool Contains(IProcessUpdateRow processUpdateRow)
     {
@@ -85,7 +97,34 @@ public class ProcessTable
         finally
         {
             _tableLock.ExitWriteLock();
+            UpdateCache();
         }
+    }
+    
+    public bool TryAdd(IProcessUpdateRow processUpdateRow)
+    {
+        bool result = false;
+        _tableLock.EnterWriteLock();
+        try
+        {
+            result = _processUpdateRowDictionary.TryAdd(processUpdateRow.Tag, processUpdateRow);
+        }
+        finally
+        {
+            _tableLock.ExitWriteLock();
+            if (result)
+                UpdateCache();
+        }
+
+        return result;
+    }
+    
+    public bool Remove(IEnumerable<IProcessUpdateRow> processUpdateRows)
+    {
+        bool[] result = processUpdateRows.Select(Remove).ToArray();
+        if (result.Any())
+            UpdateCache();
+        return result.All();
     }
 
     public bool Remove(IProcessUpdateRow processUpdateRow)
@@ -103,6 +142,7 @@ public class ProcessTable
         finally
         {
             _tableLock.ExitWriteLock();
+            UpdateCache();
         }
     }
 
@@ -116,6 +156,7 @@ public class ProcessTable
         finally
         {
             _tableLock.ExitWriteLock();
+            UpdateCache();
         }
     }
 

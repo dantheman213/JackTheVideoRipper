@@ -1,5 +1,6 @@
 ﻿namespace JackTheVideoRipper;
 
+[Flags]
 public enum ProcessStatus
 {
     // Created, but not queued

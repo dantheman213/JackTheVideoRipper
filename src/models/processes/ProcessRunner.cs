@@ -2,7 +2,7 @@
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 
-namespace JackTheVideoRipper.models;
+namespace JackTheVideoRipper.models.processes;
 
 public abstract class ProcessRunner : IProcessRunner
 {
@@ -30,7 +30,7 @@ public abstract class ProcessRunner : IProcessRunner
     
     public bool Started { get; private set; }
     
-    public string FileName { get; private set; } = string.Empty;
+    public string ProcessFileName { get; private set; } = string.Empty;
 
     public List<string> Dependencies { get; private set; } = new();
 
@@ -261,7 +261,7 @@ public abstract class ProcessRunner : IProcessRunner
         Process.Exited += OnProcessExit;
         Process.EnableRaisingEvents = true;
 
-        FileName = Process.StartInfo.FileName;
+        ProcessFileName = Process.StartInfo.FileName;
         
         Buffer.Initialize(Process);
     }

@@ -18,9 +18,9 @@ public readonly struct ProcessError
         AdditionalDetails = additionalDetails;
     }
     
-    public ProcessError(ListViewItem listViewItem, Exception exception, string additionalDetails = "")
+    public ProcessError(IViewItem listViewItem, Exception exception, string additionalDetails = "")
     {
-        ProcessTag = listViewItem.Tag.ToString().ValueOrDefault();
+        ProcessTag = listViewItem.Tag.ValueOrDefault();
         Exception = exception;
         Timestamp = DateTime.Now;
         AdditionalDetails = additionalDetails;

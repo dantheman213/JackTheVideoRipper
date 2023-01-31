@@ -2,7 +2,6 @@
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models;
-using JackTheVideoRipper.models.rows;
 
 namespace JackTheVideoRipper;
 
@@ -19,6 +18,24 @@ public class ProcessPool
     public static readonly ErrorLogger ErrorLogger = new();
     
     private bool _updating;
+
+    private readonly Task[] _clearTasks;
+
+    #endregion
+
+    #region Constructor
+
+    public ProcessPool()
+    {
+        _clearTasks = new Task[]
+        {
+            new(_runningProcesses.Clear),
+            new(_finishedProcesses.Clear),
+            new(_pausedProcessQueue.Clear),
+            new(_processQueue.Clear),
+            new(_processTable.Clear)
+        };
+    }
 
     #endregion
 
@@ -42,17 +59,19 @@ public class ProcessPool
     
     public bool QueueEmpty => _processQueue.IsEmpty && _pausedProcessQueue.Empty();
     
+    public bool AtCapacity => _runningProcesses.Count == Settings.Data.MaxConcurrentDownloads;
+    
     public string PoolStatus
     {
         get
         {
             if (AnyRunning)
-                return "Downloading Media";
+                return "Processing Media";
             if (AnyQueued)
-                return "Awaiting Download";
+                return "Awaiting Process";
             if (QueueEmpty)
                 return "Idle";
-            return "";
+            return string.Empty;
         }
     }
 
@@ -75,13 +94,15 @@ public class ProcessPool
 
     private IEnumerable<IProcessUpdateRow> Processes => _processTable.Processes;
         
-    public IProcessUpdateRow Selected => _processTable.Selected;
+    public IProcessUpdateRow Selected => _processTable.Get(Ripper.SelectedTag);
     
     public IEnumerable<IProcessUpdateRow> RunningProcesses => _runningProcesses.Processes;
     
     public IEnumerable<IProcessUpdateRow> CompletedProcesses => GetWhereStatus(ProcessStatus.Completed);
     
     public IEnumerable<IProcessUpdateRow> FailedProcesses => GetWhereStatus(ProcessStatus.Error);
+
+    public IEnumerable<string> FailedUrls => FailedProcesses.Select(p => p.Url);
 
     #endregion
 
@@ -100,7 +121,7 @@ public class ProcessPool
 
     public bool Exists(IProcessUpdateRow processUpdateRow)
     {
-        return _processTable.Contains(processUpdateRow);
+        return _processTable.Contains(processUpdateRow.Tag);
     }
     
     public bool Exists(string tag)
@@ -110,34 +131,26 @@ public class ProcessPool
 
     public IEnumerable<T> GetOfType<T>()
     {
+        // Select(r => r as T).Where(r => r is not null) ?
         return GetWhere(row => row is T).Cast<T>();
     }
 
     public IEnumerable<IProcessUpdateRow> GetWhere(Func<IProcessUpdateRow, bool> predicate)
     {
-        return _processTable.Processes.Where(predicate);
-    }
-    
-    public ListViewItem QueueCompressProcess(IMediaItem mediaItem)
-    {
-        return QueueProcess(new CompressProcessUpdateRow(mediaItem, OnCompleteProcess));
-    }
-
-    public ListViewItem QueueDownloadProcess(IMediaItem mediaItem)
-    {
-        return QueueProcess(new DownloadProcessUpdateRow(mediaItem, OnCompleteProcess));
+        return Processes.Where(predicate);
     }
     
     // TODO: Create overrides for different types of processes
     // Processes: Conversion, Validate, Repair
     
-    public ListViewItem QueueProcess(IProcessUpdateRow processUpdateRow)
+    public void QueueProcess(IProcessUpdateRow processUpdateRow, Action<IViewItem> queueCallback)
     {
-        _processTable.Add(processUpdateRow);
+        if (!_processTable.TryAdd(processUpdateRow))
+            throw new ProcessPoolException($"Failed to add process with tag {processUpdateRow.Tag}");
         _processQueue.Enqueue(processUpdateRow);
         processUpdateRow.Enqueue();
         UpdateQueue();
-        return processUpdateRow.ViewItem;
+        queueCallback(processUpdateRow.ViewItem);
     }
     
     public void OnCompleteProcess(IProcessRunner processRunner)
@@ -196,20 +209,34 @@ public class ProcessPool
     
     public bool RetryAllProcesses()
     {
-        bool result = true;
-        
-        Parallel.ForEach(GetWhereStatus(ProcessStatus.Error), process =>
+        IProcessUpdateRow[] erroredProcesses = GetWhereStatus(ProcessStatus.Error).ToArray();
+        List<bool> results = new(erroredProcesses.Length);
+
+        Parallel.ForEach(erroredProcesses, process =>
         {
-            if (!RetryProcess(process))
-                result = false;
+            lock (results)
+            {
+                results.Add(RetryProcess(process));
+            }
         });
         
-        return result;
+        return results.Any();
     }
 
     public IProcessUpdateRow? GetProcess(string tag)
     {
-        return Exists(tag) ? _processTable[tag] : null;
+        return Exists(tag) ? _processTable[tag] : default;
+    }
+    
+    public bool TryGetProcess(string tag, out IProcessUpdateRow? processUpdateRow)
+    {
+        if (Exists(tag))
+        {
+            return _processTable.TryGet(tag, out processUpdateRow);
+        }
+        
+        processUpdateRow = default;
+        return false;
     }
 
     public void RemoveSelected()
@@ -237,10 +264,10 @@ public class ProcessPool
         return _finishedProcesses.Where(p => p.ProcessStatus == processStatus);
     }
 
-    public ListViewItem? Remove(string tag)
+    public IViewItem? Remove(string tag)
     {
         if (GetProcess(tag) is not { } processUpdateRow)
-            return null;
+            return default;
 
         Remove(processUpdateRow);
 
@@ -284,8 +311,7 @@ public class ProcessPool
                 break;
             case ProcessStatus.Running:
                 processes = RunningProcesses.ToArray();
-                Parallel.ForEach(processes, RemoveRunning);
-                UpdateCachedRunning();
+                _runningProcesses.Remove(processes);
                 break;
             case ProcessStatus.Succeeded:
             case ProcessStatus.Completed:
@@ -293,9 +319,11 @@ public class ProcessPool
             case ProcessStatus.Stopped:
             case ProcessStatus.Cancelled:
                 processes = GetFinished(processStatus).ToArray();
-                Parallel.ForEach(processes, RemoveFinished);
+                _finishedProcesses.Remove(processes);
                 break;
             case ProcessStatus.Queued: // TODO:
+                processes = GetWhereStatus(processStatus).ToArray();
+                break;
             case ProcessStatus.Paused:
                 processes = GetWhereStatus(processStatus).ToArray();
                 Parallel.ForEach(processes, RemovePaused);
@@ -304,12 +332,7 @@ public class ProcessPool
         
         return processes;
     }
-
-    private void RemoveRunning(IProcessUpdateRow processUpdateRow)
-    {
-        _runningProcesses.Remove(processUpdateRow);
-    }
-
+    
     private void RemoveFinished(IProcessUpdateRow processUpdateRow)
     {
         _finishedProcesses.Remove(processUpdateRow);
@@ -326,23 +349,24 @@ public class ProcessPool
         processUpdateRow.Cancel();
     }
 
-    public void UpdateQueue()
+    private bool _updatingQueue = false;
+
+    public async void UpdateQueue()
     {
-        if (QueueEmpty)
+        if (QueueEmpty || AtCapacity || _updatingQueue)
             return;
 
-        IEnumerable<IProcessUpdateRow?> processes = Enumerable
+        _updatingQueue = true;
+
+        var processes = Enumerable
             .Range(_runningProcesses.Count, Settings.Data.MaxConcurrentDownloads)
             .Select(_ => NextProcess);
 
-        Parallel.ForEachAsync(processes, StartProcess);
+        await Parallel.ForEachAsync(processes, StartProcess);
+
+        _updatingQueue = false;
     }
-    
-    public IEnumerable<string> GetAllFailedUrls()
-    {
-        return FailedProcesses.Select(p => p.Url);
-    }
-    
+
     #endregion
 
     #region Private Methods
@@ -350,15 +374,11 @@ public class ProcessPool
     private void RunProcess(IProcessUpdateRow processUpdateRow)
     {
         _runningProcesses.Add(processUpdateRow);
-        UpdateCachedRunning();
     }
 
     private bool StopProcess(IProcessUpdateRow processUpdateRow)
     {
-        if (!_runningProcesses.Remove(processUpdateRow))
-            return false;
-        UpdateCachedRunning();
-        return true;
+        return _runningProcesses.Remove(processUpdateRow);
     }
     
     private async ValueTask StartProcess(IProcessUpdateRow? processUpdateRow, CancellationToken cancellationToken)
@@ -379,19 +399,12 @@ public class ProcessPool
         StopProcess(processUpdateRow);
     }
     
-    private void UpdateCachedRunning()
+    private IEnumerable<IViewItem> RemoveProcess(ProcessStatus processStatus, Action<IViewItem>? removeCallback = null)
     {
-        _runningProcesses.UpdateCache();
-    }
-
-    private static Task StartBackgroundTask(Action action)
-    {
-        return Task.Run(action);
-    }
-    
-    private static Task StartBackgroundTask(Func<Task> action)
-    {
-        return Task.Run(action);
+        IViewItem[] results = RemoveAll(processStatus).SelectViewItems().ToArray();
+        if (removeCallback is not null)
+            Parallel.ForEach(results, removeCallback);
+        return results;
     }
 
     #endregion
@@ -423,21 +436,36 @@ public class ProcessPool
     public void ClearAll()
     {
         StopAll();
-        _runningProcesses.Clear();
-        _finishedProcesses.Clear();
-        _pausedProcessQueue.Clear();
-        _processQueue.Clear();
-        _processTable.Clear();
+        Task.WhenAll(_clearTasks);
+    }
+
+    public IEnumerable<IViewItem> RemoveCompleted(Action<IViewItem>? removeCallback = null)
+    {
+        return RemoveProcess(ProcessStatus.Completed, removeCallback);
     }
     
-    public IEnumerable<ListViewItem> RemoveCompleted()
+    public IEnumerable<IViewItem> RemoveFailed(Action<IViewItem>? removeCallback = null)
     {
-        return RemoveAll(ProcessStatus.Completed).SelectViewItems();
+        return RemoveProcess(ProcessStatus.Error, removeCallback);
     }
-    
-    public IEnumerable<ListViewItem> RemoveFailed()
+
+    #endregion
+
+    #region Embedded Types
+
+    public class ProcessPoolException : Exception
     {
-        return RemoveAll(ProcessStatus.Error).SelectViewItems();
+        public ProcessPoolException()
+        {
+        }
+        
+        public ProcessPoolException(string message) : base(message)
+        {
+        }
+        
+        public ProcessPoolException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
     }
 
     #endregion
