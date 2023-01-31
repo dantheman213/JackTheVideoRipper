@@ -42,7 +42,7 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>FileSystemResources.resx</DependentUpon>
     </Compile>
-    <Compile Update="views\modals\BasicTextbox.cs">
+    <Compile Update="views\modals\FrameBasicTextbox.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Remove="tests\**" />

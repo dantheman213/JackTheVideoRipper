@@ -10,8 +10,7 @@ public static class Statistics
     private static PerformanceCounter? _ramCounter;
     private static readonly List<PerformanceCounter> _NetworkCounters = new();
 
-    private static readonly Notification _InitializedNotification = new("Counters successfully initialized",
-        typeof(Statistics));
+    private static readonly Notification _InitializedNotification = new(Messages.CountersInitialized, typeof(Statistics));
 
     public static async Task InitializeCounters()
     {
@@ -71,17 +70,17 @@ public static class Statistics
     
     public static string GetCpuUsagePercentage()
     {
-        return _cpuCounter is not null ? $"{_cpuCounter.NextValue():0.00}%" : Text.NOT_APPLICABLE;
+        return _cpuCounter is not null ? $"{_cpuCounter.NextValue():0.00}%" : Text.NotApplicable;
     }
     
     public static string GetAvailableMemory()
     {
-        return _ramCounter is not null ? GetFormattedSize(_ramCounter.NextValue()*1E6) : Text.NOT_APPLICABLE;
+        return _ramCounter is not null ? GetFormattedSize(_ramCounter.NextValue()*1E6) : Text.NotApplicable;
     }
     
     public static string GetNetworkTransfer()
     {
-        return _NetworkCounters.Any() ? CalculateNetworkUsage() : Text.NOT_APPLICABLE;
+        return _NetworkCounters.Any() ? CalculateNetworkUsage() : Text.NotApplicable;
     }
 
     private static string CalculateNetworkUsage()

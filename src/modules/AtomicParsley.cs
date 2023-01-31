@@ -2,15 +2,13 @@
 {
     internal static class AtomicParsley
     {
-        private const string _EXECUTABLE_NAME = "AtomicParsley.exe";
-        private static readonly string _ExecutablePath = FileSystem.ProgramPath(_EXECUTABLE_NAME);
-        private const string _DOWNLOAD_URL = "https://atomicparsley.sourceforge.net";
+        private static readonly string _ExecutablePath = FileSystem.ProgramPath(Executables.AtomicParsley);
 
         public static bool IsInstalled => File.Exists(_ExecutablePath);
 
         public static async Task DownloadLatest()
         {
-            await FileSystem.GetWebResourceHandle(_DOWNLOAD_URL, FileSystem.Paths.Install).Run();
+            await FileSystem.GetWebResourceHandle(Urls.AtomicParsley, FileSystem.Paths.Install).Run();
         }
     }
 }

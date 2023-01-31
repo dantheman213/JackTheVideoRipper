@@ -8,7 +8,7 @@ namespace JackTheVideoRipper;
 
 public static class Core
 {
-    public static string ApplicationTitle => $@"JackTheVideoRipper {Common.GetAppVersion()}";
+    public static string ApplicationTitle => $@"{AppInfo.ProgramName} {Common.GetAppVersion()}";
 
     public static TaskScheduler Scheduler { get; private set; } = null!;
     
@@ -48,13 +48,13 @@ public static class Core
         // Verify YouTube-DL
         if (!YouTubeDL.IsInstalled)
         {
-            if (Modals.Confirmation(Resources.InstallMessage, Captions.REQUIRED_INSTALLED))
+            if (Modals.Confirmation(Messages.InstallMessage, Captions.RequiredInstalled))
             {
                 InstallDependencies();
             }
             else
             {
-                Modals.Error(Resources.InstallationError, Captions.APPLICATION_ERROR);
+                Modals.Error(Messages.InstallationError, Captions.ApplicationError);
                 return;
             }
         }
@@ -86,20 +86,15 @@ public static class Core
 
     private static void MissingDependencyModal(string name)
     {
-        Modals.Warning(MissingDependencyMessage(name), Captions.REQUIRED_NOT_INSTALLED);
-    }
-
-    private static string MissingDependencyMessage(string name)
-    {
-        return string.Format(Resources.DependencyMissing, name);
+        Modals.Warning(string.Format(Messages.DependencyMissing, name), Captions.RequiredNotInstalled);
     }
 
     private static void InstallDependencies()
     {
         FrameYTDLDependencyInstall frameDependencyInstall = new();
         frameDependencyInstall.ShowDialog();
-        Modals.Notification(Resources.InstallationSuccess, Captions.REQUIRED_INSTALLED);
         frameDependencyInstall.Close();
+        Modals.Notification(Messages.InstallationSuccess, Captions.RequiredInstalled);
     }
 
     public static async Task CheckForYouTubeDLUpdates()
@@ -107,12 +102,6 @@ public static class Core
         await Task.Run(YouTubeDL.CheckForUpdates);
     }
 
-    public static bool ConfirmExit()
-    {
-        return Modals.Confirmation(Resources.ExitWarning, Captions.VERIFY_EXIT, MessageBoxIcon.Warning,
-            MessageBoxDefaultButton.Button2);
-    }
-    
     public static void CopyToClipboard(string url)
     {
         FileSystem.SetClipboardText(url);
@@ -128,28 +117,33 @@ public static class Core
         switch (dependency)
         {
             case Dependencies.YouTubeDL:
-                await FileSystem.GetWebResourceHandle(YouTubeDL.UPDATE_URL).Run();
+                await FileSystem.InstallProgram(Urls.YouTubeDL, Executables.YouTubeDL);
+                //await FileSystem.GetWebResourceHandle(Urls.YouTubeDL, FileSystem.Paths.Install).Run();
                 break;
             case Dependencies.FFMPEG:
-                await FFMPEG.DownloadLatest();
+                await FileSystem.InstallProgram(Urls.FFMPEG, Executables.FFProbe);
+                //await FFMPEG.DownloadLatest();
                 break;
             case Dependencies.Handbrake:
-                await FileSystem.GetWebResourceHandle(URLs.HANDBRAKE).Run();
+                FileSystem.OpenWebPage(Urls.HandbrakeDownload);
+                //await FileSystem.InstallProgram(Urls.HandbrakeDownload, Executables.Handbrake);
                 break;
             case Dependencies.VLC:
-                await FileSystem.GetWebResourceHandle(URLs.VLC).Run();
+                FileSystem.OpenWebPage(Urls.VLC);
+                //await FileSystem.InstallProgram(Urls.VLC, Executables.VLC);
                 break;
             case Dependencies.AtomicParsley:
-                await AtomicParsley.DownloadLatest();
+                await FileSystem.InstallProgram(Urls.AtomicParsley, Executables.AtomicParsley);
                 break;
             case Dependencies.Redistributables:
-                await FileSystem.GetWebResourceHandle(URLs.REDISTRIBUTABLES).Run();
+                // TODO:
+                await FileSystem.GetWebResourceHandle(Urls.VS2010Redistributables).Run();
                 break;
             case Dependencies.Aria2c:
-                await Aria2c.DownloadLatest();
+                await FileSystem.InstallProgram(Urls.Aria2c, Executables.Aria2c);
                 break;
             case Dependencies.ExifTool:
-                await ExifTool.DownloadLatest();
+                await FileSystem.InstallProgram(Urls.ExifTool, Executables.ExifTool);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(dependency), dependency, null);

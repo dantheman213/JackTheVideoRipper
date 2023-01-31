@@ -5,9 +5,6 @@ namespace JackTheVideoRipper.models
 {
     public class AppVersionModel
     {
-        private const string _ASSEMBLY_INFO_FILE_URL =
-            "https://raw.githubusercontent.com/dantheman213/JackTheVideoRipper/master/version";
-        
         [JsonProperty("version")]
         public string VersionString { get; set; } = string.Empty;
         
@@ -32,7 +29,7 @@ namespace JackTheVideoRipper.models
         
         private static async Task<string?> GetVersionFromServer()
         {
-            HttpResponseMessage response = await FileSystem.SimpleWebQueryAsync(_ASSEMBLY_INFO_FILE_URL);
+            HttpResponseMessage response = await FileSystem.SimpleWebQueryAsync(Urls.VersionInfo);
 
             if (response.IsSuccessStatusCode)
                 return await response.GetResponseAsync();

@@ -4,7 +4,6 @@ using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models.enums;
 using JackTheVideoRipper.modules;
-using JackTheVideoRipper.Properties;
 
 namespace JackTheVideoRipper.models.rows;
 
@@ -17,8 +16,6 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
     private string _redirectedUrl = string.Empty;
 
     private DownloadStage _downloadStage = DownloadStage.None;
-    
-    private const string _ALREADY_DOWNLOADED = "has already been downloaded";
 
     public string OriginalUrl => base.Url;
 
@@ -61,7 +58,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
             return;
         Progress = tokens[1];
         FileSize = FormatSize(tokens[3]);
-        DownloadSpeed = tokens[5];
+        Speed = tokens[5];
         Eta = tokens[7];
     }
     
@@ -79,11 +76,11 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
 
         return _downloadStage switch
         {
-            DownloadStage.Waiting       => Messages.WAITING,
-            DownloadStage.Retrieving    => Messages.RETRIEVING,
-            DownloadStage.Transcoding   => Messages.TRANSCODING,
-            DownloadStage.Downloading   => Messages.DOWNLOADING,
-            DownloadStage.Metadata      => Messages.METADATA,
+            DownloadStage.Waiting       => Messages.Waiting,
+            DownloadStage.Retrieving    => Messages.Retrieving,
+            DownloadStage.Transcoding   => Messages.Transcoding,
+            DownloadStage.Downloading   => Messages.Downloading,
+            DownloadStage.Metadata      => Messages.SavingMetadata,
             DownloadStage.Error         => null,
             _                           => string.Empty
         };
@@ -98,7 +95,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
         if (!YouTubeDL.IsSupported(Url))
         {
             string? domain = FileSystem.ParseUrl(Url)?.Domain.WrapQuotes();
-            Fail(new YouTubeDL.LinkNotSupportedException(string.Format(Resources.LinkNotSupported, domain)));
+            Fail(new YouTubeDL.LinkNotSupportedException(string.Format(Messages.LinkNotSupported, domain)));
             return false;
         }
         
@@ -110,7 +107,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
         base.OnProcessExit(o, eventArgs);
         
         // Editing the GUI elements must be in the main thread context to avoid errors
-        Core.RunTaskInMainThread(PostDownloadTasks);
+        Threading.RunInMainContext(PostDownloadTasks);
     }
 
     #endregion
@@ -124,8 +121,8 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
 
         string line = download.After(Tags.DOWNLOAD).Trim();
 
-        return line.Contains(_ALREADY_DOWNLOADED, StringComparison.OrdinalIgnoreCase) ?
-            line.Before(_ALREADY_DOWNLOADED).Trim() :
+        return line.Contains(Messages.YouTubeDLAlreadyDownloaded, StringComparison.OrdinalIgnoreCase) ?
+            line.Before(Messages.YouTubeDLAlreadyDownloaded).Trim() :
             line.After("Destination: ").Trim();
     }
 
@@ -153,7 +150,9 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
         switch (resourceStatus.StatusCode)
         {
             case HttpStatusCode.NotFound:
-                Fail(new WebException($"Resource could not be found at: {_redirectedUrl.WrapQuotes()} (Error {resourceStatus.ResponseCode()})"));
+                string message = string.Format(Messages.ResourceNotFound, _redirectedUrl.WrapQuotes(),
+                    resourceStatus.ResponseCode());
+                Fail(new WebException(message));
                 return false;
         }
         
@@ -162,7 +161,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
         {
             string oldSite = domainInfo.Domain.WrapQuotes();
             string newSite = FileSystem.ParseUrl(_redirectedUrl)?.Domain.WrapQuotes().ValueOrDefault()!;
-            Buffer.AddLog($"Redirected from video proxy site {oldSite} to {newSite}", ProcessLogType.Info);
+            Buffer.AddLog(string.Format(Messages.RedirectedProxy, oldSite, newSite), ProcessLogType.Info);
         }
         
         return true;
@@ -181,7 +180,7 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
         if (Path.IsNullOrEmpty())
             Path = GetFilepath();
 
-        if (FileSize.IsNullOrEmpty() || FileSize is Text.DEFAULT_SIZE or "~" || IsFilesizeNegligible())
+        if (FileSize.IsNullOrEmpty() || FileSize is "-" or "~" || IsFilesizeNegligible())
             FileSize = FileSystem.GetFileSizeFormatted(Path);
 
         if (Title.IsNullOrEmpty())
@@ -217,13 +216,13 @@ public class DownloadProcessUpdateRow : ProcessUpdateRow
     {
         if (Succeeded)
         {
-            string notificationMessage = $"{Title.WrapQuotes()} finished downloading!";
-            string shortenedMessage = $"{Title.TruncateEllipse(35).WrapQuotes()} finished downloading!";
+            string notificationMessage = string.Format(Messages.FinishedDownloading, Title.WrapQuotes());
+            string shortenedMessage = string.Format(Messages.FinishedDownloading, Title.TruncateEllipse(35).WrapQuotes());
             NotificationsManager.SendNotification(new Notification(notificationMessage, this, shortenedMessage));
         }
         else if (GetError() is { } errorMessage && errorMessage.HasValue())
         {
-            NotificationsManager.SendNotification(new Notification($"Failed to download: {errorMessage}", this));
+            NotificationsManager.SendNotification(new Notification(string.Format(Messages.FailedToDownload, errorMessage), this));
         }
     }
 

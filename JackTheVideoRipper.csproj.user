@@ -58,5 +58,15 @@
     <Compile Update="views\modals\BasicDropdown.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="views\modals\BasicForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="views\modals\FrameBasicDropdown.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="views\TaskForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+  </ItemGroup>
   </ItemGroup>
 </Project>

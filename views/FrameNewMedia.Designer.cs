@@ -174,7 +174,7 @@
             this.cbVideoEncoder.Font = new System.Drawing.Font("Courier New", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.cbVideoEncoder.FormattingEnabled = true;
             this.cbVideoEncoder.Items.AddRange(new object[] {
-            JackTheVideoRipper.Text.DO_NOT_TRANSCODE,
+            "(do not transcode)",
             "mkv",
             "mp4",
             "avi",
@@ -239,7 +239,7 @@
             this.cbAudioEncoder.Font = new System.Drawing.Font("Courier New", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.cbAudioEncoder.FormattingEnabled = true;
             this.cbAudioEncoder.Items.AddRange(new object[] {
-            JackTheVideoRipper.Text.DO_NOT_TRANSCODE,
+            "(do not transcode)",
             "mp3",
             "aac",
             "flac",

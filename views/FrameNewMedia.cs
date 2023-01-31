@@ -1,7 +1,6 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
-using JackTheVideoRipper.modules;
 using JackTheVideoRipper.Properties;
 
 namespace JackTheVideoRipper
@@ -26,9 +25,9 @@ namespace JackTheVideoRipper
 
         private bool FormatAudio => cbAudioEncoder.Enabled && cbAudioEncoder.SelectedIndex > 0;
         
-        private bool IsValidVideo => VideoExtension.HasValueAndNotIgnoreCase(FFMPEG.VideoFormats.MP4);
+        private bool IsValidVideo => VideoExtension.HasValueAndNotIgnoreCase(Formats.Video.MP4);
 
-        private bool IsValidAudio => AudioExtension.HasValueAndNotIgnoreCase(FFMPEG.AudioFormats.MP3, FFMPEG.AudioFormats.M4A);
+        private bool IsValidAudio => AudioExtension.HasValueAndNotIgnoreCase(Formats.Audio.MP3, Formats.Audio.M4A);
         
         private bool ShouldUpdateAudio => ExportAudio && !FormatVideo;
         
@@ -141,7 +140,7 @@ namespace JackTheVideoRipper
             VideoFormatItems.AddRange(VideoFormatRows);
             
             if (VideoFormatItems.Count < 2)
-                VideoFormatItems.Add("(no video metadata could be extracted)");
+                VideoFormatItems.Add(Messages.NoVideoMetadata);
             
             VideoFormatIndex = cbVideoEncoder.Items.Count > 0 ? 0 : 1;
         }
@@ -151,7 +150,7 @@ namespace JackTheVideoRipper
             AudioFormatItems.AddRange(AudioFormatRows);
             
             if (AudioFormatItems.Count < 2)
-                AudioFormatItems.Add("(no audio metadata could be extracted)");
+                AudioFormatItems.Add(Messages.NoAudioMetadata);
             
             AudioFormatIndex = cbAudioEncoder.Items.Count > 0 ? 0 : 1;
         }
@@ -191,7 +190,7 @@ namespace JackTheVideoRipper
             catch (Exception ex)
             {
                 FileSystem.LogException(ex);
-                Modals.Error(@"Unable to retrieve metadata!");
+                Modals.Error(Messages.MetadataLookupFailed);
             }
             
             frameCheckMetadata.Close();
@@ -229,7 +228,7 @@ namespace JackTheVideoRipper
         {
             if (FileSystem.GetClipboardAsUrl() is not { } url)
             {
-                Modals.Warning("Clipboard content is not valid url!");
+                Modals.Warning(Messages.ClipboardInvalidUrl);
                 return;
             }
             
@@ -248,13 +247,13 @@ namespace JackTheVideoRipper
             
             if (FormatVideo && IsValidVideo)
             {
-                Modals.Error(Resources.InvalidVideo);
+                Modals.Error(Messages.InvalidVideo);
                 return false;
             }
             
             if (FormatAudio && IsValidAudio)
             {
-                Modals.Error(Resources.InvalidAudio);
+                Modals.Error(Messages.InvalidAudio);
                 return false;
             }
 
@@ -315,13 +314,16 @@ namespace JackTheVideoRipper
             {
                 if (!FileSystem.WarnIfFileExists(Filepath))
                     return;
+                
+                if (History.Data.ContainsUrl(Url) && !Modals.Confirmation(Messages.AlreadyDownloaded))
+                    return;
 
                 GenerateDownloadCommand();
                 this.Close(DialogResult.OK);
             }
             else
             {
-                Modals.Warning("Failed to parse provided url!");
+                Modals.Warning(Messages.FailedParseUrl);
             }
         }
         
@@ -360,14 +362,18 @@ namespace JackTheVideoRipper
         
         private void GetCommand()
         {
-            if (!Url.HasValue())
-                return;
-            
-            GenerateDownloadCommand();
+            if (Url.Valid(FileSystem.IsValidUrl))
+            {
+                GenerateDownloadCommand();
                 
-            FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.ProcessParameters}");
+                FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.ProcessParameters}");
 
-            Modals.Notification(@"Command copied to clipboard!", @"Generate Command");
+                Modals.Notification(Messages.CommandCopied, Captions.GenerateCommand);
+            }
+            else
+            {
+                Modals.Warning(Messages.InvalidUrl);
+            }
         }
         
         private void OnCheckExportAudioChanged()

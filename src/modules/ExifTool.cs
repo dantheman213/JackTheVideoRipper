@@ -6,14 +6,12 @@ namespace JackTheVideoRipper.modules;
 public static class ExifTool
 {
     #region Data Members
-
-    private const string _EXECUTABLE_NAME = "exiftool.exe";
     
-    public static readonly string ExecutablePath = FileSystem.ProgramPath(_EXECUTABLE_NAME);
+    public static readonly string ExecutablePath = FileSystem.ProgramPath(Executables.ExifTool);
     
-    private const string _DOWNLOAD_URL = "https://sourceforge.net/projects/exiftool/files/latest/download";
-    
-    private static readonly Command _Command = new(ExecutablePath, validationHandler:ValidationHandler);
+    private static readonly Command _Command = new(ExecutablePath,
+        validationHandler:ValidationHandler, 
+        throwOnValidationFailed:true);
     
     #endregion
 
@@ -27,7 +25,7 @@ public static class ExifTool
     
     public static async Task DownloadLatest()
     {
-        string? result = await FileSystem.ExtractResourceFromUrl(_DOWNLOAD_URL, FileSystem.Paths.Install);
+        await FileSystem.ExtractResourceFromUrl(Urls.ExifTool, FileSystem.Paths.Install);
         
         //await FileSystem.GetWebResourceHandle(_DOWNLOAD_URL, FileSystem.Paths.Install).Run();
     }
@@ -35,15 +33,15 @@ public static class ExifTool
     private static class Parameters
     {
         // Removes tab aligned spacing that makes the usual output formatted like a table
-        public const string CompactFormat = "-s -s";
+        public const string COMPACT_FORMAT = "-s -s";
     
         // Returns only the value of the requested tags, no keys or messages
-        public const string ReturnValueOnly = "-s -s -s";
+        public const string RETURN_VALUE_ONLY = "-s -s -s";
     }
 
     public static async Task<string> GetMetadataString(string filepath)
     {
-        return await _Command.RunCommandAsync($"{Parameters.CompactFormat} {filepath.WrapQuotes()}");
+        return await _Command.RunCommandAsync($"{Parameters.COMPACT_FORMAT} {filepath.WrapQuotes()}");
     }
 
     public static async Task<ExifData> GetMetadata(string filepath)
@@ -58,12 +56,12 @@ public static class ExifTool
     
     public static async Task<string> GetTag(string filepath, string key)
     {
-        return await _Command.RunCommandAsync($"{Parameters.ReturnValueOnly} -{key} {filepath.WrapQuotes()}");
+        return await _Command.RunCommandAsync($"{Parameters.RETURN_VALUE_ONLY} -{key} {filepath.WrapQuotes()}");
     }
     
     public static async Task<string> GetTags(string filepath, params string[] keys)
     {
-        return await _Command.RunCommandAsync($"{Parameters.CompactFormat} {MergeKeys(keys)} {filepath.WrapQuotes()}");
+        return await _Command.RunCommandAsync($"{Parameters.COMPACT_FORMAT} {MergeKeys(keys)} {filepath.WrapQuotes()}");
     }
 
     public static async Task<Dictionary<string, string>> GetTagsAsDict(string filepath, params string[] keys)

@@ -1,11 +1,12 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
 using JackTheVideoRipper.modules;
 
 namespace JackTheVideoRipper
 {
-    public partial class FrameNewMediaBatch : Form
+    public partial class FrameNewMediaBatch : Form, IGeneratorForm<List<DownloadMediaItem>>
     {
         #region Data Members
 
@@ -17,19 +18,21 @@ namespace JackTheVideoRipper
         
         public MediaType Type => ExportAudio && !ExportVideo ? MediaType.Audio : MediaType.Video;
 
-        private string FilePathTemplate => Path.Combine(Filepath, YouTubeDL.DEFAULT_FORMAT);
+        private string FilePathTemplate => FileSystem.MergePaths(Filepath, YouTubeDL.DEFAULT_FORMAT);
 
         private bool EncodeVideo => cbVideoEncoder.Enabled && cbVideoEncoder.SelectedIndex > 0;
 
         private bool EncodeAudio => cbAudioEncoder.Enabled && cbAudioEncoder.SelectedIndex > 0;
         
-        private bool IsValidVideo => VideoExtension.HasValueAndNotIgnoreCase(FFMPEG.VideoFormats.MP4);
+        private bool IsValidVideo => VideoExtension.HasValueAndNotIgnoreCase(Formats.Video.MP4);
 
-        private bool IsValidAudio => AudioExtension.HasValueAndNotIgnoreCase(FFMPEG.AudioFormats.MP3, FFMPEG.AudioFormats.M4A);
+        private bool IsValidAudio => AudioExtension.HasValueAndNotIgnoreCase(Formats.Audio.MP3, Formats.Audio.M4A);
 
         private bool ShouldUpdateAudio => ExportAudio && !EncodeVideo;
         
         private string Filename => FileSystem.GetFilenameWithoutExtension(Filepath);
+        
+        public List<DownloadMediaItem>? Output => Items is {Count: > 0} ? Items : default;
 
         #endregion
 
@@ -212,7 +215,7 @@ namespace JackTheVideoRipper
 
         private Notification InvalidUrlNotification(string url)
         {
-            return new Notification($"Invalid URL detected, skipping: {url.WrapQuotes()}", this);
+            return new Notification(string.Format(Messages.InvalidUrlBulk, url.WrapQuotes()), this);
         }
         
         private void ProcessUrl(string url)
@@ -243,7 +246,7 @@ namespace JackTheVideoRipper
         #endregion
         
         #region Static Methods
-
+        
         public static List<DownloadMediaItem>? GetMedia(string urls)
         {
             FrameNewMediaBatch frameNewMediaBatch = new(urls);

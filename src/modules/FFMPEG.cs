@@ -1,32 +1,33 @@
 ﻿using System.Diagnostics;
 using JackTheVideoRipper.extensions;
-using JackTheVideoRipper.interfaces;
-using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.containers;
+using JackTheVideoRipper.models.parameters;
 
 namespace JackTheVideoRipper.modules;
 
-internal static class FFMPEG
+public static class FFMPEG
 {
     #region Data Members
-
-    private const string _EXECUTABLE_NAME = "ffmpeg.exe";
     
-    public static readonly string ExecutablePath = FileSystem.ProgramPath(_EXECUTABLE_NAME);
-
-    public static readonly string FfprobePath = FileSystem.ProgramPath("ffprobe.exe");
+    public static readonly string ExecutablePath = FileSystem.ProgramPath(Executables.FFMPEG);
     
-    private const string _DOWNLOAD_URL = "https://www.ffmpeg.org/download.html";
+    private static readonly Command _Command = new(ExecutablePath);
+
+    public static readonly string FFProbePath = FileSystem.ProgramPath(Executables.FFProbe);
+    
+    private static readonly Command _FFProbeCommand = new(FFProbePath);
 
     private static readonly FfmpegParameters _DefaultParameters =
         new FfmpegParameters().NoStats().LogLevel(LogLevel.Error).HideBanner();
 
     private const string _IMAGE_FORMAT_STRING = "frame_%d.png";
-    
-    private static readonly Command _Command = new(ExecutablePath);
 
     private const string _NUMBER_OF_FRAMES_PARAMETERS =
         @"-v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0";
+    
+    public const string DEFAULT_BITRATE = "4M";
+    
+    public const string DEFAULT_FRAME_FORMAT = "image2";
 
     #endregion
 
@@ -46,18 +47,12 @@ internal static class FFMPEG
 
     public static async Task<int> GetNumberOfFrames(string filepath)
     {
-        var result = (await FileSystem.RunCommandAsync(FfprobePath, $"{_NUMBER_OF_FRAMES_PARAMETERS} {filepath}"))
-            .Output;
-        
-        if (!int.TryParse(result, out int totalFrames))
-            return -1;
-        
-        return totalFrames;
+        return await _FFProbeCommand.RunCommandAsync<int>($"{_NUMBER_OF_FRAMES_PARAMETERS} {filepath}");
     }
 
     public static async Task DownloadLatest()
     {
-        await FileSystem.GetWebResourceHandle(_DOWNLOAD_URL, FileSystem.Paths.Install).Run();
+        await FileSystem.GetWebResourceHandle(Urls.FFMPEG, FileSystem.Paths.Install).Run();
     }
 
     // TODO: Verify that input frame count == output frame count
@@ -73,24 +68,23 @@ internal static class FFMPEG
             .Output(_IMAGE_FORMAT_STRING);
     }
 
-    public static FfmpegParameters Recombine(VideoInformation videoInformation, bool includeAudio = false,
-        string audioFilepath = "")
+    public static FfmpegParameters Recombine(VideoInformation videoInformation, string? audioFilepath = null)
     {
         FfmpegParameters parameters = new FfmpegParameters()
             .Rate(videoInformation.FramesPerSecond)
-            .FrameFormat("image2")
+            .FrameFormat(DEFAULT_FRAME_FORMAT)
             .Resolution(videoInformation.Resolution)
             .Input(_IMAGE_FORMAT_STRING)
             .VideoCodec(VideoCodecs.H264);
 
-        FfmpegParameters optionBasedParameters = includeAudio ?
-            new FfmpegParameters(audioFilepath)
-                .Bitrate("4M")
+        FfmpegParameters optionBasedParameters = audioFilepath.HasValue() ?
+            new FfmpegParameters(audioFilepath!)
+                .Bitrate(DEFAULT_BITRATE)
                 .VideoPre()
                 .AudioCodec() :
             new FfmpegParameters()
-                .ConstantRateFactor(25)
-                .PixelFormat(PixelFormats.YUV_420P);
+                .ConstantRateFactor()
+                .PixelFormat(Formats.Pixel.YUV_420P);
 
         return parameters.Append(optionBasedParameters).Output(videoInformation.OutputFilepath);
     }
@@ -109,19 +103,15 @@ internal static class FFMPEG
     // TODO: Was used originally for the failure, actually occurred due to encoding error from Adobe Premiere Pro
     public static FfmpegParameters Convert(string inputFilepath)
     {
-        return new FfmpegParameters()
-            .HardwareAcceleration()
-            .Input(inputFilepath)
+        return new FfmpegParameters(inputFilepath, hardwareAcceleration:true)
             .CopyAudio()
             .CopyVideo(VideoCodecs.AYUV)
-            .Output(inputFilepath, VideoFormats.AVI);
+            .Output(inputFilepath, Formats.Video.AVI);
     }
 
     public static FfmpegParameters Recode(string inputFilepath)
     {
-        return new FfmpegParameters()
-            .HardwareAcceleration()
-            .Input(inputFilepath);
+        return new FfmpegParameters(inputFilepath, hardwareAcceleration:true);
     }
 
     // https://unix.stackexchange.com/questions/28803/how-can-i-reduce-a-videos-size-with-ffmpeg
@@ -129,12 +119,10 @@ internal static class FFMPEG
     // Lower - 18-24
     public static FfmpegParameters Compress(string inputFilepath, int compressionRating = 30)
     {
-        return new FfmpegParameters()
-            .HardwareAcceleration()
-            .Input(inputFilepath)
+        return new FfmpegParameters(inputFilepath, hardwareAcceleration:true)
             .VideoCodec(VideoCodecs.H264)
             .ConstantRateFactor(compressionRating)
-            .OutputFromInput(inputFilepath, "COMPRESSED");
+            .OutputFromInput(Operation.Compress);
     }
 
     /** TODO:
@@ -146,14 +134,17 @@ internal static class FFMPEG
      * 6. Recombine all at the end
      *  Look up how YouTube-DL does this (.part files)
      */
+    // Returns a list of task parameters in order they should be executed (dependency list)
     public static async Task<FfmpegParameters[]> RepairVideo(string videoFilepath)
     {
-        VideoInformation videoInformation = await ExtractVideoInformation(videoFilepath);
-        videoInformation.OutputFilepath = FileSystem.AppendSuffix(videoFilepath, "FIXED", "_");
+        VideoInformation videoInformation = await ExtractVideoInformation(videoFilepath,
+            GetOutputFilename(videoFilepath, Operation.Repair));
+        string audioFilepath = GetOutputFilename(videoFilepath, Operation.Audio, Formats.Audio.AAC);
         return new[]
         {
             SplitImages(videoInformation),
-            Recombine(videoInformation)
+            ExtractAudio(videoFilepath),
+            Recombine(videoInformation, audioFilepath)
         };
     }
 
@@ -166,14 +157,20 @@ internal static class FFMPEG
             .Miscellaneous($"- >{outputFilepath.WrapQuotes()} 2>&1");
     }
 
-    public static string RunFFMPEG(string parameters)
+    public static FfmpegParameters RemoveAudio(string filepath)
     {
-        return _Command.RunCommand(parameters);
+        return new FfmpegParameters(filepath)
+            .NoAudio()
+            .VideoCodec()
+            .OutputFromInput(Operation.Audio, Formats.Audio.AAC);
     }
-
-    public static string RunFFMPEG(IProcessParameters parameters)
+    
+    public static FfmpegParameters ExtractAudio(string filepath)
     {
-        return _Command.RunCommand(parameters);
+        return new FfmpegParameters(filepath)
+            .NoVideo()
+            .AudioCodec()
+            .OutputFromInput(Operation.NoAudio);
     }
     
     public static Process CreateCommand(string parameters)
@@ -181,15 +178,10 @@ internal static class FFMPEG
         return _Command.CreateCommand(parameters);
     }
 
-    public static Process CreateCommand(IProcessParameters parameters)
-    {
-        return _Command.CreateCommand(parameters);
-    }
-    
-    public static async Task<VideoInformation> ExtractVideoInformation(string filepath)
+    public static async Task<VideoInformation> ExtractVideoInformation(string filepath, string outputFilepath)
     {
         if (!File.Exists(filepath))
-            return new VideoInformation();
+            throw new CouldNotExtractInfoException("Requested filepath does not exist!", new FileSystem.InvalidPathException());
 
         ExifData exifData = new(await ExifTool.GetTags(filepath, "Video Frame Rate", "Image Size"));
 
@@ -201,8 +193,26 @@ internal static class FFMPEG
             //Duration = metadata.Duration.Duration(),
             FramesPerSecond = exifData.VideoFrameRate,
             Resolution = exifData.ImageSize,
-            OutputFilepath = FileSystem.AppendSuffix(filepath, "FIXED", "_")
+            OutputFilepath = outputFilepath
         };
+    }
+
+    public static string GetOutputFilename(string inputFilename, Operation operation, string? outputFormat = null)
+    {
+        string suffix = operation switch
+        {
+            Operation.Repair    => "FIXED",
+            Operation.Compress  => "COMPRESSED",
+            Operation.Recode    => "RECODED",
+            Operation.Audio     => "AUDIO",
+            Operation.NoAudio   => "NO_AUDIO",
+            _                   => "OUTPUT"
+        };
+
+        string outputFilename = FileSystem.AppendSuffix(inputFilename, suffix, "_");
+        return outputFormat is null
+            ? outputFilename
+            : FileSystem.ChangeExtension(outputFilename, outputFormat);
     }
 
     #region Enums
@@ -217,6 +227,15 @@ internal static class FFMPEG
         Info,
         Verbose,
         Debug
+    }
+
+    public enum Operation
+    {
+        Repair,
+        Compress,
+        Recode,
+        Audio,
+        NoAudio
     }
 
     #endregion
@@ -251,39 +270,6 @@ internal static class FFMPEG
         public const string HEVC = "hevc"; // H.265
     }
 
-    public static class VideoFormats
-    {
-        public const string AVI = "avi";
-        
-        public const string MP4 = "mp4";
-        
-        public const string MOV = "mov";
-        
-        public const string M4V = "m4v";
-
-        public const string MPEG = "mpeg";
-
-        public const string MKV = "mkv";
-    }
-
-    public static class AudioFormats
-    {
-        public const string MP3 = "mp3";
-
-        public const string WAV = "wav";
-
-        public const string OGG = "ogg";
-        
-        public const string M4A = "m4a";
-
-        public const string AAC = "aac";
-    }
-
-    public static class PixelFormats
-    {
-        public const string YUV_420P = "yuv420p";
-    }
-    
     public record VideoInformation
     {
         public string InputFilepath = string.Empty;
@@ -299,160 +285,14 @@ internal static class FFMPEG
         public string OutputFilepath = string.Empty;
     }
 
-    public class FfmpegParameters : ProcessParameters<FfmpegParameters>
+    public class CouldNotExtractInfoException : Exception
     {
-        #region Constructor
-
-        public FfmpegParameters()
-        {
-        }
-
-        public FfmpegParameters(string inputFilepath)
-        {
-            Input(inputFilepath);
-        }
-
-        #endregion
-
-        #region Public
-
-        public FfmpegParameters Rate(float rate)
-        {
-            return Add('r', $"{rate:F2}");
-        }
-
-        public FfmpegParameters Input(string filepath)
-        {
-            return Add('i', filepath.WrapQuotes());
-        }
-
-        public FfmpegParameters Output(string filepath, string? outputFormat = null)
-        {
-            return Append(outputFormat is null ?
-                filepath.WrapQuotes() : 
-                FileSystem.ChangeExtension(filepath, outputFormat).WrapQuotes());
-        }
+        public CouldNotExtractInfoException() { }
         
-        public FfmpegParameters OutputFromInput(string inputFilepath, string suffix, string? outputFormat = null)
-        {
-            string outputFilepath = FileSystem.AppendSuffix(inputFilepath, suffix, "_");
-            
-            return Append(outputFormat is null ?
-                outputFilepath.WrapQuotes() : 
-                FileSystem.ChangeExtension(outputFilepath, outputFormat).WrapQuotes());
-        }
-
-        public FfmpegParameters AudioCodec(string codec = "copy")
-        {
-            return Add("acodec", codec);
-        }
-
-        public FfmpegParameters VideoCodec(string codec = "copy")
-        {
-            return Add("vcodec", codec);
-        }
-
-        public FfmpegParameters HardwareAcceleration(string encoder = "cuda")
-        {
-            return Add("hwaccel", encoder);
-        }
-
-        public FfmpegParameters Copy()
-        {
-            return Add('c', "copy");
-        }
-
-        public FfmpegParameters CopyAudio(string codec = "copy")
-        {
-            return Add("c:a", codec);
-        }
-
-        public FfmpegParameters CopyVideo(string codec = "copy")
-        {
-            return Add("c:v", codec);
-        }
-
-        public FfmpegParameters MapAudio(bool shouldMap)
-        {
-            return Add("map", $"{(shouldMap ? 1 : 0)}:a");
-        }
-
-        public FfmpegParameters MapVideo(bool shouldMap)
-        {
-            return Add("map", $"{(shouldMap ? 1 : 0)}:v");
-        }
-
-        public FfmpegParameters FrameRate(float framesPerSecond)
-        {
-            return Add("vf", $"fps={framesPerSecond:F2}");
-        }
-
-        public FfmpegParameters Scale(int width = -1, int height = -1)
-        {
-            return Add("vf",$"scale={width}:{height}".WrapQuotes());
-        }
-
-        public FfmpegParameters FrameFormat(string frameFormat = "null")
-        {
-            return Add('f', frameFormat);
-        }
-
-        public FfmpegParameters Resolution(string resolution)
-        {
-            return Add('s', resolution);
-        }
-
-        public FfmpegParameters ConstantRateFactor(int framerate)
-        {
-            return Add("crf", framerate);
-        }
-
-        public FfmpegParameters PixelFormat(string format)
-        {
-            return Add("pix_fmt", format);
-        }
-
-        public FfmpegParameters Bitrate(string bitrate)
-        {
-            return Add('b', bitrate);
-        }
-
-        public FfmpegParameters VideoPre(string pre = "normal")
-        {
-            return Add("vpre", pre);
-        }
-
-        public FfmpegParameters NoStats()
-        {
-            return AddNoValue("nostats");
-        }
-
-        public FfmpegParameters LogLevel(LogLevel logLevel = FFMPEG.LogLevel.Quiet)
-        {
-            return Add("loglevel", logLevel.ToString().ToLower());
-        }
-
-        public FfmpegParameters HideBanner()
-        {
-            return AddNoValue("hide_banner");
-        }
-
-        public FfmpegParameters Miscellaneous(string parameters)
-        {
-            return Append(parameters);
-        }
-
-        #endregion
-
-        #region Overrides
-
-        public override string ToString()
-        {
-            return base.ToString().Replace("--", "-");
-        }
-
-        #endregion
+        public CouldNotExtractInfoException(string message) : base(message) { }
+        
+        public CouldNotExtractInfoException(string message, Exception innerException) : base(message, innerException) { }
     }
-    
+
     #endregion
 }

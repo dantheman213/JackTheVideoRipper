@@ -111,7 +111,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     private string? GetProcessStatus()
     {
         if (ProcessStatus is ProcessStatus.Running && !Started)
-            return "Process | Running Startup Tasks";
+            return $"Process | {Messages.StartupTasks}";
 
         return GetStatus();
     }
@@ -208,19 +208,19 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     private void StartMessage()
     {
         History.Data.MarkStarted(Tag);
-        Buffer.AddLog("Process started execution", ProcessLogType.Info);
+        Buffer.AddLog(Messages.ProcessStarted, ProcessLogType.Info);
     }
 
     private void FinishMessage()
     {
         History.Data.MarkCompleted(Tag, result:ProcessStatus);
-        Buffer.AddLog("Process completed", ProcessLogType.Info);
+        Buffer.AddLog(Messages.ProcessCompleted, ProcessLogType.Info);
     }
 
     private void InitializeBuffer()
     {
         Buffer.LogAdded += OnLogAdded;
-        Buffer.AddLog("Process initialized", ProcessLogType.Info);
+        Buffer.AddLog(Messages.ProcessInitialized, ProcessLogType.Info);
     }
 
     private string GetInstanceName()

@@ -3,12 +3,8 @@
 public static class Aria2c
 {
     #region Data Members
-    
-    private const string _EXECUTABLE_NAME = "aria2c.exe";
-    
-    public static readonly string ExecutablePath = FileSystem.ProgramPath(_EXECUTABLE_NAME);
-    
-    private const string _DOWNLOAD_URL = "https://github.com/aria2/aria2/releases/latest";
+
+    public static readonly string ExecutablePath = FileSystem.ProgramPath(Executables.Aria2c);
     
     private static readonly Command _Command = new(ExecutablePath);
     
@@ -26,7 +22,7 @@ public static class Aria2c
 
     public static async Task DownloadLatest()
     {
-        await FileSystem.GetWebResourceHandle(_DOWNLOAD_URL, FileSystem.Paths.Install).Run();
+        await FileSystem.GetWebResourceHandle(Urls.Aria2c, FileSystem.Paths.Install).Run();
     }
 
     #endregion

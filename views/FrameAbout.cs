@@ -1,35 +1,38 @@
 ﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.Properties;
 
 namespace JackTheVideoRipper
 {
     public partial class FrameAbout : Form
     {
-        private const string _PROJECT_URL = "https://github.com/dantheman213/JackTheVideoRipper";
-
         public FrameAbout()
         {
             InitializeComponent();
+            SubscribeEvents();
         }
 
-        private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        private void SubscribeEvents()
         {
-            FileSystem.GetWebResourceHandle(_PROJECT_URL);
+            linkLabel.LinkClicked += (_, _) => FileSystem.GetWebResourceHandle(AppInfo.ProgramUrl);
+            Load += InitializeText;
         }
 
-        private void FrameAbout_Load(object sender, EventArgs e)
+        private void InitializeText(object? sender, EventArgs args)
         {
+            projectTitle.Text = AppInfo.ProgramName;
             labelVersion.Text = Common.GetAppVersion();
 
             try
             {
-                textExtractors.Text = YouTubeDL.SupportedServices.Select(s => $"* {s}").MergeReturn();
-                labelYouTubeDL.Text = $@"yt-dlp {YouTubeDL.CurrentVersion}";
+                textServices.Text = YouTubeDL.SupportedServices.MergeReturn();
             }
             catch (Exception ex)
             {
                 FileSystem.LogException(ex);
-                textExtractors.Text = @"ERROR: Can't get list of supported services.";
+                textServices.Text = @"ERROR: Can't get list of supported services.";
             }
+            
+            labelYouTubeDL.Text = $@"yt-dlp {YouTubeDL.CurrentVersion}";
         }
     }
 }

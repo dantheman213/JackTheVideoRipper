@@ -77,7 +77,7 @@ namespace JackTheVideoRipper
         public static string TimeString(float timeInSeconds)
         {
             if (timeInSeconds <= 0.01f)
-                return Text.DEFAULT_TIME;
+                return Text.DefaultTime;
             double hours = Math.Floor(timeInSeconds / 360);
             double minutes = Math.Floor(timeInSeconds % 360 / 60);
             double seconds = MathF.Floor(timeInSeconds % 60);

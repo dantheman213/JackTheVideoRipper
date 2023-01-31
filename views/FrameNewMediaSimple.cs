@@ -1,6 +1,7 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.models;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.Properties;
 
 namespace JackTheVideoRipper.views
 {
@@ -105,7 +106,7 @@ namespace JackTheVideoRipper.views
                 if (!FileSystem.WarnIfFileExists(Filepath))
                     return;
 
-                if (History.Data.ContainsUrl(Url) && !Modals.Confirmation("This item has already been downloaded, continue?"))
+                if (History.Data.ContainsUrl(Url) && !Modals.Confirmation(Messages.AlreadyDownloaded))
                     return;
 
                 GenerateDownloadCommand();
@@ -113,7 +114,7 @@ namespace JackTheVideoRipper.views
             }
             else
             {
-                Modals.Warning("Failed to parse provided url!");
+                Modals.Warning(Messages.FailedParseUrl);
             }
         }
         
@@ -134,11 +135,11 @@ namespace JackTheVideoRipper.views
                 
                 FileSystem.SetClipboardText($"{YouTubeDL.ExecutablePath} {MediaItemRow.ProcessParameters}");
 
-                Modals.Notification(@"Command copied to clipboard!", @"Generate Command");
+                Modals.Notification(Messages.CommandCopied, Captions.GenerateCommand);
             }
             else
             {
-                Modals.Warning("No valid url provided to create command from");
+                Modals.Warning(Messages.InvalidUrl);
             }
         }
         

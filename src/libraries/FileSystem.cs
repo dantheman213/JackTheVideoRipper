@@ -21,45 +21,34 @@ namespace JackTheVideoRipper;
 public static class FileSystem
 {
     #region Data Members
-    
-    public const string PROGRAM_NAME = "JackTheVideoRipper";
-    
-    private const string _PROGRAM_PREFIX = "jtvr";
-    
-    private const string _TASK_MANAGER_EXECUTABLE = "taskmgr.exe";
-    
-    private const string _EXPLORER_EXECUTABLE = "explorer.exe";
 
-    public static class Filters
-    {
-        public static readonly string AllFiles = FileSystemResources.Filter_AllFiles;
-        public static readonly string AllMedia = FileSystemResources.Filter_AllMediaFiles;
-        public static readonly string VideoFiles = FileSystemResources.Filter_VideoFiles;
-        public static readonly string AudioFiles = FileSystemResources.Filter_AudioFiles;
-        public static readonly string ImageFiles = FileSystemResources.Filter_ImageFiles;
-    }
-    
     private static readonly Regex _FilenamePattern = new("[^a-zA-Z0-9 -]", RegexOptions.Compiled);
-    
-    private static readonly Regex _UrlPattern = new(@"^(http|http(s)?://)?([\w-]+\.)+[\w-]+[.com|.in|.org|.net]+(\[\?%&=]*)?",
+
+    private static readonly Regex _UrlPattern = 
+        new(@"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public static readonly string TempPath = Path.GetTempPath();
 
     public static readonly char DirectorySeparatorChar = Path.DirectorySeparatorChar;
 
+    public const string RUN_AS_ADMIN = "runas";
     public static class Paths
     {
-        public static readonly string AppPath = Path.GetDirectoryName(MainModule?.FileName).ValueOrDefault();
-        public static readonly string Local = GetSpecialFolderPath(SpecialFolder.LocalApplicationData);
-        public static readonly string Common = GetSpecialFolderPath(SpecialFolder.CommonApplicationData);
-        public static readonly string Root = MergePaths(Common, PROGRAM_NAME);
-        public static readonly string Install = MergePaths(Root, "bin");
-        public static readonly string Settings = MergePaths(Local, PROGRAM_NAME);
-        public static readonly string UserProfile = Environment.ExpandEnvironmentVariables("%userprofile%");
-        public static readonly string Download = Path.Combine(UserProfile, "Downloads");
+        public static readonly string AppPath       = Path.GetDirectoryName(MainModule?.FileName).ValueOrDefault();
+        public static readonly string Local         = GetSpecialFolderPath(SpecialFolder.LocalApplicationData);
+        public static readonly string Common        = GetSpecialFolderPath(SpecialFolder.CommonApplicationData);
+        public static readonly string Root          = MergePaths(Common, AppInfo.ProgramName);
+        public static readonly string Install       = MergePaths(Root, "bin");
+        public static readonly string Settings      = MergePaths(Local, AppInfo.ProgramName);
+        public static readonly string UserProfile   = Environment.ExpandEnvironmentVariables("%userprofile%");
+        public static readonly string Download      = MergePaths(UserProfile, "Downloads");
+        public static readonly string UserData      = MergePaths(Settings, "UserData");
+        public static readonly string Config        = MergePaths(Settings, "settings");
+        public static readonly string Data          = MergePaths(Settings, "data");
+        public static readonly string System        = Environment.SystemDirectory;
     }
-    
+
     #endregion
 
     #region Attributes
@@ -74,7 +63,7 @@ public static class FileSystem
     
     public static string TimeStampDate => $"{DateTime.Now:yyyyMMddhmmsstt}";
 
-    private static string GetProcessQuery(int pid) => string.Format(FileSystemResources.SelectProcessById, pid);
+    private static string GetProcessQuery(int pid) => string.Format(RFileSystem.SelectProcessById, pid);
 
     public static Assembly ExecutingAssembly => Assembly.GetExecutingAssembly();
     
@@ -90,7 +79,7 @@ public static class FileSystem
 
     public static Mutex CreateSingleInstanceLock(out bool isOnlyInstance)
     {
-        return new Mutex(true, PROGRAM_NAME, out isOnlyInstance);
+        return new Mutex(true, AppInfo.ProgramName, out isOnlyInstance);
     }
 
     #endregion
@@ -140,7 +129,7 @@ public static class FileSystem
         }
         else
         {
-            Modals.Warning(string.Format(Resources.DirectoryDoesNotExist, folderPath?.WrapQuotes()));
+            Modals.Warning(string.Format(Messages.DirectoryDoesNotExist, folderPath!.WrapQuotes()));
         }
     }
 
@@ -222,7 +211,7 @@ public static class FileSystem
         bool executeShell = false, bool redirect = true, bool enableRaisingEvents = false)
     {
         if (bin.Invalid(IsValidPath))
-            throw new FileSystemException("Could not create process with empty bin path!");
+            throw new FileSystemException(RFileSystem.EmptyBinPath);
 
         return CreateProcess(new ProcessStartInfo
         {
@@ -235,15 +224,15 @@ public static class FileSystem
             RedirectStandardOutput = redirect,
             RedirectStandardInput = redirect,
             CreateNoWindow = true,
-            Verb = runAsAdmin ? "runas" : string.Empty
         }, enableRaisingEvents);
+            Verb                        = runAsAdmin ? RUN_AS_ADMIN : string.Empty
     }
     
     public static AsyncProcess CreateAsyncProcess(string bin, string parameters, string workingDir = "",
         bool runAsAdmin = false, bool executeShell = false, bool redirect = true)
     {
         if (bin.Invalid(IsValidPath))
-            throw new FileSystemException("Could not create process with empty bin path!");
+            throw new FileSystemException(RFileSystem.EmptyBinPath);
 
         return CreateAsyncProcess(new ProcessStartInfo
         {
@@ -256,8 +245,8 @@ public static class FileSystem
             RedirectStandardOutput = redirect,
             RedirectStandardInput = redirect,
             CreateNoWindow = true,
-            Verb = runAsAdmin ? "runas" : string.Empty
         });
+            Verb                        = runAsAdmin ? RUN_AS_ADMIN : string.Empty
     }
     
     public static string TryRunProcess(Process process)
@@ -485,7 +474,7 @@ public static class FileSystem
             return string.Empty;
         if (response.IsSuccessStatusCode)
             return LogExceptions(() => response.DownloadResponse(localPath)) ?? string.Empty;
-        Log(string.Format(Resources.FailedToDownload, response.ResponseCode()));
+        Log(string.Format(Messages.FailedToDownload, response.ResponseCode()));
         return string.Empty;
     }
 
@@ -537,7 +526,7 @@ public static class FileSystem
 
     private static string UserAgentString()
     {
-        return $"{PROGRAM_NAME}/{VersionInfo} ({UserAgentOperatingSystemInfo})";
+        return $"{AppInfo.ProgramName}/{VersionInfo} ({UserAgentOperatingSystemInfo})";
     }
 
     private static string UserAgentOperatingSystemInfo => SystemInformation.Merge("; ");
@@ -545,7 +534,7 @@ public static class FileSystem
     // Lets endpoints know to send us responses relevant to our operating system (e.g. exe/zip for windows)
     private static ProductInfoHeaderValue[] ProductInfoHeaders => new[]
     {
-        new ProductInfoHeaderValue(PROGRAM_NAME, VersionInfo),
+        new ProductInfoHeaderValue(AppInfo.ProgramName, VersionInfo),
         new ProductInfoHeaderValue($"({UserAgentOperatingSystemInfo})")
     };
 
@@ -608,8 +597,8 @@ public static class FileSystem
     public static string GetTempFilename(string extension, string? prefix = null, string separator = "_")
     {
         return MergePaths(TempPath, prefix is null ?
-            $"{_PROGRAM_PREFIX}{separator}{TimeStampDate}.{extension}" :
-            $"{_PROGRAM_PREFIX}{separator}{prefix}{separator}{TimeStampDate}.{extension}");
+            $"{AppInfo.ProgramPrefix}{separator}{TimeStampDate}.{extension}" :
+            $"{AppInfo.ProgramPrefix}{separator}{prefix}{separator}{TimeStampDate}.{extension}");
     }
     
     public static async Task OpenFile(string filepath, bool openDownloadsIfNull)
@@ -621,7 +610,7 @@ public static class FileSystem
         else
         {
             // couldn't find folder, rolling back to just the folder with no select
-            Log(string.Format(Resources.CouldNotOpenFile, filepath.WrapQuotes()));
+            Log(string.Format(RFileSystem.CouldNotOpenFile, filepath.WrapQuotes()));
             if (openDownloadsIfNull)
                 await OpenDownloads();
         }
@@ -661,7 +650,7 @@ public static class FileSystem
 
     public static string GetFileFilter(string extension, bool includeAll = false)
     {
-        return $@"{extension} file|*.{extension}{(includeAll ? $"|{Filters.AllFiles}" : string.Empty)}";
+        return $@"{extension} file|*.{extension}{(includeAll ? $"|{FileFilters.AllFiles}" : string.Empty)}";
     }
     
     public static string ValidateFilename(string filepath, string replacement = "_")
@@ -1070,7 +1059,7 @@ public static class FileSystem
     
     private static bool ConfirmOverwrite()
     {
-        return Modals.Confirmation(Resources.OverwriteFile, Properties.Captions.FileAlreadyExists);
+        return Modals.Confirmation(Messages.OverwriteFile, Captions.FileExists);
     }
 
     public static string? SelectFile(string? initialDirectory = null, string? filename = null, string? filter = null)

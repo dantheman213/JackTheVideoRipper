@@ -41,7 +41,7 @@ public class HistoryItem : IMediaItem
     public double DownloadDuration = -1;
 
     [JsonProperty("filesize")]
-    public string Filesize = Text.NOT_APPLICABLE;
+    public string Filesize = Text.NotApplicable;
 
     [JsonProperty("website_name")]
     public string WebsiteName = string.Empty;
@@ -72,8 +72,8 @@ public class HistoryItem : IMediaItem
         Filepath,
         MediaType.ToString(),
         Tag!,
-        DateStarted?.ToString("G") ?? Text.NOT_APPLICABLE,
-        DateFinished?.ToString("G") ?? Text.NOT_APPLICABLE,
+        DateStarted?.ToString("G") ?? Text.NotApplicable,
+        DateFinished?.ToString("G") ?? Text.NotApplicable,
         $"{DownloadDuration:F2} s",
         Filesize,
         WebsiteName,
