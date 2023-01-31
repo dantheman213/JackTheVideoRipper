@@ -57,4 +57,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="textLicensing.Text" xml:space="preserve">
+    <value>This software is licensed under GNU GPLv3: code may be modified or distributed independently, but may not be profited from and any derivative source code stemming from this project must be licensed in the same fashion.
+
+Copyright © Froman Interactive Media, 2023</value>
+  </data>
 </root>
