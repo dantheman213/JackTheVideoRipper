@@ -44,6 +44,8 @@ public class HistoryTable
         }
     }
 
+    public IEnumerable<HistoryRow> GetRows() => GetOrderedItems.Select(item => new HistoryRow(item));
+
     public bool ContainsUrl(string url)
     {
         _tableLock.EnterReadLock();

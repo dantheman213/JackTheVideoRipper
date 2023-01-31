@@ -8,8 +8,6 @@ namespace JackTheVideoRipper.models;
 
 public class CompressProcessUpdateRow : ProcessUpdateRow
 {
-    private readonly string _fileName;
-    
     private int _totalFrames;
 
     private readonly ExifData _exifData = new();
@@ -17,7 +15,6 @@ public class CompressProcessUpdateRow : ProcessUpdateRow
     public CompressProcessUpdateRow(IMediaItem mediaItem, Action<IProcessRunner> completionCallback) :
         base(mediaItem, completionCallback)
     {
-        _fileName = mediaItem.Filepath;
         Task.Run(LoadMetadata);
     }
 
@@ -28,7 +25,7 @@ public class CompressProcessUpdateRow : ProcessUpdateRow
 
     public override async Task<bool> Start()
     {
-        await Core.RunTaskInMainThread(() => Url = "N/A");
+        SetViewField(() => Url = Text.NotApplicable);
         return await base.Start();
     }
 
@@ -40,82 +37,36 @@ public class CompressProcessUpdateRow : ProcessUpdateRow
         if (!tokens[0].Contains("frame"))
             return;
 
-        var queue = new Queue<string>(tokens);
-        int frame = -1;
-        int fps = -1;
-
-        while (!queue.Empty())
-        {
-            string value = GetField(queue);
-            switch (GetTypeOfField(value))
-            {
-                case FieldType.Time when DateTime.TryParse(value, out DateTime dateTime):
-                    break;
-                case FieldType.Decimal when float.TryParse(value, out float floatValue):
-                    break;
-                case FieldType.Integer when int.TryParse(value, out int intValue):
-                    if (frame == -1)
-                    {
-                        frame = intValue;
-                        Progress = _totalFrames > 0 ? $"{frame * 100f / _totalFrames:F2}%" : Text.DEFAULT_PROGRESS;
-                    }
-                    else if (fps == -1)
-                    {
-                        fps = intValue;
-                        DownloadSpeed = $"{intValue} fps";
-                    }
-                    break;
-                case FieldType.Bitrate when float.TryParse(value.BeforeFirstLetter(), out float bitrate):
-                    string rateUnit = value.AfterFirstLetter();
-                    break;
-                case FieldType.Speed when float.TryParse(value.BeforeFirstLetter(), out float speed):
-                    string speedUnit = value.AfterFirstLetter();
-                    break;
-                case FieldType.Size when long.TryParse(value.BeforeFirstLetter(), out long longValue):
-                    FileSize = FileSystem.GetSizeWithSuffix(longValue * 1000);
-                    break;
-            }
-        }
-
-        Eta = Common.TimeString(((float) _totalFrames - frame) / fps);
+        FfmpegFrame ffmpegFrame = new(tokens);
+        Progress = CalculateProgress(ffmpegFrame.Frame);
+        Eta = CalculateEta(ffmpegFrame.Frame, ffmpegFrame.Fps);
+        FileSize = FileSystem.GetFileSizeFormatted(ffmpegFrame.Size);
+        Speed = $"{ffmpegFrame.Fps} fps";
     }
 
-    public static string GetField(Queue<string> queue)
+    private string CalculateProgress(int frame)
     {
-        string value = queue.Dequeue();
+        return _totalFrames > 0 ? $"{frame * 100f / _totalFrames:F2}%" : Text.DefaultProgress;
+    }
+
+    private string CalculateEta(int frame, float fps)
+    {
+        return Common.TimeString(((float) _totalFrames - frame) / fps);
+    }
+
+    public static string GetField(IReadOnlyList<string> tokens, ref int count)
+    {
+        string value = tokens[count++];
         if (value.ContainsNumber())
             return value.Split('=')[1];
-        if (queue.Empty())
+        if (count >= tokens.Count)
             return string.Empty;
-        return queue.Dequeue();
-    }
-
-    public enum FieldType
-    {
-        Integer,
-        Time,
-        Decimal,
-        Bitrate,
-        Speed,
-        Size
-    }
-
-    public static FieldType GetTypeOfField(string field)
-    {
-        return field switch
-        {
-            _ when field.Contains(':')      => FieldType.Time,
-            _ when field.Contains('x')      => FieldType.Speed,
-            _ when field.Contains('/')      => FieldType.Bitrate,
-            _ when field.Contains('.')      => FieldType.Decimal,
-            _ when field.ContainsLetter()   => FieldType.Size,
-            _                               => FieldType.Integer,
-        };
+        return tokens[count++];
     }
 
     protected override async Task<string> GetTitle()
     {
-        return await ExifTool.GetTag(_fileName, "Title");
+        return await ExifTool.GetTag(Filepath, "Title");
     }
 
     private static bool IsFileExistsLine(IEnumerable<string> tokens)
@@ -125,17 +76,45 @@ public class CompressProcessUpdateRow : ProcessUpdateRow
     
     private static bool IsFileExistsLine(string line)
     {
-        return line.StartsWith("File") && line.EndsWith("already exists. Overwrite? [y/N]");
+        return line.StartsWith("File") && line.EndsWith(Messages.FFMPEGFileExists);
     }
 
     protected override string GetStatus()
     {
-        return Messages.COMPRESSING;
+        return Messages.Compressing;
     }
     
     private async Task LoadMetadata()
     {
-        _exifData.LoadData(await ExifTool.GetMetadataString(_fileName));
-        _totalFrames = _exifData.Frames > 0 ? _exifData.Frames : await FFMPEG.GetNumberOfFrames(_fileName);
+        _exifData.LoadData(await ExifTool.GetMetadataString(Filepath));
+        _totalFrames = _exifData.Frames > 0 ? _exifData.Frames : await FFMPEG.GetNumberOfFrames(Filepath);
+    }
+
+    private readonly struct FfmpegFrame
+    {
+        public readonly int Frame;
+        public readonly float Fps;
+        public readonly float Q;
+        public readonly long Size;
+        public readonly TimeOnly Time;
+        public readonly float Bitrate;
+        public readonly string BitrateUnit;
+        public readonly float Speed;
+
+        public FfmpegFrame(IReadOnlyList<string> tokens)
+        {
+            int count = 0;
+            Frame = int.TryParse(GetField(tokens, ref count), out int frame) ? frame : -1;
+            Fps = float.TryParse(GetField(tokens, ref count), out float fps) ? fps : -1;
+            Q = float.TryParse(GetField(tokens, ref count), out float q) ? q : -1;
+            Size = long.TryParse(GetField(tokens, ref count).BeforeFirstLetter(), out long size) ? size * 1000 : -1;
+            Time = TimeOnly.TryParse(GetField(tokens, ref count), out TimeOnly time) ? time : default;
+
+            string bitrateField = GetField(tokens, ref count);
+            Bitrate = float.TryParse(bitrateField.BeforeFirstLetter(), out float bitrate) ? bitrate : -1;
+            BitrateUnit = bitrateField.AfterFirstLetter();
+            
+            Speed = float.TryParse(GetField(tokens, ref count), out float speed) ? speed : -1;
+        }
     }
 }

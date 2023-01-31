@@ -1,5 +1,7 @@
 using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
+using JackTheVideoRipper.models.processes;
+using JackTheVideoRipper.models.rows;
 
 namespace JackTheVideoRipper.models;
 
@@ -7,21 +9,27 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
 {
     #region Data Members
 
-    public ListViewItem ViewItem { get; }
+    public IViewItem ViewItem { get; }
 
     public string Tag { get; } = Common.CreateTag();
     
     private readonly Console _console = new();
 
+    public readonly string Filepath;
+
+    public readonly string Filename;
+
     #endregion
 
     #region Attributes
-
-    private static string GetFileName(string filepath) => System.IO.Path.GetFileName(filepath);
+    
+    private string DefaultTitle => Filename.SplitCamelCase().ReplaceUnderscore().RemoveMultiSpace().Trim();
 
     #endregion
 
     #region View Item Accessors
+    
+    public readonly Dictionary<ViewField, IViewSubItem> ViewCollection;
 
     public string Title
     {
@@ -53,7 +61,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
         set => ViewItem.SubItems[4].Text = value;
     }
         
-    public string DownloadSpeed
+    public string Speed
     {
         get => ViewItem.SubItems[5].Text;
         set => ViewItem.SubItems[5].Text = value;
@@ -90,8 +98,24 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     protected ProcessUpdateRow(IMediaItem mediaItem, Action<IProcessRunner> completionCallback) :
         base(mediaItem.ParametersString, completionCallback)
     {
-        ViewItem = CreateListViewItem(mediaItem);
-        History.Data.AddHistoryItem(Tag, mediaItem);
+        Filepath = mediaItem.Filepath;
+        Filename = FileSystem.GetFilenameWithoutExtension(Filepath);
+        ViewItem = Ripper.CreateMediaViewItem(mediaItem);
+        ViewCollection = new Dictionary<ViewField, IViewSubItem>
+        {
+            { ViewField.Title,      ViewItem.SubItems[0] },
+            { ViewField.Status,     ViewItem.SubItems[1] },
+            { ViewField.MediaType,  ViewItem.SubItems[2] },
+            { ViewField.Size,       ViewItem.SubItems[3] },
+            { ViewField.Progress,   ViewItem.SubItems[4] },
+            { ViewField.Speed,      ViewItem.SubItems[5] },
+            { ViewField.Eta,        ViewItem.SubItems[6] },
+            { ViewField.Url,        ViewItem.SubItems[7] },
+            { ViewField.Path,       ViewItem.SubItems[8] }
+        };
+
+        AddToHistory(mediaItem);
+        
         InitializeBuffer();
     }
     
@@ -124,7 +148,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
         if (GetProcessStatus() is not { } status || status.IsNullOrEmpty())
             return false;
         
-        await Core.RunTaskInMainThread(() => UpdateViewItems(status));
+        SetViewField(() => UpdateViewItemFields(status));
         
         return true;
     }
@@ -150,7 +174,7 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
         if (!base.SetProcessStatus(processStatus))
             return false;
 
-        Core.RunTaskInMainThread(() =>
+        SetViewField(() =>
         {
             UpdateRowColors(processStatus);
             SetDefaultMessages(processStatus);
@@ -163,11 +187,11 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
 
     #region Protected Methods
 
-    protected void UpdateViewItems(string status)
+    protected void UpdateViewItemFields(string status)
     {
-        ViewItem.ListView.Suspend();
+        ViewItem.Suspend();
         UpdateStatus(status);
-        ViewItem.ListView.Resume();
+        ViewItem.Resume();
     }
 
     protected void UpdateStatus(string statusMessage)
@@ -188,7 +212,8 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     {
         if (Title.HasValue())
             return;
-        await Core.RunTaskInMainThread(async () => Title = await GetTitle());
+        
+        SetTitle((await GetTitle()).ValueOrDefault(DefaultTitle));
     }
 
     #endregion
@@ -204,6 +229,16 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     #endregion
 
     #region Private Methods
+
+    private void SetTitle(string title)
+    {
+        SetViewField(() => Title = title);
+    }
+
+    private void AddToHistory(IMediaItem mediaItem)
+    {
+        History.Data.AddHistoryItem(Tag, mediaItem);
+    }
     
     private void StartMessage()
     {
@@ -225,8 +260,8 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
 
     private string GetInstanceName()
     {
-        string processName = GetFileName(FileName);
-        string filename = GetFileName(Path);
+        string processName = FileSystem.GetFilename(ProcessFileName);
+        string filename = FileSystem.GetFilename(Path);
         return processName.HasValue() && filename.HasValue() ? $"{processName} | {filename}" : string.Empty;
     }
 
@@ -239,8 +274,13 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
     {
         Color = processStatus switch
         {
+            // Type Specific
+            ProcessStatus.Running when this is DownloadProcessUpdateRow => Color.Turquoise,
+            ProcessStatus.Running when this is CompressProcessUpdateRow => Color.MediumPurple,
+            ProcessStatus.Running when this is ConversionProcessUpdateRow => Color.SaddleBrown,
+            
+            // General
             ProcessStatus.Queued    => Color.Bisque,
-            ProcessStatus.Running   => Color.Turquoise,
             ProcessStatus.Cancelled => Color.LightYellow,
             ProcessStatus.Completed => Color.LightGreen,
             ProcessStatus.Error     => Color.LightCoral,
@@ -251,97 +291,154 @@ public abstract class ProcessUpdateRow : ProcessRunner, IProcessUpdateRow, IDyna
         };
     }
 
-    private void SetValues(string? status = null, string? size = null, string? progress = null,
-        string? downloadSpeed = null, string? eta = null)
+    private void SetValues(ViewField fields, params string[] values)
     {
-        if (status.HasValue())
-            Status = status!;
-        if (size.HasValue())
-            FileSize = size!;
-        if (progress.HasValue())
-            Progress = progress!;
-        if (downloadSpeed.HasValue())
-            DownloadSpeed = downloadSpeed!;
-        if (eta.HasValue())
-            Eta = eta!;
+        Queue<string> valueQueue = new(values);
+        if ((fields & ViewField.Status) > 0)
+            Status = valueQueue.Dequeue();
+        if ((fields & ViewField.Size) > 0)
+            FileSize = valueQueue.Dequeue();
+        if ((fields & ViewField.Progress) > 0)
+            Progress = valueQueue.Dequeue();
+        if ((fields & ViewField.Speed) > 0)
+            Speed = valueQueue.Dequeue();
+        if ((fields & ViewField.Eta) > 0)
+            Eta = valueQueue.Dequeue();
     }
+
+    [Flags]
+    public enum ViewField
+    {
+        None        = 0,
+        Status      = 1<<0,
+        Size        = 1<<1,
+        Progress    = 1<<2,
+        Speed       = 1<<3,
+        Eta         = 1<<4,
+        Title       = 1<<5,
+        MediaType   = 1<<6,
+        Url         = 1<<7,
+        Path        = 1<<8,
+        Static      = (1<<5) | (1<<6) | (1<<7) | (1<<8),
+        Dynamic     = (1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4),
+        All         = (1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) | (1<<8),
+    }
+
+    private static readonly Dictionary<ProcessStatus, ViewField> _StatusToViewFieldsDict = new()
+    {
+        { ProcessStatus.Succeeded,  ViewField.None },
+        { ProcessStatus.Running,    ViewField.Status },
+        { ProcessStatus.Queued,     ViewField.Status },
+        { ProcessStatus.Created,    ViewField.Dynamic },
+        { ProcessStatus.Completed,  ViewField.Status | ViewField.Progress | ViewField.Speed | ViewField.Eta },
+        { ProcessStatus.Error,      ViewField.Status | ViewField.Size | ViewField.Speed | ViewField.Eta },
+        { ProcessStatus.Stopped,    ViewField.Status | ViewField.Speed | ViewField.Eta },
+        { ProcessStatus.Cancelled,  ViewField.Dynamic },
+        { ProcessStatus.Paused,     ViewField.Status | ViewField.Speed | ViewField.Eta }
+    };
+    
+    private static readonly Dictionary<ProcessStatus, string> _StatusToMessageDict = new()
+    {
+        { ProcessStatus.Succeeded,  Statuses.Succeeded },
+        { ProcessStatus.Running,    Statuses.Starting },
+        { ProcessStatus.Queued,     Statuses.Queued },
+        { ProcessStatus.Created,    Statuses.Waiting },
+        { ProcessStatus.Completed,  Statuses.Complete },
+        { ProcessStatus.Error,      Statuses.Error },
+        { ProcessStatus.Stopped,    Statuses.Stopped },
+        { ProcessStatus.Cancelled,  Statuses.Cancelled },
+        { ProcessStatus.Paused,     Statuses.Paused }
+    };
 
     private void SetDefaultMessages(ProcessStatus processStatus)
     {
+        ViewField flags = _StatusToViewFieldsDict[processStatus];
+        string[] values;
+        
         switch (processStatus)
         {
             default:
             case ProcessStatus.Succeeded:
-                break;
+                return;
             case ProcessStatus.Running:
-                SetValues(Statuses.STARTING);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus]
+                };
                 break;
             case ProcessStatus.Queued:
-                SetValues(Statuses.QUEUED);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus]
+                };
                 break;
             case ProcessStatus.Created:
-                SetValues(Statuses.WAITING,
-                    size: Text.DEFAULT_SIZE, 
-                    progress: Text.DEFAULT_PROGRESS,
-                    downloadSpeed: Text.DEFAULT_SPEED, 
-                    eta: Text.DEFAULT_TIME);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus],
+                    Text.DefaultSize,
+                    Text.DefaultProgress,
+                    Text.DefaultSpeed,
+                    Text.DefaultTime
+                };
                 break;
             case ProcessStatus.Completed:
-                SetValues(Statuses.COMPLETE,
-                    progress: Text.PROGRESS_COMPLETE,
-                    downloadSpeed: Text.DEFAULT_SPEED,
-                    eta: Text.DEFAULT_TIME);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus],
+                    Text.ProgressComplete,
+                    Text.DefaultSpeed,
+                    Text.DefaultTime
+                };
                 break;
             case ProcessStatus.Error:
-                SetValues(Statuses.ERROR,
-                    size: Text.DEFAULT_SIZE,
-                    downloadSpeed: Text.DEFAULT_SPEED,
-                    eta: Text.DEFAULT_TIME);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus],
+                    Text.DefaultSize,
+                    Text.DefaultSpeed,
+                    Text.DefaultTime
+                };
                 break;
             case ProcessStatus.Stopped:
-                SetValues(Statuses.STOPPED,
-                    downloadSpeed: Text.DEFAULT_SPEED,
-                    eta: Text.DEFAULT_TIME);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus],
+                    Text.DefaultSpeed,
+                    Text.DefaultTime
+                };
                 break;
             case ProcessStatus.Cancelled:
-                SetValues(Statuses.CANCELLED,
-                    size: Text.DEFAULT_SIZE,
-                    progress: Text.DEFAULT_PROGRESS,
-                    downloadSpeed: Text.DEFAULT_SPEED,
-                    eta: Text.DEFAULT_TIME);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus],
+                    Text.DefaultSize,
+                    Text.DefaultProgress,
+                    Text.DefaultSpeed,
+                    Text.DefaultTime
+                };
                 break;
             case ProcessStatus.Paused:
-                SetValues(Statuses.PAUSED,
-                    downloadSpeed: Text.DEFAULT_SPEED,
-                    eta: Text.DEFAULT_TIME);
+                values = new[]
+                {
+                    _StatusToMessageDict[processStatus],
+                    Text.DefaultSpeed,
+                    Text.DefaultTime
+                };
                 break;
         }
-    }
-    
-    private ListViewItem CreateListViewItem(IMediaItem mediaItem)
-    {
-        return new ListViewItem(DefaultRow(mediaItem))
-        {
-            Tag = Tag,
-            BackColor = Color.LightGray,
-            ImageIndex = (int) mediaItem.MediaType
-        };
+
+        SetValues(flags, values);
     }
 
-    private static string[] DefaultRow(IMediaItem mediaItem)
+    #endregion
+
+    #region Static Methods
+
+    // TODO: Currently this is causing deadlock on the main thread, unless we run in the background as so...
+    protected static void SetViewField(Action setValueAction)
     {
-        return new[]
-        {
-            mediaItem.Title,
-            Statuses.WAITING,
-            mediaItem.MediaType.ToString(),
-            Text.DEFAULT_SIZE,
-            Text.DEFAULT_PROGRESS,
-            Text.DEFAULT_SPEED,
-            Text.DEFAULT_TIME,
-            mediaItem.Url,
-            mediaItem.Filepath
-        };
+        Task.Run(() => Threading.RunInMainContext(setValueAction));
     }
 
     #endregion

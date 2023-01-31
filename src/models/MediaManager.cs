@@ -1,6 +1,8 @@
 ﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.interfaces;
+using JackTheVideoRipper.models.containers;
 using JackTheVideoRipper.models.enums;
+using JackTheVideoRipper.models.parameters;
 using JackTheVideoRipper.models.rows;
 using JackTheVideoRipper.modules;
 using JackTheVideoRipper.views;
@@ -13,6 +15,8 @@ public class MediaManager
 
     private readonly ProcessPool _processPool = new();
 
+    private readonly ConcurrentHashSet<string> _downloadedUrls = new();
+
     #endregion
 
     #region Attributes
@@ -20,14 +24,8 @@ public class MediaManager
     public IProcessUpdateRow? GetRow(string tag) => _processPool.GetProcess(tag);
 
     public IProcessUpdateRow Selected => _processPool.Selected;
-
-    public string ToolbarStatus => $"{GetProgramStatus(),-20}"; // 20 chars
-
-    public static string ToolbarCpu => $@"CPU: {Statistics.GetCpuUsagePercentage(),7}"; // 12 chars
-
-    public static string ToolbarMemory => $@"Available Memory: {Statistics.GetAvailableMemory(),9}"; // 27 chars
-
-    public static string ToolbarNetwork => $@"Network Usage: {Statistics.GetNetworkTransfer(),10}"; // 25 chars
+    
+    public IEnumerable<string> DownloadedUrls => _downloadedUrls;
 
     #endregion
 
@@ -35,9 +33,13 @@ public class MediaManager
 
     public event Action QueueUpdated = delegate { };
 
-    public event Action<ListViewItem> ProcessAdded = delegate { };
+    public event Action<IViewItem> ProcessAdded = delegate { };
+    
+    public event Action<IEnumerable<IViewItem>> ProcessesAdded = delegate { };
 
-    public event Action<ListViewItem> ProcessRemoved = delegate { };
+    public event Action<IViewItem> ProcessRemoved = delegate { };
+    
+    public event Action<IEnumerable<IViewItem>> ProcessesRemoved = delegate { };
 
     #endregion
 
@@ -45,8 +47,9 @@ public class MediaManager
 
     public MediaManager()
     {
-        _processPool.ProcessCompleted += ProcessCompletionCallback;
-        _processPool.ProcessStarted += ProcessStartedCallback;
+        Core.ShutdownEvent += OnProgramShutdown;
+        _processPool.ProcessCompleted += OnProcessCompleted;
+        _processPool.ProcessStarted += OnProcessStarted;
     }
 
     #endregion
@@ -86,41 +89,31 @@ public class MediaManager
     #endregion
 
     #region Public Methods
+    
+    public void OnProgramShutdown()
+    {
+        History.Data.DownloadedUrls = DownloadedUrls.ToArray();
+    }
 
-    public string GetProgramStatus()
+    public string GetStatus()
     {
         return _processPool.PoolStatus;
     }
 
-    public void OnProcessRemoved(ListViewItem processViewItem)
-    {
-        ProcessRemoved(processViewItem);
-    }
+    public void RemoveCompleted() => ProcessesRemoved(_processPool.RemoveCompleted());
 
-    public void OnProcessAdded(ListViewItem processViewItem)
-    {
-        ProcessAdded(processViewItem);
-    }
+    public void RemoveFailed() => ProcessesRemoved(_processPool.RemoveFailed());
 
-    public void RemoveCompleted()
-    {
-        Parallel.ForEach(_processPool.RemoveCompleted(), OnProcessRemoved);
-    }
-
-    public void RemoveFailed()
-    {
-        Parallel.ForEach(_processPool.RemoveFailed(), OnProcessRemoved);
-    }
-
-    public void AddRow(IMediaItem row, ProcessRowType processRowType)
+    private void AddRow(IMediaItem mediaItem, ProcessRowType processRowType)
     {
         switch (processRowType)
         {
             case ProcessRowType.Download:
-                OnProcessAdded(_processPool.QueueDownloadProcess(row));
+                _downloadedUrls.Add(mediaItem.Url);
+                AddProcess(new DownloadProcessUpdateRow(mediaItem, _processPool.OnCompleteProcess));
                 break;
             case ProcessRowType.Compress:
-                OnProcessAdded(_processPool.QueueCompressProcess(row));
+                AddProcess(new CompressProcessUpdateRow(mediaItem, _processPool.OnCompleteProcess));
                 break;
             default:
             case ProcessRowType.Convert:
@@ -130,37 +123,45 @@ public class MediaManager
         }
     }
 
-    public async Task QueueProcess(IMediaItem row, ProcessRowType processRowType)
+    private void AddProcess(IProcessUpdateRow processUpdateRow)
     {
-        await Core.RunTaskInMainThread(() => AddRow(row, processRowType));
+        _processPool.QueueProcess(processUpdateRow, ProcessAdded);
     }
     
-    public async ValueTask QueueProcessAsync(IMediaItem row, CancellationToken cancellationToken, ProcessRowType processRowType)
+    private async ValueTask QueueProcessAsync(IMediaItem row, ProcessRowType processRowType, 
+        CancellationToken? cancellationToken = null)
     {
-        await Core.RunTaskInMainThread(() => AddRow(row, processRowType), cancellationToken);
+        void AddProcessTask()
+        {
+            AddRow(row, processRowType);
+        }
+        
+        await Threading.RunInMainContext(AddProcessTask, cancellationToken);
     }
 
-    public void QueueBatchDownloads()
+    public IEnumerable<DownloadMediaItem> FilterExistingUrls(IEnumerable<DownloadMediaItem> items)
     {
-        Common.RepeatInvoke(UpdateProcessQueue, Settings.Data.MaxConcurrentDownloads);
+        return items.Where(UrlExists);
     }
 
-    public HashSet<string> ExistingUrls => _processPool
-        .GetOfType<DownloadProcessUpdateRow>()
-        .Select(r => r.Url)
-        .ToHashSet();
-
-    public async Task DownloadBatch(IEnumerable<string>? urls = null)
+    public async Task DownloadBatch(IEnumerable<string> urls)
     {
-        if (FrameNewMediaBatch.GetMedia(urls?.MergeReturn() ?? string.Empty) is not { } items)
+        await DownloadBatch(urls.MergeReturn());
+    }
+    
+    public async Task DownloadBatch(string urlString = "")
+    {
+        if (FrameNewMediaBatch.GetMedia(urlString) is not { } items)
             return;
 
-        HashSet<string> existingUrls = ExistingUrls;
+        async ValueTask QueueDownloadTask(DownloadMediaItem row, CancellationToken token)
+        {
+            await QueueProcessAsync(row, ProcessRowType.Download, token);
+        }
 
-        IEnumerable<DownloadMediaItem> uniqueUrls = items.Where(i => !existingUrls.Contains(i.Url));
-        await Parallel.ForEachAsync(uniqueUrls, (row, token) => QueueProcessAsync(row, token, ProcessRowType.Download));
+        await Parallel.ForEachAsync(FilterExistingUrls(items), QueueDownloadTask);
         
-        QueueBatchDownloads();
+        QueueUpdated();
     }
 
     public async Task BatchDocument()
@@ -190,13 +191,18 @@ public class MediaManager
             await GetNewMedia(type);
         }
     }
+    
+    private bool UrlExists(DownloadMediaItem item)
+    {
+        return !DownloadedUrls.Contains(item.Url);
+    }
 
     private async Task GetNewMedia(MediaType type)
     {
         if (FrameNewMedia.GetMedia(type) is not { } mediaItemRow)
             return;
             
-        await QueueProcess(mediaItemRow, ProcessRowType.Download);
+        await QueueProcessAsync(mediaItemRow, ProcessRowType.Download);
     }
 
     private async Task GetNewMediaSimple(MediaType type)
@@ -204,13 +210,13 @@ public class MediaManager
         if (FrameNewMediaSimple.GetMedia(type) is not { } mediaItemRow)
             return;
             
-        await QueueProcess(mediaItemRow, ProcessRowType.Download);
+        await QueueProcessAsync(mediaItemRow, ProcessRowType.Download);
     }
 
     public void RetryProcess(string tag)
     {
         _processPool.RetryProcess(tag);
-        UpdateProcessQueue();
+        QueueUpdated();
     }
 
     public void RemoveProcess(string tag)
@@ -223,12 +229,12 @@ public class MediaManager
 
     public void ResumeProcess(string tag)
     {
-        if (_processPool.GetProcess(tag) is not { } result)
+        if (_processPool.TryGetProcess(tag, out IProcessUpdateRow? result) || result is not { })
             return;
 
         result.Resume();
 
-        ProcessStartedCallback();
+        QueueUpdated();
     }
 
     public void RemoveSelectedProcess()
@@ -238,16 +244,19 @@ public class MediaManager
 
     public void CopyFailedUrls()
     {
-        FileSystem.SetClipboardText(_processPool.GetAllFailedUrls().MergeNewline());
+        FileSystem.SetClipboardText(_processPool.FailedUrls.MergeNewline());
     }
 
-    public bool SelectedHasStatus(ProcessStatus processStatus)
+    public bool SelectedHasStatus(ProcessStatus? processStatus)
     {
         return Selected.ProcessStatus == processStatus;
     }
 
     public async Task PerformContextAction(ContextActions contextAction)
     {
+        if (Ripper.SelectedTag.IsNullOrEmpty())
+            return;
+        
         switch (contextAction)
         {
             case ContextActions.OpenMedia:
@@ -273,7 +282,7 @@ public class MediaManager
                 await Common.OpenInBrowser(Selected.Url);
                 break;
             case ContextActions.Reveal:
-                await FileSystem.OpenFolder(Selected.Path);
+                FileSystem.OpenFolder(Selected.Path);
                 break;
             case ContextActions.Resume:
                 if (Selected.Paused)
@@ -289,39 +298,92 @@ public class MediaManager
                 Selected.SaveLogs();
                 break;
             default:
-                throw new ArgumentOutOfRangeException(nameof(contextAction), contextAction, null);
+                ArgumentOutOfRangeException innerException = new(nameof(contextAction), contextAction, null);
+                throw new MediaManagerException(Messages.ContextActionFailed, innerException);
         }
+    }
+    
+    public async Task DownloadFromUrl(string url)
+    {
+        MediaItemRow<DownloadMediaParameters> row = new(url, mediaParameters: new DownloadMediaParameters(url));
+        await QueueProcessAsync(row, ProcessRowType.Download);
+    }
+
+    public async Task CompressVideo(string filepath)
+    {
+        string newFilepath = FFMPEG.GetOutputFilename(filepath, FFMPEG.Operation.Compress);
+        if (!FileSystem.WarnAndDeleteIfExists(newFilepath))
+            return;
+        
+        //FFMPEG.VideoInformation videoInformation = await FFMPEG.ExtractVideoInformation(filepath);
+             
+        ExifData metadata = await ExifTool.GetMetadata(filepath);
+
+        MediaItemRow<FfmpegParameters> row = new(title:metadata.Title, filepath: filepath,
+            mediaParameters: FFMPEG.Compress(filepath));
+             
+        await QueueProcessAsync(row, ProcessRowType.Compress);
+    }
+
+    public async Task CompressBulk(string directoryPath)
+    {
+        async ValueTask Compress(string filepath, CancellationToken token)
+        {
+            await CompressVideo(filepath);
+        }
+
+        string[] filepaths = Directory.GetFiles(directoryPath, FileFilters.VideoFiles);
+        
+        await Parallel.ForEachAsync(filepaths, Compress);
+    }
+
+    public async Task RecodeVideo(string filepath)
+    {
+        MediaItemRow<FfmpegParameters> row = new(filepath: filepath, mediaParameters: FFMPEG.Recode(filepath));
+        await QueueProcessAsync(row, ProcessRowType.Recode);
+    }
+
+    public async Task RepairVideo(string filepath)
+    {
+        // Order list of parameters for each task necessary
+        IEnumerable<FfmpegParameters> repairTaskParameters = await FFMPEG.RepairVideo(filepath);
+            
+        MediaItemRow<FfmpegParameters> CreateRepairRow(FfmpegParameters parameters)
+        {
+            return new MediaItemRow<FfmpegParameters>(filepath: parameters.OutputFilepath, mediaParameters: parameters);
+        }
+
+        // Rows for each process required
+        IEnumerable<MediaItemRow<FfmpegParameters>> mediaItemRows = repairTaskParameters.Select(CreateRepairRow);
+
+        async void Repair(MediaItemRow<FfmpegParameters> row)
+        {
+            await QueueProcessAsync(row, ProcessRowType.Repair);
+        }
+
+        mediaItemRows.ForEach(Repair);
     }
 
     #endregion
-
-    #region Private Methods
-
-    private void UpdateProcessQueue()
+    
+    #region Event Handlers
+    
+    private void OnProcessCompleted(IProcessUpdateRow completedProcessRow)
     {
         QueueUpdated();
     }
 
-    private void ProcessStartedCallback()
+    private void OnProcessStarted()
     {
-        UpdateProcessQueue();
+        QueueUpdated();
     }
-
-    private void ProcessCompletionCallback(IProcessUpdateRow processUpdateRow)
-    {
-        UpdateProcessQueue();
-    }
-
-    #endregion
-
-    #region Event Handlers
 
     public bool OnFormClosing()
     {
         if (!_processPool.AnyActive)
             return false;
 
-        if (!Core.ConfirmExit())
+        if (!Modals.ConfirmExit())
             return true;
 
         _processPool.KillAllRunning();
@@ -346,16 +408,37 @@ public class MediaManager
     {
         if (FileSystem.SelectFile() is not { } filepath)
             return;
+
+        string filepathQuotes = filepath.WrapQuotes();
         
-        Output.WriteLine($"Verifying file: {filepath.WrapQuotes()}");
+        Output.WriteLine(string.Format(Messages.VerifyingFile, filepathQuotes));
         Output.WriteLine(FFMPEG.VerifyIntegrity(filepath), sendAsNotification:true);
 
         string logFilepath = FileSystem.TempFile;
-        string result = File.ReadAllText(logFilepath).IsNullOrEmpty() ?
-            $"No errors detected in file {filepath.WrapQuotes()}." :
-            $"Errors detected while verifying file {filepath.WrapQuotes()} (full report: {logFilepath.WrapQuotes()})";
+        string result = File.ReadAllText(logFilepath).IsNullOrEmpty()
+            ? string.Format(Messages.VerifyNoErrors, filepathQuotes)
+            : string.Format(Messages.VerifyErrorsDetected, filepathQuotes, logFilepath.WrapQuotes());
 
         Output.WriteLine(result);
+    }
+
+    #endregion
+    
+    #region Embedded Types
+
+    public class MediaManagerException : Exception
+    {
+        public MediaManagerException()
+        {
+        }
+        
+        public MediaManagerException(string message) : base(message)
+        {
+        }
+        
+        public MediaManagerException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
     }
 
     #endregion

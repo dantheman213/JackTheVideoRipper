@@ -1,8 +1,6 @@
-﻿using System.Runtime.ExceptionServices;
-using JackTheVideoRipper.extensions;
+﻿using JackTheVideoRipper.extensions;
 using JackTheVideoRipper.modules;
 using JackTheVideoRipper.Properties;
-using JackTheVideoRipper.views;
 
 namespace JackTheVideoRipper;
 
@@ -10,20 +8,11 @@ public static class Core
 {
     public static string ApplicationTitle => $@"{AppInfo.ProgramName} {Common.GetAppVersion()}";
 
-    public static TaskScheduler Scheduler { get; private set; } = null!;
-    
-    private static TaskFactory TaskFactory { get; set; } = null!;
+    public static event Action ShutdownEvent = delegate { };
 
-    public static readonly CancellationTokenSource FormClosingCancellationTokenSource = new();
-    
-    private static CancellationToken FormClosingCancellationToken => FormClosingCancellationTokenSource.Token;
+    //static Core() { }
 
-    public static async Task Startup()
-    {
-        FileSystem.ValidateInstallDirectory();
-        await Task.Run(CheckDependencies);
-        await CheckForYouTubeDLUpdates();
-    }
+    public static FrameMain FrameMain => Ripper.Instance.FrameMain;
 
     public static async Task LoadConfigurationFiles()
     {
@@ -32,7 +21,7 @@ public static class Core
 
     public static async Task Shutdown()
     {
-        FormClosingCancellationTokenSource.Cancel();
+        ShutdownEvent();
         await Config.Save();
     }
 
@@ -84,15 +73,13 @@ public static class Core
 
     private static void InstallDependencies()
     {
-        FrameYTDLDependencyInstall frameDependencyInstall = new();
-        frameDependencyInstall.ShowDialog();
-        frameDependencyInstall.Close();
+        Pages.OpenPage<FrameYTDLDependencyInstall>();
         Modals.Notification(Messages.InstallationSuccess, Captions.RequiredInstalled);
     }
 
     public static async Task CheckForYouTubeDLUpdates()
     {
-        await Task.Run(YouTubeDL.CheckForUpdates);
+        await YouTubeDL.CheckForUpdates();
     }
 
     public static void CopyToClipboard(string url)
@@ -100,9 +87,32 @@ public static class Core
         FileSystem.SetClipboardText(url);
     }
 
-    public static async Task OpenInstallFolder()
+    public static async Task UpdateDependencies()
     {
-        await FileSystem.OpenFileExplorer(FileSystem.Paths.Install);
+        await Task.Delay(100);
+        /*await Parallel.ForEachAsync(Enum.GetValues<Dependencies>(), async (d, _) =>
+        {
+            await UpdateDependency(d);
+        });*/
+    }
+
+    public static async Task UpdateDependency(Dependencies dependency)
+    {
+        switch (dependency)
+        {
+            case Dependencies.YouTubeDL when !YouTubeDL.UpToDate:
+            case Dependencies.FFMPEG:
+            case Dependencies.Handbrake:
+            case Dependencies.VLC:
+            case Dependencies.AtomicParsley:
+            case Dependencies.Redistributables:
+            case Dependencies.Aria2c:
+            case Dependencies.ExifTool:
+                await DownloadDependency(dependency);
+                break;
+            default:
+                return;
+        }
     }
     
     public static async Task DownloadDependency(Dependencies dependency)
@@ -143,29 +153,12 @@ public static class Core
         }
     }
     
-    public static void OpenSettings()
-    {
-        Pages.OpenPage<FrameSettings>();
-    }
-
-    public static void OpenAbout()
-    {
-        Pages.OpenPage<FrameAbout>();
-    }
-
-    public static void OpenConvert()
-    {
-        Pages.OpenPage<FrameConvert>();
-    }
-    
     public static async Task CheckForUpdates()
     {
         await AppUpdate.CheckForNewAppVersion();
     }
     
     public static Form MainForm => Application.OpenForms[0];
-        
-    public static FrameMain FrameMain => (MainForm as FrameMain)!;
 
     public static bool IsConnectedToInternet()
     {
@@ -177,26 +170,9 @@ public static class Core
         Environment.FailFast(message, exception);
     }
     
-    private static void DownloadImages()
+    private static void DownloadImages(IEnumerable<string> ids)
     {
         Settings.Load();
-            
-        string[] ids = 
-        {   
-            "JO-Q73f3yPi5rWjE-w",
-            "IO_B6Cemwqjtqz2f9g",
-            "J-XBvSSvyvrv-jiWqQ",
-            "J-zF73Tznq_s_zWU_w",
-            "JriSuHCvm66_-T6QrQ",
-            "Ju-UuST0zK_u_zmR-A",
-            "JOjAuCCunKzkrG2R_A",
-            "Je2Sv36lnPi6rDzBqQ",
-            "IrzCuXX1nq_pqjvCqg",
-            "J-iQu3f3m_zq_jjB_A",
-            "Jb7H7nChz6rpqziTrg",
-            "J-uXvCegnqi9rjWR_w",
-            "ILuW63Kjm_jl-zSf-w"
-        };
             
         string[] prefixes = { "main", "w320h240", "common" };
 
@@ -223,32 +199,6 @@ public static class Core
         Output.WriteLine("Downloads completed!");
     }
 
-    #region Exception Handling
-
-    public static void OpenExceptionHandler(object? sender, ThreadExceptionEventArgs args)
-    {
-        OpenExceptionHandler(args.Exception);
-    }
-    
-    public static void OpenExceptionHandler(object? sender, FirstChanceExceptionEventArgs args)
-    {
-        OpenExceptionHandler(args.Exception);
-    }
-    
-    public static void OpenExceptionHandler(object? sender, UnhandledExceptionEventArgs args)
-    {
-        if (args.ExceptionObject is not Exception exception)
-            return;
-        OpenExceptionHandler(exception);
-    }
-
-    public static void OpenExceptionHandler(Exception exception)
-    {
-        if (new FrameErrorHandler(exception).ShowDialog() == DialogResult.Abort)
-            Crash("Application closed due to unhandled exception.", exception);
-    }
-
-    #endregion
     #region Imports
 
     [System.Runtime.InteropServices.DllImport("wininet.dll")]

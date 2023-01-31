@@ -6,7 +6,7 @@ public class NotificationRow : IListViewItemRow
 {
     #region Data Members
 
-    public ListViewItem ViewItem { get; }
+    public IViewItem ViewItem { get; }
 
     public string Tag { get; } = Common.CreateTag();
 
@@ -42,6 +42,6 @@ public class NotificationRow : IListViewItemRow
 
     public NotificationRow(Notification notification)
     {
-        ViewItem = new ListViewItem(notification.ViewItemArray) {Tag = Tag};
+        ViewItem = Ripper.CreateViewItem(notification.ViewItemArray, Tag);
     }
 }

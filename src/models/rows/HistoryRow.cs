@@ -7,7 +7,7 @@ public class HistoryRow : IListViewItemRow
 {
     #region Data Members
 
-    public ListViewItem ViewItem { get; }
+    public IViewItem ViewItem { get; }
 
     public string Tag { get; } = Common.CreateTag();
 
@@ -91,6 +91,6 @@ public class HistoryRow : IListViewItemRow
     
     public HistoryRow(HistoryItem historyItem)
     {
-        ViewItem = new ListViewItem(historyItem.ViewItemArray) { Tag = Tag };
+        ViewItem = Ripper.CreateViewItem(historyItem.ViewItemArray, Tag);
     }
 }

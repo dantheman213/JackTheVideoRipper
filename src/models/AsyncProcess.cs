@@ -1,57 +1,132 @@
 ﻿using System.Diagnostics;
 using JackTheVideoRipper.extensions;
-using ProcessResult = System.Threading.Tasks.Task<(int ExitCode, string Output)>;
+using JackTheVideoRipper.models.processes;
 
 namespace JackTheVideoRipper.models;
 
 public class AsyncProcess : Process
 {
-    private readonly TaskCompletionSource<(int, string)> _taskCompletionSource = new();
+    public readonly List<string> Output = new();
+    
+    public readonly List<string> Errors = new();
 
-    private readonly List<string> _output = new();
-    private readonly List<string> _errors = new();
+    public string OutputString => Output.MergeNewline();
 
+    // Protect from repeated writes
     public new bool EnableRaisingEvents
     {
         get => base.EnableRaisingEvents;
         init => base.EnableRaisingEvents = value;
     }
+
+    private readonly int _timeoutPeriod = -1; //< Milliseconds
     
-    public AsyncProcess()
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    
+    private readonly TaskCompletionSource<ProcessResult> _taskCompletionSource = new();
+
+    public new ProcessStartInfo StartInfo
     {
+        get => base.StartInfo;
+        init
+        {
+            value.RedirectStandardOutput = true;
+            value.RedirectStandardError = true;
+            value.UseShellExecute = false;
+            base.StartInfo = value;
+        }
+    }
+
+    #region Constructor
+
+    public AsyncProcess(int timeoutPeriod = -1)
+    {
+        if (timeoutPeriod > 0)
+        {
+            _timeoutPeriod = timeoutPeriod;
+            _cancellationTokenSource.Token.Register(OnCancelTask, false);
+        }
+
         // Process Args
         EnableRaisingEvents = true;
-        StartInfo.RedirectStandardOutput = true;
-        StartInfo.RedirectStandardError = true;
+        InitializeStartInfo();
         
         // Events
+        SubscribeEvents();
+    }
+
+    #endregion
+
+    #region Public Methods
+
+    public async Task<ProcessResult> Run()
+    {
+        BeginTimeout();
+        try
+        {
+            Start();
+            BeginOutputReadLine();
+            BeginErrorReadLine();
+            return await _taskCompletionSource.Task;
+        }
+        catch (OperationCanceledException)
+        {
+            return ProcessResult.Timeout;
+        }
+    }
+
+    #endregion
+
+    #region Private Methods
+    
+    private void SubscribeEvents()
+    {
         OutputDataReceived += OnOutputDataReceived;
         ErrorDataReceived += OnErrorDataReceived;
         Exited += OnProcessExit;
     }
-    
+
+    private void InitializeStartInfo()
+    {
+        StartInfo.RedirectStandardOutput = true;
+        StartInfo.RedirectStandardError = true;
+        StartInfo.UseShellExecute = false;
+    }
+
+    private void BeginTimeout()
+    {
+        if (_timeoutPeriod <= 0)
+            return;
+        _cancellationTokenSource.CancelAfter(_timeoutPeriod);
+    }
+
+    #endregion
+
+    #region Event Handlers
+
     private void OnOutputDataReceived(object? sender, DataReceivedEventArgs args)
     {
         if (args.Data is not null)
-            _output.Add(args.Data);
+            Output.Add(args.Data);
     }
 
     private void OnErrorDataReceived(object? sender, DataReceivedEventArgs args)
     {
         if (args.Data is not null)
-            _errors.Add(args.Data);
+            Errors.Add(args.Data);
     }
 
     private void OnProcessExit(object? sender, EventArgs args)
     {
-        _taskCompletionSource.TrySetResult((ExitCode, _output.MergeNewline()));
+        _taskCompletionSource.TrySetResult(new ProcessResult(ExitCode, OutputString));
+    }
+    
+    private void OnCancelTask()
+    {
+        if (!_taskCompletionSource.TrySetCanceled())
+            return;
+        Output.Add(Messages.TaskCancelled);
     }
 
-    public async ProcessResult Run()
-    {
-        Start();
-        BeginOutputReadLine();
-        BeginErrorReadLine();
-        return await _taskCompletionSource.Task;
-    }
+    #endregion
 }

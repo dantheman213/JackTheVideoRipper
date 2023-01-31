@@ -6,4 +6,5 @@ public enum ExitCode : int
     AccessDenied            = 2,
     AuthenticationFailed    = 3,
     ResourceNotFound        = 4,
+    TimeoutExceeded         = 5,
 }

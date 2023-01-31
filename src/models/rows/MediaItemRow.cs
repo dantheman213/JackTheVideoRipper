@@ -1,4 +1,5 @@
-﻿using JackTheVideoRipper.interfaces;
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.models.enums;
 
 namespace JackTheVideoRipper.models;
@@ -19,8 +20,18 @@ public struct MediaItemRow<T> : IMediaItem where T : IProcessParameters, new()
         MediaType mediaMediaType = MediaType.Video,
         T? mediaParameters = default)
     {
-        Title = title;
+        if (mediaParameters is IRequiresUrlParameters && url.IsNullOrEmpty())
+        {
+            throw new ArgumentNullException(nameof(url));
+        }
+
+        if (mediaParameters is IRequiresFileParameters && filepath.IsNullOrEmpty())
+        {
+            throw new ArgumentNullException(nameof(filepath));
+        }
+        
         Url = url;
+        Title = title;
         Filepath = filepath;
         MediaType = mediaMediaType;
         ProcessParameters = mediaParameters ?? new T();

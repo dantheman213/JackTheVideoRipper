@@ -7,7 +7,7 @@ namespace JackTheVideoRipper
     {
         #region Static Data Members
         
-        public static readonly string SettingsFilepath = Path.Combine(ConfigDirectory, "settings.json");
+        public static readonly string SettingsFilepath = FileSystem.MergePaths(ConfigDirectory, "settings.json");
 
         #endregion
 

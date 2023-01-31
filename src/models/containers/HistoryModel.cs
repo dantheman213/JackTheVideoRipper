@@ -1,4 +1,5 @@
-﻿using JackTheVideoRipper.interfaces;
+﻿using JackTheVideoRipper.extensions;
+using JackTheVideoRipper.interfaces;
 using JackTheVideoRipper.views;
 using Newtonsoft.Json;
 
@@ -9,7 +10,7 @@ public class HistoryModel : ConfigModel
 {
     #region Static Data Members
         
-    public static readonly string HistoryFilepath = Path.Combine(ConfigDirectory, "history.json");
+    public static readonly string HistoryFilepath = FileSystem.MergePaths(ConfigDirectory, "history.json");
 
     #endregion
 
@@ -21,14 +22,17 @@ public class HistoryModel : ConfigModel
 
     #region Data Members
 
-    private HistoryTable _historyItemTable = new();
+    public HistoryTable HistoryItemTable { get; private set; }= new();
     
     [JsonProperty("history_items")]
     public List<HistoryItem> HistoryItems
     {
-        get => _historyItemTable.HistoryItems;
-        set => _historyItemTable = new HistoryTable(value);
+        get => HistoryItemTable.HistoryItems;
+        set => HistoryItemTable = new HistoryTable(value);
     }
+
+    [JsonProperty("downloaded_urls")]
+    public string[] DownloadedUrls = Array.Empty<string>();
 
     #endregion
 
@@ -50,7 +54,7 @@ public class HistoryModel : ConfigModel
 
     public void AddHistoryItem(string tag, IMediaItem mediaItem)
     {
-        _historyItemTable.Add(tag, new HistoryItem(mediaItem, tag)
+        HistoryItemTable.Add(tag, new HistoryItem(mediaItem, tag)
         {
             WebsiteName = string.Empty,     //< Change later...
             Result = ProcessStatus.Created  //< Change later...
@@ -59,46 +63,32 @@ public class HistoryModel : ConfigModel
 
     public bool ContainsUrl(string url)
     {
-        return _historyItemTable.ContainsUrl(url);
+        return HistoryItemTable.ContainsUrl(url);
     }
 
     public HistoryItem? GetByTag(string tag)
     {
-        return _historyItemTable.GetByTag(tag);
+        return HistoryItemTable.GetByTag(tag);
     }
 
     public void Remove(string tag)
     {
-        _historyItemTable.Remove(tag);
-    }
-
-    public void PopulateListView(ListView listView)
-    {
-        listView.Items.AddRange(_historyItemTable.GetOrderedItems.Select(item => new HistoryRow(item).ViewItem).ToArray());
-    }
-
-    public void OpenHistory()
-    {
-        FrameHistory frameHistory = new();
-
-        PopulateListView(frameHistory.ListView);
-        
-        frameHistory.Show();
+        HistoryItemTable.Remove(tag);
     }
 
     public void MarkStarted(string tag, DateTime? startDate = null)
     {
-        _historyItemTable.MarkStarted(tag, startDate ?? DateTime.Now);
+        HistoryItemTable.MarkStarted(tag, startDate ?? DateTime.Now);
     }
 
     public void MarkCompleted(string tag, DateTime? completionDate = null, ProcessStatus result = ProcessStatus.Completed)
     {
-        _historyItemTable.MarkCompleted(tag, completionDate ?? DateTime.Now, result);
+        HistoryItemTable.MarkCompleted(tag, completionDate ?? DateTime.Now, result);
     }
 
     public void UpdateFileInformation(string tag, string filepath, string filesize)
     {
-        _historyItemTable.UpdateFileInformation(tag, filepath, filesize);
+        HistoryItemTable.UpdateFileInformation(tag, filepath, filesize);
     }
 
     #endregion

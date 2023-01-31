@@ -4,8 +4,38 @@ namespace JackTheVideoRipper
 {
     internal static class Program
     {
+        #region Data Members
+
+        private static readonly Task[] _BackgroundTasks =
+        {
+            Core.LoadConfigurationFiles(),
+            Statistics.InitializeCounters(),
+            Core.CheckForUpdates(),
+            YouTubeDL.StartupTasks(),
+            Core.UpdateDependencies(),
+            Task.Run(FileSystem.ValidateInstallDirectory),
+            Task.Run(Core.CheckDependencies),
+            Core.CheckForYouTubeDLUpdates()
+        };
+
+        #endregion
+
+        #region Constructor
+
+        static Program()
+        {
+            Statistics.BeginStartup();
+            ConfigureExceptionHandling();
+            ConfigureGraphics();
+            Ripper.Instance = new Ripper(new FormsViewItemProvider());
+        }
+
+        #endregion
+
+        #region Main
+
         [STAThread]
-        private static async Task Main()
+        private static void Main()
         {
             using Mutex singleInstanceMutex = FileSystem.CreateSingleInstanceLock(out bool isOnlyInstance);
 
@@ -16,23 +46,14 @@ namespace JackTheVideoRipper
                 return;
             }
             
-            await StartBackgroundTasks();
-            //ConfigureExceptionHandling();
-            ConfigureGraphics();
-            Application.Run(new FrameMain());
+            Task.Run(StartBackgroundTasks);
+            Application.Run(Ripper.Instance.FrameMain);
             Application.Exit();
         }
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        private static extern bool SetProcessDPIAware();
-        
-        private static readonly Task[] _BackgroundTasks =
-        {
-            Core.LoadConfigurationFiles(),
-            Statistics.InitializeCounters(),
-            Core.CheckForUpdates(),
-            YouTubeDL.StartupTasks()
-        };
+        #endregion
+
+        #region Private Methods
 
         private static async Task StartBackgroundTasks()
         {
@@ -54,16 +75,29 @@ namespace JackTheVideoRipper
 
         private static void ConfigureExceptionHandling()
         {
+            // We want our IDE to access the exceptions
+            if (Debugger.IsAttached)
+                return;
+            
             // Add the event handler for handling UI thread exceptions to the event.
-            Application.ThreadException += Core.OpenExceptionHandler;
+            Application.ThreadException += Pages.OpenExceptionHandler;
 
-            //AppDomain.CurrentDomain.FirstChanceException += Core.OpenExceptionHandler;
+            //AppDomain.CurrentDomain.FirstChanceException += Pages.OpenExceptionHandler;
 
             // Set the unhandled exception mode to force all Windows Forms errors to go through our handler.
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
 
             // Add the event handler for handling non-UI thread exceptions to the event.
-            AppDomain.CurrentDomain.UnhandledException += Core.OpenExceptionHandler;
-        }
+            AppDomain.CurrentDomain.UnhandledException += Pages.OpenExceptionHandler;
+        }        
+
+        #endregion
+
+        #region Imports
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
+
+        #endregion
     }
 }
